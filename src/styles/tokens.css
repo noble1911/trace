@@ -1,0 +1,105 @@
+/* ============================================================
+   trace — design tokens (Vercel/v0-inspired dark UI)
+   Ported verbatim from the ClaudeOrchestrator design handoff.
+   ============================================================ */
+
+:root {
+  --bg-0: #050505;
+  --bg-1: #0a0a0a;
+  --bg-2: #111111;
+  --bg-3: #161616;
+  --bg-elev: #1a1a1a;
+  --border-faint: #1c1c1c;
+  --border: #262626;
+  --border-strong: #363636;
+  --fg-0: #fafafa;
+  --fg-1: #ededed;
+  --fg-2: #a1a1a1;
+  --fg-3: #707070;
+  --fg-4: #525252;
+
+  /* Status hues — oklch, all chroma ~0.13, lightness ~0.72 */
+  --c-todo: oklch(0.72 0.01 250); /* neutral */
+  --c-todo-bg: oklch(0.72 0.01 250 / 0.1);
+  --c-prog: oklch(0.78 0.15 70); /* amber */
+  --c-prog-bg: oklch(0.78 0.15 70 / 0.12);
+  --c-review: oklch(0.72 0.16 290); /* violet */
+  --c-review-bg: oklch(0.72 0.16 290 / 0.14);
+  --c-done: oklch(0.74 0.14 155); /* green */
+  --c-done-bg: oklch(0.74 0.14 155 / 0.12);
+
+  --c-accent: oklch(0.72 0.16 290);
+  --c-danger: oklch(0.68 0.18 25);
+  --c-warn: oklch(0.78 0.15 70);
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  --font-sans: "Geist", -apple-system, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 0 0 1px var(--border);
+  --shadow-pop: 0 20px 60px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.005em;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, oklch(0.72 0.16 290 / 0.1), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 95% 105%, oklch(0.78 0.15 70 / 0.06), transparent 60%),
+    var(--bg-0);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  outline: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 10px;
+  border: 2px solid var(--bg-0);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2e2e2e;
+}
