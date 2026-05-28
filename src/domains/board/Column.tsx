@@ -1,5 +1,5 @@
 import { type DragEvent, useState } from "react";
-import type { BoardColumn, Issue } from "@/domains/jira/types";
+import type { BoardColumn, Issue, PullRequest } from "@/domains/jira/types";
 import { Card } from "./Card";
 
 interface ColumnProps {
@@ -7,6 +7,7 @@ interface ColumnProps {
   color: string;
   issues: Issue[];
   runningKeys: Set<string>;
+  pullRequests: Record<string, PullRequest[]>;
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
   onDrop: (column: BoardColumn) => void;
@@ -17,6 +18,7 @@ export function Column({
   color,
   issues,
   runningKeys,
+  pullRequests,
   onOpen,
   onDragStart,
   onDrop,
@@ -50,6 +52,7 @@ export function Column({
             key={issue.key}
             issue={issue}
             running={runningKeys.has(issue.key)}
+            prs={pullRequests[issue.key]}
             onOpen={onOpen}
             onDragStart={onDragStart}
           />

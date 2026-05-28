@@ -4,8 +4,8 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::jira::models::{BoardData, BoardSummary, JiraUser};
-use crate::jira::{auth, board, JiraConnection};
+use crate::jira::models::{BoardData, BoardSummary, JiraUser, PullRequest};
+use crate::jira::{auth, board, dev, JiraConnection};
 use crate::state::AppState;
 
 #[derive(Serialize)]
@@ -74,6 +74,15 @@ pub async fn get_jira_board(
 ) -> Result<BoardData, String> {
     let conn = current_conn(&state)?;
     board::get_board(&conn, board_id).await
+}
+
+#[tauri::command]
+pub async fn get_issue_pull_requests(
+    state: State<'_, AppState>,
+    issue_id: String,
+) -> Result<Vec<PullRequest>, String> {
+    let conn = current_conn(&state)?;
+    dev::get_pull_requests(&conn, &issue_id).await
 }
 
 #[tauri::command]

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { BoardColumn, BoardData } from "@/domains/jira/types";
-import { getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
+import type { BoardColumn, BoardData, PullRequest } from "@/domains/jira/types";
+import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
 
 export type BoardFilter = "all" | "active" | "running";
 
@@ -14,6 +14,8 @@ interface BoardStore {
   selectedIssueKey: string | null;
   /** Issue keys with a live Claude PTY session. */
   runningAgents: Set<string>;
+  /** GitHub PRs linked to each issue, keyed by issue key. */
+  pullRequests: Record<string, PullRequest[]>;
 
   loadBoard: (boardId: number) => Promise<void>;
   refresh: () => Promise<void>;
@@ -32,12 +34,24 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   filter: "all",
   selectedIssueKey: null,
   runningAgents: new Set(),
+  pullRequests: {},
 
   async loadBoard(boardId) {
-    set({ boardId, loading: true, error: null });
+    set({ boardId, loading: true, error: null, pullRequests: {} });
     try {
       const data = await getJiraBoard(boardId);
       set({ data, loading: false });
+      // Fan out PR lookups in the background — cards render immediately and pop
+      // a badge in as each issue's dev-status response lands. Failures are silent
+      // (no GitHub-for-Jira integration → no badge, not an error).
+      for (const issue of data.issues) {
+        getIssuePullRequests(issue.id)
+          .then((prs) => {
+            if (prs.length === 0) return;
+            set((s) => ({ pullRequests: { ...s.pullRequests, [issue.key]: prs } }));
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       set({ loading: false, error: String(err) });
     }

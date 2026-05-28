@@ -1,23 +1,49 @@
-import type { DragEvent } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import type { DragEvent, MouseEvent } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
-import type { Issue } from "@/domains/jira/types";
+import type { Issue, PullRequest } from "@/domains/jira/types";
 
 interface CardProps {
   issue: Issue;
   running: boolean;
+  prs?: PullRequest[];
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
 }
 
-export function Card({ issue, running, onOpen, onDragStart }: CardProps) {
+function prStateClass(state: string): string {
+  // Reuse the design's pr-pill variants: open/draft/merged. Declined falls back.
+  if (state === "open" || state === "draft" || state === "merged") return state;
+  return "draft";
+}
+
+// The card outer is a `div role="button"` (rather than a real `<button>`) so we can
+// nest a real `<button>` for the PR pill without breaking HTML's no-nested-interactives rule.
+export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
+  const firstPr = prs && prs.length > 0 ? prs[0] : null;
+
+  const open = () => onOpen(issue.key);
+  const onCardKey = (e: { key: string }) => {
+    if (e.key === "Enter" || e.key === " ") open();
+  };
+
+  const onPrClick = (e: MouseEvent) => {
+    if (!firstPr) return;
+    e.stopPropagation();
+    void openUrl(firstPr.url);
+  };
+
   return (
-    <button
-      type="button"
+    // biome-ignore lint/a11y/useSemanticElements: needs to host a nested <button> for the PR pill (HTML forbids nested interactives) — keyboard activation handled
+    <div
       className={`card${running ? " glow" : ""}`}
       draggable
+      role="button"
+      tabIndex={0}
       onDragStart={(e) => onDragStart(e, issue.key)}
-      onClick={() => onOpen(issue.key)}
+      onClick={open}
+      onKeyDown={onCardKey}
     >
       <div className="row">
         <span className={`priority ${issue.priority}`} />
@@ -40,7 +66,18 @@ export function Card({ issue, running, onOpen, onDragStart }: CardProps) {
             {label}
           </span>
         ))}
+        {firstPr && (
+          <button
+            type="button"
+            className={`pr-pill ${prStateClass(firstPr.state)}`}
+            style={{ marginLeft: "auto", cursor: "pointer" }}
+            onClick={onPrClick}
+            title={`${firstPr.title || `PR #${firstPr.number}`} — opens on GitHub`}
+          >
+            <I.GitPR size={11} /> #{firstPr.number}
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 }

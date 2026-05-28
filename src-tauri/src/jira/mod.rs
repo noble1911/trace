@@ -4,6 +4,7 @@
 pub mod auth;
 pub mod board;
 pub mod client;
+pub mod dev;
 pub mod models;
 
 /// An authenticated Jira connection. `token` is secret — it stays in the Rust

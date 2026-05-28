@@ -2,6 +2,7 @@
 //! worktrees, and pipe keystrokes/resize to the PTY.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use tauri::{AppHandle, State};
 
@@ -9,6 +10,35 @@ use crate::claude::pty::spawn_claude_pty;
 use crate::git;
 use crate::helpers::{new_id, slugify};
 use crate::state::AppState;
+
+// ---- repo-path persistence ------------------------------------------------
+// The repo path is non-secret app config. We store it next to the Jira session
+// file in the user's config dir so the choice survives restarts (mirrors the
+// pattern in `jira/auth.rs`). Path is re-validated lazily — start_agent will
+// surface a clear error if the saved folder is no longer a git repo.
+
+fn repo_path_file() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("trace")
+        .join("repo-path")
+}
+
+/// Load the previously-saved repo path, if any. Empty/missing → None.
+pub fn load_repo_path() -> Option<String> {
+    std::fs::read_to_string(repo_path_file())
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn save_repo_path(path: &str) -> Result<(), String> {
+    let file = repo_path_file();
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&file, path).map_err(|e| e.to_string())
+}
 
 /// Point agents at a local git repository. Worktrees are created under it.
 #[tauri::command]
@@ -35,6 +65,7 @@ pub fn set_repo_path(state: State<'_, AppState>, path: String) -> Result<(), Str
             "{trimmed} isn't a git repository. Point this at a folder that contains a .git directory."
         ));
     }
+    save_repo_path(&trimmed)?;
     *state.repo_path.write() = Some(trimmed);
     Ok(())
 }

@@ -28,6 +28,7 @@ export function Board() {
   const error = useBoardStore((s) => s.error);
   const filter = useBoardStore((s) => s.filter);
   const runningAgents = useBoardStore((s) => s.runningAgents);
+  const pullRequests = useBoardStore((s) => s.pullRequests);
   const setFilter = useBoardStore((s) => s.setFilter);
   const openIssue = useBoardStore((s) => s.openIssue);
   const moveIssue = useBoardStore((s) => s.moveIssue);
@@ -91,6 +92,7 @@ export function Board() {
             color={columnColor(i, data.columns.length)}
             issues={grouped[i]}
             runningKeys={runningAgents}
+            pullRequests={pullRequests}
             onOpen={openIssue}
             onDragStart={onDragStart}
             onDrop={onDrop}

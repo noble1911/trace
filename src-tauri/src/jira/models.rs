@@ -46,6 +46,8 @@ pub struct Assignee {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Issue {
+    /// Numeric Jira id (as a string). Needed for dev-status / pull-request lookups.
+    pub id: String,
     pub key: String,
     pub summary: String,
     pub status_id: String,
@@ -71,6 +73,17 @@ pub struct BoardData {
     pub sprint_name: Option<String>,
     pub columns: Vec<BoardColumn>,
     pub issues: Vec<Issue>,
+}
+
+/// A GitHub pull request linked to a Jira issue (via the dev-status integration).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequest {
+    pub number: String,
+    pub url: String,
+    /// `open` | `merged` | `declined` | `draft` (lower-cased for CSS class reuse).
+    pub state: String,
+    pub title: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -165,6 +178,7 @@ fn parse_assignee(v: &Value) -> Option<Assignee> {
 
 /// Convert one raw issue Value into the board's card shape.
 pub fn parse_issue(v: &Value) -> Option<Issue> {
+    let id = v.get("id")?.as_str()?.to_string();
     let key = v.get("key")?.as_str()?.to_string();
     let fields = v.get("fields")?;
 
@@ -183,6 +197,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
     let priority_name = str_at(fields, &["priority", "name"]).unwrap_or("Medium");
 
     Some(Issue {
+        id,
         key,
         summary: str_at(fields, &["summary"]).unwrap_or("(no summary)").to_string(),
         status_id: str_at(fields, &["status", "id"]).unwrap_or("").to_string(),

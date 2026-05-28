@@ -38,6 +38,8 @@ export type Priority = "p0" | "p1" | "p2" | "p3";
 export type StatusCategory = "new" | "indeterminate" | "done";
 
 export interface Issue {
+  /** Numeric Jira id (as a string). Needed for dev-status / PR lookups. */
+  id: string;
   key: string;
   summary: string;
   statusId: string;
@@ -58,4 +60,13 @@ export interface BoardData {
   sprintName?: string | null;
   columns: BoardColumn[];
   issues: Issue[];
+}
+
+/** A GitHub PR linked to a Jira issue via the dev-status integration. */
+export interface PullRequest {
+  number: string;
+  url: string;
+  /** `open` | `merged` | `declined` | `draft` (lower-cased to match CSS classes). */
+  state: string;
+  title: string;
 }

@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { BoardData, BoardSummary, JiraSession, JiraUser } from "@/domains/jira/types";
+import type {
+  BoardData,
+  BoardSummary,
+  JiraSession,
+  JiraUser,
+  PullRequest,
+} from "@/domains/jira/types";
 
 // Typed wrappers around the Jira Tauri commands. Components import these — never
 // call `invoke` directly. Tauri maps camelCase args to the snake_case Rust params.
@@ -26,4 +32,8 @@ export function getJiraBoard(boardId: number): Promise<BoardData> {
 
 export function transitionJiraIssue(issueKey: string, targetStatusIds: string[]): Promise<void> {
   return invoke("transition_jira_issue", { issueKey, targetStatusIds });
+}
+
+export function getIssuePullRequests(issueId: string): Promise<PullRequest[]> {
+  return invoke("get_issue_pull_requests", { issueId });
 }
