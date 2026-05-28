@@ -1,19 +1,24 @@
-//! Jira credential handling: validate a connection and persist it in the OS
-//! keychain. The API token never leaves the Rust process / keychain.
+//! Jira credential handling: validate a connection and persist it so the app
+//! reconnects on launch.
+//!
+//! Storage is a `0600` file in the app's config dir rather than the OS keychain.
+//! On macOS the keychain ACL is bound to the exact binary, so every unsigned
+//! `tauri dev` rebuild re-prompts ("Always Allow" only whitelists that one
+//! build) — unusable in development. A user-only file (the same approach as
+//! `gh`, `npm`, `aws`) reconnects silently. The token is never logged.
+//! When release builds are code-signed we can move back to the keychain.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use keyring::Entry;
 use serde::{Deserialize, Serialize};
 
 use super::client;
 use super::models::{parse_user, JiraUser};
 use super::JiraConnection;
 
-const KEYRING_SERVICE: &str = "com.obsidianos.trace.jira";
-
 #[derive(Serialize, Deserialize)]
-struct StoredCreds {
+struct StoredSession {
+    site: String,
     email: String,
     token: String,
 }
@@ -24,59 +29,52 @@ pub async fn validate(conn: &JiraConnection) -> Result<JiraUser, String> {
     Ok(parse_user(&v))
 }
 
-/// Store the token (secret) in the keychain keyed by site, and remember the
-/// active site in a small non-secret pointer file so we can reconnect on launch.
+/// Persist the session (site + email + token) for silent reconnect on launch.
 pub fn save(conn: &JiraConnection) -> Result<(), String> {
-    let entry = Entry::new(KEYRING_SERVICE, &conn.site).map_err(|e| e.to_string())?;
-    let json = serde_json::to_string(&StoredCreds {
+    let path = session_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string(&StoredSession {
+        site: conn.site.clone(),
         email: conn.email.clone(),
         token: conn.token.clone(),
     })
     .map_err(|e| e.to_string())?;
-    entry.set_password(&json).map_err(|e| e.to_string())?;
-    write_active_site(&conn.site)
-}
-
-/// Load the previously-connected connection from the keychain, if any.
-pub fn load() -> Option<JiraConnection> {
-    let site = read_active_site()?;
-    let entry = Entry::new(KEYRING_SERVICE, &site).ok()?;
-    let json = entry.get_password().ok()?;
-    let creds: StoredCreds = serde_json::from_str(&json).ok()?;
-    Some(JiraConnection {
-        site,
-        email: creds.email,
-        token: creds.token,
-    })
-}
-
-/// Forget the active connection (keychain entry + pointer file).
-pub fn clear() -> Result<(), String> {
-    if let Some(site) = read_active_site() {
-        if let Ok(entry) = Entry::new(KEYRING_SERVICE, &site) {
-            let _ = entry.delete_credential();
-        }
-    }
-    let _ = std::fs::remove_file(pointer_path());
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    restrict_perms(&path);
     Ok(())
 }
 
-fn pointer_path() -> PathBuf {
-    let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-    base.join("trace").join("jira-site")
+/// Load the previously-saved connection, if any.
+pub fn load() -> Option<JiraConnection> {
+    let raw = std::fs::read_to_string(session_path()).ok()?;
+    let s: StoredSession = serde_json::from_str(&raw).ok()?;
+    Some(JiraConnection {
+        site: s.site,
+        email: s.email,
+        token: s.token,
+    })
 }
 
-fn write_active_site(site: &str) -> Result<(), String> {
-    let path = pointer_path();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, site).map_err(|e| e.to_string())
+/// Forget the saved connection.
+pub fn clear() -> Result<(), String> {
+    let _ = std::fs::remove_file(session_path());
+    Ok(())
 }
 
-fn read_active_site() -> Option<String> {
-    std::fs::read_to_string(pointer_path())
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+fn session_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("trace")
+        .join("jira-session.json")
 }
+
+#[cfg(unix)]
+fn restrict_perms(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+}
+
+#[cfg(not(unix))]
+fn restrict_perms(_path: &Path) {}

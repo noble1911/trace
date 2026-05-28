@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { useJiraStore } from "@/domains/jira/store";
 import { getRepoPath, setRepoPath } from "@/ipc/agent";
@@ -29,6 +30,15 @@ export function SettingsView() {
     }
   };
 
+  const pickFolder = async () => {
+    const picked = await open({
+      directory: true,
+      multiple: false,
+      title: "Choose a git repository",
+    });
+    if (typeof picked === "string") setRepo(picked);
+  };
+
   return (
     <div className="page">
       <div className="page-head">
@@ -46,13 +56,23 @@ export function SettingsView() {
             </div>
             <div className="field">
               <label htmlFor="repo-path">Local repository path</label>
-              <input
-                id="repo-path"
-                placeholder="/Users/you/code/your-repo"
-                value={repo}
-                onChange={(e) => setRepo(e.target.value)}
-              />
-              {saved && <span className="hint">Current: {saved}</span>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  id="repo-path"
+                  placeholder="/Users/you/code/your-repo"
+                  value={repo}
+                  onChange={(e) => setRepo(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="btn" onClick={pickFolder}>
+                  Choose folder…
+                </button>
+              </div>
+              <span className="hint">
+                {saved
+                  ? `Current: ${saved}`
+                  : "Pick the folder of a git repository on your machine (not a GitHub URL)."}
+              </span>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button type="button" className="btn primary" onClick={save} disabled={!repo.trim()}>

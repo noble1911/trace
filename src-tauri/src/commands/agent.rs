@@ -14,8 +14,26 @@ use crate::state::AppState;
 #[tauri::command]
 pub fn set_repo_path(state: State<'_, AppState>, path: String) -> Result<(), String> {
     let trimmed = path.trim().to_string();
+    if trimmed.is_empty() {
+        return Err("Choose a folder on your machine.".to_string());
+    }
+    // Reject obvious URLs / remote refs — this field is a local clone path.
+    if trimmed.starts_with("http://")
+        || trimmed.starts_with("https://")
+        || trimmed.starts_with("git@")
+        || trimmed.starts_with("ssh://")
+        || trimmed.contains("://")
+    {
+        return Err(
+            "That looks like a remote URL. trace needs the path to a local clone on your machine \
+             (for example /Users/you/code/your-repo)."
+                .to_string(),
+        );
+    }
     if !git::is_git_repo(&trimmed) {
-        return Err(format!("{trimmed} is not a git repository."));
+        return Err(format!(
+            "{trimmed} isn't a git repository. Point this at a folder that contains a .git directory."
+        ));
     }
     *state.repo_path.write() = Some(trimmed);
     Ok(())

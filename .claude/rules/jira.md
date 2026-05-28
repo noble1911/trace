@@ -6,8 +6,10 @@ Jira Cloud is the **source of truth** for the board. We never hardcode columns o
 
 - HTTP Basic: `Authorization: Basic base64(email:apiToken)`. User provides `site` (e.g.
   `your-org.atlassian.net`), `email`, and an Atlassian API token.
-- Validate a connection with `GET /rest/api/3/myself`. Store credentials in the **OS keychain** (`keyring`
-  crate) keyed by site. The token **never** crosses to the renderer and is **never** logged.
+- Validate a connection with `GET /rest/api/3/myself`. Persist credentials in a user-only (`0600`) file under
+  the app config dir (`jira/auth.rs`) so the app reconnects silently on launch. The token **never** crosses to
+  the renderer and is **never** logged. (The OS keychain re-prompts on every unsigned dev rebuild — switch back
+  to it once release builds are code-signed.)
 - The login UI gates the whole board: no valid connection → no board.
 
 ## Columns come from the user's board (not the design's 4 columns)
