@@ -16,6 +16,12 @@ interface BoardStore {
   runningAgents: Set<string>;
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
+  /**
+   * Raw PTY output chunks (base64) captured per workspace_id since the app
+   * started listening. PtyTerminal replays these on mount so navigating away
+   * and back doesn't lose scrollback.
+   */
+  outputBuffers: Record<string, string[]>;
 
   loadBoard: (boardId: number) => Promise<void>;
   refresh: () => Promise<void>;
@@ -24,6 +30,10 @@ interface BoardStore {
   closeIssue: () => void;
   setFilter: (filter: BoardFilter) => void;
   setAgentRunning: (key: string, running: boolean) => void;
+  appendOutput: (workspaceId: string, chunk: string) => void;
+  clearOutput: (workspaceId: string) => void;
+  /** Re-fetch PRs for one issue (after raise / merge). */
+  refreshIssuePrs: (issueKey: string, issueId: string) => Promise<void>;
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -35,6 +45,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   selectedIssueKey: null,
   runningAgents: new Set(),
   pullRequests: {},
+  outputBuffers: {},
 
   async loadBoard(boardId) {
     set({ boardId, loading: true, error: null, pullRequests: {} });
@@ -100,5 +111,28 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (running) next.add(key);
     else next.delete(key);
     set({ runningAgents: next });
+  },
+  appendOutput(workspaceId, chunk) {
+    set((s) => {
+      const prev = s.outputBuffers[workspaceId] ?? [];
+      return {
+        outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, chunk] },
+      };
+    });
+  },
+  clearOutput(workspaceId) {
+    set((s) => {
+      const next = { ...s.outputBuffers };
+      delete next[workspaceId];
+      return { outputBuffers: next };
+    });
+  },
+  async refreshIssuePrs(issueKey, issueId) {
+    try {
+      const prs = await getIssuePullRequests(issueId);
+      set((s) => ({ pullRequests: { ...s.pullRequests, [issueKey]: prs } }));
+    } catch {
+      // Silent — dev-status unavailability isn't worth surfacing here.
+    }
   },
 }));

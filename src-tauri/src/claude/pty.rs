@@ -16,7 +16,7 @@ use base64::Engine;
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::claude::discovery::find_claude_cli_with_env;
+use crate::claude::discovery::find_cli_with_env;
 use crate::claude::env::{build_effective_cli_env, MODEL_OVERRIDE_ENV_PREFIXES};
 use crate::state::AppState;
 
@@ -79,10 +79,12 @@ struct RunState {
 /// A background thread pumps PTY output to the frontend (`pty-output`); on EOF it
 /// emits `agent-run-state{running:false}` and removes the session from state.
 #[allow(clippy::too_many_arguments)]
-pub fn spawn_claude_pty(
+pub fn spawn_agent_pty(
     app: AppHandle,
     workspace_id: String,
     cwd: String,
+    // Which CLI to run: "claude" or "codex".
+    cli: String,
     claude_session_id: Option<String>,
     new_session_id: Option<String>,
     model: Option<String>,
@@ -91,8 +93,8 @@ pub fn spawn_claude_pty(
     rows: u16,
 ) -> Result<(PtySession, Option<u32>), String> {
     let effective_env = build_effective_cli_env(&env_overrides);
-    let claude_path = find_claude_cli_with_env(Some(&effective_env))
-        .ok_or("Could not find the claude CLI binary")?;
+    let cli_path = find_cli_with_env(&cli, Some(&effective_env))
+        .ok_or_else(|| format!("Could not find the `{cli}` CLI on PATH"))?;
 
     let pair = native_pty_system()
         .openpty(PtySize {
@@ -103,19 +105,33 @@ pub fn spawn_claude_pty(
         })
         .map_err(|e| format!("Failed to open PTY: {e}"))?;
 
-    // Interactive invocation: NO --print / --output-format / --input-format.
-    let mut cmd = CommandBuilder::new(&claude_path);
+    // Interactive invocation. CLI-specific flag-building lives here; the env and
+    // pump loop below are CLI-agnostic.
+    let mut cmd = CommandBuilder::new(&cli_path);
     cmd.cwd(&cwd);
-    if let Some(model) = model.as_deref() {
-        cmd.arg("--model");
-        cmd.arg(model);
-    }
-    if let Some(sid) = claude_session_id.as_deref() {
-        cmd.arg("--resume");
-        cmd.arg(sid);
-    } else if let Some(nsid) = new_session_id.as_deref() {
-        cmd.arg("--session-id");
-        cmd.arg(nsid);
+    match cli.as_str() {
+        "claude" => {
+            if let Some(model) = model.as_deref() {
+                cmd.arg("--model");
+                cmd.arg(model);
+            }
+            if let Some(sid) = claude_session_id.as_deref() {
+                cmd.arg("--resume");
+                cmd.arg(sid);
+            } else if let Some(nsid) = new_session_id.as_deref() {
+                cmd.arg("--session-id");
+                cmd.arg(nsid);
+            }
+        }
+        "codex" => {
+            // Codex manages its own session state and uses different model flag
+            // conventions across versions — invoke it bare for now and let it
+            // pick up the user's defaults.
+            let _ = (claude_session_id, new_session_id, model);
+        }
+        other => {
+            return Err(format!("Unknown agent CLI: {other}"));
+        }
     }
 
     // Start from a clean env, apply the effective env, skip model-override

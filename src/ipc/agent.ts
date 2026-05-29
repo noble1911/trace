@@ -14,13 +14,22 @@ export function agentRunning(issueKey: string): Promise<boolean> {
   return invoke("agent_running", { issueKey });
 }
 
+export type AgentCli = "claude" | "codex";
+
 export function startAgent(
   issueKey: string,
   cols: number,
   rows: number,
-  model?: string
+  model?: string,
+  cli?: AgentCli
 ): Promise<void> {
-  return invoke("start_agent", { issueKey, cols, rows, model: model ?? null });
+  return invoke("start_agent", {
+    issueKey,
+    cols,
+    rows,
+    model: model ?? null,
+    cli: cli ?? "claude",
+  });
 }
 
 export function sendAgentInput(issueKey: string, data: string): Promise<void> {

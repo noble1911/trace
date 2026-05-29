@@ -8,8 +8,9 @@ import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
 import { JiraLogin } from "@/domains/jira/components/JiraLogin";
 import { useJiraStore } from "@/domains/jira/store";
+import { PrsView } from "@/domains/prs/PrsView";
 import { SettingsView } from "@/domains/settings/SettingsView";
-import { onAgentRunState } from "@/ipc/events";
+import { onAgentRunState, onPtyOutput } from "@/ipc/events";
 
 // Shell only — boot, the Jira login gate, nav routing, and the detail overlay.
 // All feature logic lives in src/domains/*.
@@ -29,19 +30,29 @@ export function App() {
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
   const closeIssue = useBoardStore((s) => s.closeIssue);
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
+  const appendOutput = useBoardStore((s) => s.appendOutput);
 
   useEffect(() => {
     void init();
   }, [init]);
 
-  // Keep card "working" badges in sync with agent lifecycle.
+  // App-level listeners. We capture pty-output here (not in PtyTerminal) so the
+  // buffer keeps growing even when the agent detail isn't mounted — that's what
+  // makes scrollback survive navigating away and back.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenRun: (() => void) | undefined;
+    let unlistenPty: (() => void) | undefined;
     void onAgentRunState((p) => setAgentRunning(p.workspaceId, p.running)).then((fn) => {
-      unlisten = fn;
+      unlistenRun = fn;
     });
-    return () => unlisten?.();
-  }, [setAgentRunning]);
+    void onPtyOutput((p) => appendOutput(p.workspaceId, p.data)).then((fn) => {
+      unlistenPty = fn;
+    });
+    return () => {
+      unlistenRun?.();
+      unlistenPty?.();
+    };
+  }, [setAgentRunning, appendOutput]);
 
   // Load the board whenever the selected board changes.
   useEffect(() => {
@@ -106,8 +117,9 @@ export function App() {
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}
+          {nav === "pr" && <PrsView />}
           {nav === "settings" && <SettingsView />}
-          {(nav === "sessions" || nav === "pr" || nav === "activity") && (
+          {(nav === "sessions" || nav === "activity") && (
             <div className="empty-state">
               <div className="inner">
                 <div className="title">Coming soon</div>

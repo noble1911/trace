@@ -2,8 +2,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
+import { useBoardStore } from "@/domains/board/store";
 import { resizeAgent, sendAgentInput } from "@/ipc/agent";
-import { onPtyOutput } from "@/ipc/events";
 
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -12,8 +12,16 @@ function decodeBase64(b64: string): Uint8Array {
   return bytes;
 }
 
-// Renders the interactive Claude TUI for one issue. Streams `pty-output` bytes
-// in and forwards keystrokes/resize back through the agent commands.
+// xterm.js measures glyphs in its own hidden DOM elements, which fall outside any
+// `var(--font-mono)` CSS scope — using the variable there ends up resolving to a
+// generic monospace whose metrics don't match the canvas font, producing stretched
+// columns. Pass the literal font stack instead (mirrors tokens.css).
+const PTY_FONT = '"Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace';
+
+// Renders the interactive Claude/Codex TUI for one issue. The raw PTY bytes are
+// captured app-wide by App.tsx into the board store's `outputBuffers` keyed by
+// workspace id — this component just replays them on mount and watches the store
+// for new chunks, so navigating away and back preserves the scrollback.
 export function PtyTerminal({ issueKey }: { issueKey: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -22,7 +30,7 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     if (!host) return;
 
     const term = new Terminal({
-      fontFamily: 'var(--font-mono), "SF Mono", Menlo, monospace',
+      fontFamily: PTY_FONT,
       fontSize: 12,
       cursorBlink: true,
       theme: { background: "#050505", foreground: "#ededed", cursor: "#ededed" },
@@ -41,19 +49,27 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     };
     reportSize();
 
+    // Subscribe to the store BEFORE replaying so any chunks that arrive mid-mount
+    // are picked up. Replay then writes everything captured so far; subsequent
+    // updates only write the delta after `lastSeen`.
+    let lastSeen = 0;
+    const writeFrom = (chunks: string[]) => {
+      while (lastSeen < chunks.length) {
+        term.write(decodeBase64(chunks[lastSeen]));
+        lastSeen++;
+      }
+    };
+    const unsubBuffer = useBoardStore.subscribe((state) => {
+      writeFrom(state.outputBuffers[issueKey] ?? []);
+    });
+    writeFrom(useBoardStore.getState().outputBuffers[issueKey] ?? []);
+
     const inputSub = term.onData((data) => void sendAgentInput(issueKey, data));
     const ro = new ResizeObserver(reportSize);
     ro.observe(host);
 
-    let unlisten: (() => void) | undefined;
-    void onPtyOutput((p) => {
-      if (p.workspaceId === issueKey) term.write(decodeBase64(p.data));
-    }).then((fn) => {
-      unlisten = fn;
-    });
-
     return () => {
-      unlisten?.();
+      unsubBuffer();
       ro.disconnect();
       inputSub.dispose();
       term.dispose();

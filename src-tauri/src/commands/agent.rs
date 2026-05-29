@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, State};
 
-use crate::claude::pty::spawn_claude_pty;
+use crate::claude::pty::spawn_agent_pty;
 use crate::git;
 use crate::helpers::{new_id, slugify};
 use crate::state::AppState;
@@ -90,6 +90,7 @@ pub fn start_agent(
     cols: u16,
     rows: u16,
     model: Option<String>,
+    cli: Option<String>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
@@ -112,11 +113,13 @@ pub fn start_agent(
     let default_branch = git::get_default_branch(&repo);
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
+    let cli = cli.unwrap_or_else(|| "claude".to_string());
     let session_id = new_id();
-    let (session, pid) = spawn_claude_pty(
+    let (session, pid) = spawn_agent_pty(
         app,
         issue_key.clone(),
         worktree,
+        cli,
         None,
         Some(session_id),
         model,
