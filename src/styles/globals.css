@@ -885,6 +885,11 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Grid items default to min-width:auto and refuse to shrink below their
+     content's intrinsic width. The xterm canvas is sized by JS, so without this
+     the column would grow to fit it, feed the ResizeObserver, and oscillate. */
+  min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--border-faint);
 }
 .detail-tabs {
@@ -977,6 +982,8 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 /* Before the session starts, the live (empty) terminal is mounted underneath so
    it can be measured; the StartPrompt covers it until the user starts. */
