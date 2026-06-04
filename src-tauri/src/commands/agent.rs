@@ -88,22 +88,48 @@ pub(crate) fn forget_session_id(issue_key: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Claude stores each conversation at `~/.claude/projects/<cwd-slug>/<id>.jsonl`,
+/// where the slug is the cwd with every `/` and `.` replaced by `-`.
+fn claude_conversation_exists(cwd: &str, session_id: &str) -> bool {
+    let slug: String = cwd.chars().map(|c| if c == '/' || c == '.' { '-' } else { c }).collect();
+    dirs::home_dir()
+        .map(|home| {
+            home.join(".claude")
+                .join("projects")
+                .join(slug)
+                .join(format!("{session_id}.jsonl"))
+                .exists()
+        })
+        .unwrap_or(false)
+}
+
 /// Resolve the Claude `--resume`/`--session-id` args for a workspace: resume a
-/// saved conversation, or pin (and persist) a fresh id on first start. Codex
-/// manages its own session state, so it gets neither. Shared by issue agents
-/// (`start_agent`) and exploratory sessions (`start_session`).
-pub(crate) fn claude_session_ids(workspace_id: &str, cli: &str) -> (Option<String>, Option<String>) {
+/// saved conversation, or pin (and persist) a fresh id. Codex manages its own
+/// session state, so it gets neither. Shared by issue agents (`start_agent`) and
+/// exploratory sessions (`start_session`).
+///
+/// A stored id is only resumed if its conversation actually exists on disk.
+/// Claude writes the conversation file lazily (on the first message), so a
+/// session opened and closed without interaction leaves a "poisoned" id —
+/// persisted here but unknown to Claude, which would make `--resume` fail with
+/// "No conversation found". We detect that and self-heal by pinning a fresh id.
+pub(crate) fn claude_session_ids(
+    workspace_id: &str,
+    cli: &str,
+    cwd: &str,
+) -> (Option<String>, Option<String>) {
     if cli != "claude" {
         return (None, None);
     }
-    match session_id_for(workspace_id) {
-        Some(prev) => (Some(prev), None),
-        None => {
-            let fresh = new_id();
-            let _ = upsert_session_id(workspace_id, &fresh);
-            (None, Some(fresh))
+    if let Some(prev) = session_id_for(workspace_id) {
+        if claude_conversation_exists(cwd, &prev) {
+            return (Some(prev), None);
         }
+        // Poisoned id — fall through and replace it with a fresh, usable one.
     }
+    let fresh = new_id();
+    let _ = upsert_session_id(workspace_id, &fresh);
+    (None, Some(fresh))
 }
 
 /// Spawn an interactive agent PTY for `workspace_id` rooted at `cwd`, register it
@@ -123,7 +149,7 @@ pub(crate) fn spawn_in(
     if state.pty_sessions.lock().contains_key(&workspace_id) {
         return Ok(());
     }
-    let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli);
+    let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli, &cwd);
     let (session, pid) = spawn_agent_pty(
         app,
         workspace_id.clone(),
