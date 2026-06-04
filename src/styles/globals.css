@@ -1858,6 +1858,65 @@
   margin-left: 6px;
 }
 
+/* ============ Toasts ============ */
+.toaster {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  font-size: 12.5px;
+  color: var(--fg-1);
+  animation: toast-in 0.18s ease;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast .toast-ic {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.toast.error {
+  border-color: oklch(0.68 0.18 25 / 0.5);
+}
+.toast.error .toast-ic {
+  color: var(--c-danger);
+}
+.toast.success .toast-ic {
+  color: var(--c-done);
+}
+.toast.info .toast-ic {
+  color: var(--c-accent);
+}
+.toast .toast-msg {
+  flex: 1;
+  line-height: 1.45;
+}
+.toast .toast-x {
+  flex-shrink: 0;
+  color: var(--fg-4);
+  margin-top: 1px;
+}
+.toast .toast-x:hover {
+  color: var(--fg-1);
+}
+
 /* ============ Empty / status states ============ */
 .empty-state {
   display: grid;

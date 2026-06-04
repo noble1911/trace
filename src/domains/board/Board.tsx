@@ -54,6 +54,9 @@ export function Board() {
   const onDragStart = (e: DragEvent, key: string) => {
     draggingRef.current = key;
     e.dataTransfer.effectAllowed = "move";
+    // WKWebView (macOS) won't start a real drag session unless some data is set —
+    // without this the dragover/drop events never fire and the card just snaps back.
+    e.dataTransfer.setData("text/plain", key);
   };
   const onDrop = (column: (typeof data.columns)[number]) => {
     if (draggingRef.current) {

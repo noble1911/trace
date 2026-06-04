@@ -1,6 +1,13 @@
 import { create } from "zustand";
+import { toast } from "@/app/toast";
 import type { BoardColumn, BoardData, PullRequest } from "@/domains/jira/types";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
+
+// Tauri command errors arrive as strings; trim noise so the toast reads cleanly.
+function formatMoveError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.replace(/^Error:\s*/i, "").trim() || "Couldn't move the issue.";
+}
 
 export type BoardFilter = "all" | "active" | "running";
 
@@ -91,10 +98,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     try {
       await transitionJiraIssue(key, column.statusIds);
       await get().refresh();
+      toast.success(`Moved ${key} to ${column.name}`);
     } catch (err) {
-      // Revert and surface the workflow error.
+      // Roll the card back and surface *why* — Jira workflows don't permit every
+      // status→status jump, and a silent revert reads as "transitions are broken".
       const current = get().data;
-      if (current) set({ data: { ...current, issues: snapshot }, error: String(err) });
+      if (current) set({ data: { ...current, issues: snapshot } });
+      toast.error(formatMoveError(err));
     }
   },
 

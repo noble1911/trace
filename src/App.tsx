@@ -3,6 +3,7 @@ import type { NavId } from "@/app/nav";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
 import { I } from "@/components/Icon";
+import { Toaster } from "@/components/Toaster";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
@@ -133,6 +134,7 @@ export function App() {
       </div>
 
       {openIssue && <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />}
+      <Toaster />
     </>
   );
 }

@@ -169,10 +169,24 @@ pub async fn transition_to_status(
     let transitions = list_transitions(conn, key).await?;
     let chosen = transitions
         .iter()
-        .find(|t| target_status_ids.iter().any(|id| id == &t.to_status_id))
-        .ok_or_else(|| {
-            format!("No available transition moves {key} to that column from its current status.")
-        })?;
+        .find(|t| target_status_ids.iter().any(|id| id == &t.to_status_id));
+
+    let Some(chosen) = chosen else {
+        // Name where the issue *can* go so the UI message is actionable rather
+        // than a dead end — Jira workflows gate which jumps are legal.
+        let allowed = transitions
+            .iter()
+            .map(|t| t.to_status_name.as_str())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(if allowed.is_empty() {
+            format!("{key} has no available transitions from its current status.")
+        } else {
+            format!("Jira's workflow won't move {key} there directly. Allowed from here: {allowed}.")
+        });
+    };
+
     let path = format!("/rest/api/3/issue/{key}/transitions");
     client::post(conn, &path, json!({ "transition": { "id": chosen.id } })).await?;
     Ok(())
