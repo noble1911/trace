@@ -47,15 +47,26 @@ export function App() {
   // buffer keeps growing even when the agent detail isn't mounted — that's what
   // makes scrollback survive navigating away and back.
   useEffect(() => {
+    // These listeners register asynchronously (Tauri's `listen` returns a
+    // promise). If the effect is torn down before the promise resolves — which
+    // StrictMode's mount→unmount→mount does on every dev mount — a naive
+    // `unlisten?.()` in cleanup is a no-op (still undefined), the listener leaks,
+    // and the next mount adds a *second* one. Two `pty-output` listeners means
+    // every chunk is written to the terminal twice (the doubled-output bug). The
+    // `cancelled` flag makes a late-resolving registration unlisten immediately.
+    let cancelled = false;
     let unlistenRun: (() => void) | undefined;
     let unlistenPty: (() => void) | undefined;
     void onAgentRunState((p) => setAgentRunning(p.workspaceId, p.running)).then((fn) => {
-      unlistenRun = fn;
+      if (cancelled) fn();
+      else unlistenRun = fn;
     });
     void onPtyOutput((p) => appendOutput(p.workspaceId, p.data)).then((fn) => {
-      unlistenPty = fn;
+      if (cancelled) fn();
+      else unlistenPty = fn;
     });
     return () => {
+      cancelled = true;
       unlistenRun?.();
       unlistenPty?.();
     };

@@ -283,10 +283,7 @@ pub fn resize_agent(
 ) -> Result<(), String> {
     let sessions = state.pty_sessions.lock();
     match sessions.get(&issue_key) {
-        Some(session) => {
-            eprintln!("[trace-dbg] RESIZE {issue_key} -> {cols}x{rows}"); // TEMP: verify loop is gone
-            session.resize(cols.max(20), rows.max(4))
-        }
+        Some(session) => session.resize(cols.max(20), rows.max(4)),
         None => Ok(()),
     }
 }
