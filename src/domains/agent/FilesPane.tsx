@@ -1,11 +1,11 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
-import type { Issue } from "@/domains/jira/types";
 import { type DiffSummary, type FileDiff, gitDiffFile, gitDiffSummary } from "@/ipc/diff";
 
-// "Files" tab — git diff between the issue's worktree and origin/<default-branch>.
-// Summary loads once; per-file hunks load on selection.
-export function FilesPane({ issue }: { issue: Issue }) {
+// "Files" tab — git diff for a workspace (a board agent's worktree, or an
+// exploratory session's repo root) vs origin/<default-branch>. Summary loads
+// once; per-file hunks load on selection.
+export function FilesPane({ workspaceId }: { workspaceId: string }) {
   const [summary, setSummary] = useState<DiffSummary | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [fileDiff, setFileDiff] = useState<FileDiff | null>(null);
@@ -18,7 +18,7 @@ export function FilesPane({ issue }: { issue: Issue }) {
     setSelected(null);
     setFileDiff(null);
     setError(null);
-    gitDiffSummary(issue.key)
+    gitDiffSummary(workspaceId)
       .then((s) => {
         if (cancelled) return;
         setSummary(s);
@@ -30,7 +30,7 @@ export function FilesPane({ issue }: { issue: Issue }) {
     return () => {
       cancelled = true;
     };
-  }, [issue.key]);
+  }, [workspaceId]);
 
   useEffect(() => {
     if (!selected) {
@@ -39,7 +39,7 @@ export function FilesPane({ issue }: { issue: Issue }) {
     }
     let cancelled = false;
     setLoadingFile(true);
-    gitDiffFile(issue.key, selected)
+    gitDiffFile(workspaceId, selected)
       .then((d) => {
         if (!cancelled) {
           setFileDiff(d);
@@ -55,7 +55,7 @@ export function FilesPane({ issue }: { issue: Issue }) {
     return () => {
       cancelled = true;
     };
-  }, [issue.key, selected]);
+  }, [workspaceId, selected]);
 
   if (error) return <Centered title="Couldn't load diff" hint={error} />;
   if (!summary)

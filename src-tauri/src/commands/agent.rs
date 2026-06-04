@@ -9,7 +9,7 @@ use tauri::{AppHandle, State};
 use crate::claude::pty::spawn_agent_pty;
 use crate::git;
 use crate::helpers::{new_id, slugify};
-use crate::state::AppState;
+use crate::state::{AppState, StartGuard};
 
 // ---- repo-path persistence ------------------------------------------------
 // The repo path is non-secret app config. We store it next to the Jira session
@@ -80,10 +80,65 @@ fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
     save_sessions(&map)
 }
 
-fn forget_session_id(issue_key: &str) -> Result<(), String> {
+pub(crate) fn forget_session_id(issue_key: &str) -> Result<(), String> {
     let mut map = load_sessions();
     if map.remove(issue_key).is_some() {
         save_sessions(&map)?;
+    }
+    Ok(())
+}
+
+/// Resolve the Claude `--resume`/`--session-id` args for a workspace: resume a
+/// saved conversation, or pin (and persist) a fresh id on first start. Codex
+/// manages its own session state, so it gets neither. Shared by issue agents
+/// (`start_agent`) and exploratory sessions (`start_session`).
+pub(crate) fn claude_session_ids(workspace_id: &str, cli: &str) -> (Option<String>, Option<String>) {
+    if cli != "claude" {
+        return (None, None);
+    }
+    match session_id_for(workspace_id) {
+        Some(prev) => (Some(prev), None),
+        None => {
+            let fresh = new_id();
+            let _ = upsert_session_id(workspace_id, &fresh);
+            (None, Some(fresh))
+        }
+    }
+}
+
+/// Spawn an interactive agent PTY for `workspace_id` rooted at `cwd`, register it
+/// in state, and wire its Claude session-id persistence. Identifier-agnostic —
+/// `workspace_id` is a Jira key for board agents or a session id for exploratory
+/// ones. Idempotent: a no-op if a session is already live for the id.
+pub(crate) fn spawn_in(
+    app: AppHandle,
+    state: &AppState,
+    workspace_id: String,
+    cwd: String,
+    cli: String,
+    model: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    if state.pty_sessions.lock().contains_key(&workspace_id) {
+        return Ok(());
+    }
+    let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli);
+    let (session, pid) = spawn_agent_pty(
+        app,
+        workspace_id.clone(),
+        cwd,
+        cli,
+        resume_id,
+        new_id_arg,
+        model,
+        HashMap::new(),
+        cols.max(20),
+        rows.max(4),
+    )?;
+    state.pty_sessions.lock().insert(workspace_id.clone(), session);
+    if let Some(pid) = pid {
+        state.child_pids.lock().insert(workspace_id, pid);
     }
     Ok(())
 }
@@ -150,6 +205,11 @@ pub fn start_agent(
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
     }
+    // Reserve the id for the whole start so a racing second request can't spawn a
+    // duplicate agent during the slow worktree step. Released when `_guard` drops.
+    let Some(_guard) = StartGuard::acquire(&state, &issue_key) else {
+        return Ok(());
+    };
 
     let repo = state
         .repo_path
@@ -169,41 +229,7 @@ pub fn start_agent(
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
     let cli = cli.unwrap_or_else(|| "claude".to_string());
-
-    // For Claude, resume a previously-saved conversation for this issue, or pin
-    // (and persist) a fresh session id on the very first start. Codex manages
-    // its own session state — pass nothing.
-    let (resume_id, new_id_arg) = if cli == "claude" {
-        match session_id_for(&issue_key) {
-            Some(prev) => (Some(prev), None),
-            None => {
-                let fresh = new_id();
-                let _ = upsert_session_id(&issue_key, &fresh);
-                (None, Some(fresh))
-            }
-        }
-    } else {
-        (None, None)
-    };
-
-    let (session, pid) = spawn_agent_pty(
-        app,
-        issue_key.clone(),
-        worktree,
-        cli,
-        resume_id,
-        new_id_arg,
-        model,
-        HashMap::new(),
-        cols.max(20),
-        rows.max(4),
-    )?;
-
-    state.pty_sessions.lock().insert(issue_key.clone(), session);
-    if let Some(pid) = pid {
-        state.child_pids.lock().insert(issue_key, pid);
-    }
-    Ok(())
+    spawn_in(app, &state, issue_key, worktree, cli, model, cols, rows)
 }
 
 /// Forward keystrokes / pasted text from the xterm pane to the TUI.

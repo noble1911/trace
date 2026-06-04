@@ -49,6 +49,10 @@ pub fn run() {
             commands::pr::merge_pr,
             commands::diff::git_diff_summary,
             commands::diff::git_diff_file,
+            commands::session::list_sessions,
+            commands::session::create_session,
+            commands::session::delete_session,
+            commands::session::start_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

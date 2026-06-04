@@ -10,6 +10,9 @@ import { useBoardStore } from "@/domains/board/store";
 import { JiraLogin } from "@/domains/jira/components/JiraLogin";
 import { useJiraStore } from "@/domains/jira/store";
 import { PrsView } from "@/domains/prs/PrsView";
+import { SessionDetail } from "@/domains/sessions/SessionDetail";
+import { SessionsView } from "@/domains/sessions/SessionsView";
+import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
 import { onAgentRunState, onPtyOutput } from "@/ipc/events";
 
@@ -30,6 +33,9 @@ export function App() {
   const refresh = useBoardStore((s) => s.refresh);
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
   const closeIssue = useBoardStore((s) => s.closeIssue);
+  const sessions = useSessionsStore((s) => s.sessions);
+  const selectedSessionId = useSessionsStore((s) => s.selectedId);
+  const closeSession = useSessionsStore((s) => s.close);
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const appendOutput = useBoardStore((s) => s.appendOutput);
 
@@ -75,6 +81,9 @@ export function App() {
   const openIssue = selectedIssueKey
     ? (data?.issues.find((i) => i.key === selectedIssueKey) ?? null)
     : null;
+  const openSession = selectedSessionId
+    ? (sessions.find((s) => s.id === selectedSessionId) ?? null)
+    : null;
   const project = data?.boardName ?? session.site;
 
   const boardActions = (
@@ -118,9 +127,10 @@ export function App() {
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}
+          {nav === "sessions" && <SessionsView />}
           {nav === "pr" && <PrsView />}
           {nav === "settings" && <SettingsView />}
-          {(nav === "sessions" || nav === "activity") && (
+          {nav === "activity" && (
             <div className="empty-state">
               <div className="inner">
                 <div className="title">Coming soon</div>
@@ -134,6 +144,7 @@ export function App() {
       </div>
 
       {openIssue && <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />}
+      {openSession && <SessionDetail session={openSession} onBack={closeSession} />}
       <Toaster />
     </>
   );

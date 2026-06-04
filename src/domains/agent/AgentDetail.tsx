@@ -1,11 +1,11 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
 import { useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { type AgentCli, startAgent, stopAgent } from "@/ipc/agent";
+import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { ContextRail } from "./ContextRail";
 import { FilesPane } from "./FilesPane";
@@ -53,6 +53,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
+  const startingRef = useRef(false);
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
 
@@ -69,6 +70,12 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   };
 
   const start = async () => {
+    // Guard against a re-entrant start: worktree creation takes a few seconds,
+    // during which the button still reads "Start". A second click would spawn a
+    // *second* agent into the same workspace — two processes painting one
+    // terminal, which duplicates the banner.
+    if (startingRef.current || running) return;
+    startingRef.current = true;
     setError(null);
     // The terminal is already mounted (behind the StartPrompt overlay) and fitted
     // to the real pane, so we spawn the PTY at its exact size — no spawn-time
@@ -82,6 +89,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       setAgentRunning(issue.key, true);
     } catch (err) {
       setError(String(err));
+    } finally {
+      startingRef.current = false;
     }
   };
   const stop = async () => {
@@ -91,6 +100,12 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     // Keep the terminal alive and attached — it stays measurable so the next
     // start() can spawn at the real pane size, and it's torn down by
     // PtyTerminal's unmount cleanup once nothing is running.
+  };
+  // Forget the saved Claude conversation, then start clean — the escape hatch
+  // when a stored session id has gone stale ("session not found" on resume).
+  const startFresh = async () => {
+    await resetAgentSession(issue.key).catch(() => {});
+    await start();
   };
 
   const onRaisePr = async () => {
@@ -218,11 +233,11 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
             // measured/fitted to the real pane; StartPrompt overlays it until then.
             <div className="pty-host-wrap">
               <PtyTerminal issueKey={issue.key} />
-              {!running && <StartPrompt onStart={start} />}
+              {!running && <StartPrompt onStart={start} onStartFresh={startFresh} />}
             </div>
           )}
           {tab === "ticket" && <TicketPane issue={issue} />}
-          {tab === "files" && <FilesPane issue={issue} />}
+          {tab === "files" && <FilesPane workspaceId={issue.key} />}
           {tab === "terminal" && (
             <Placeholder
               title="Terminal"
@@ -246,7 +261,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   );
 }
 
-function StartPrompt({ onStart }: { onStart: () => void }) {
+function StartPrompt({ onStart, onStartFresh }: { onStart: () => void; onStartFresh: () => void }) {
   return (
     <div className="empty-state">
       <div className="inner">
@@ -260,6 +275,14 @@ function StartPrompt({ onStart }: { onStart: () => void }) {
         </div>
         <button type="button" className="btn primary" style={{ marginTop: 6 }} onClick={onStart}>
           <I.Bolt size={13} /> Start session
+        </button>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={onStartFresh}
+          title="Forget the saved conversation and begin a new one — use this if you see “session not found”."
+        >
+          Start fresh conversation
         </button>
       </div>
     </div>

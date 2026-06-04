@@ -43,3 +43,12 @@ export function resizeAgent(issueKey: string, cols: number, rows: number): Promi
 export function stopAgent(issueKey: string): Promise<void> {
   return invoke("stop_agent", { issueKey });
 }
+
+/**
+ * Forget the saved Claude conversation id for a workspace so the next start
+ * begins a brand-new conversation. Use to recover when a stored session id has
+ * gone stale (Claude prints "session not found" on `--resume`).
+ */
+export function resetAgentSession(issueKey: string): Promise<void> {
+  return invoke("reset_agent_session", { issueKey });
+}

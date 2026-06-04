@@ -70,17 +70,21 @@ export function getTerminal(issueKey: string): TerminalEntry {
     inputSub: term.onData((data) => void sendAgentInput(issueKey, data)),
   };
 
-  // Drain only the chunks we haven't written yet. Because the terminal is created
-  // at session start (empty buffer) and then kept alive across navigation, this
-  // only ever writes *live* bytes — it never re-replays history, so the in-place
-  // redraws always land correctly.
+  // Write only *live* bytes from here on — never replay history. A full-screen
+  // TUI's past output can't be re-applied to a fresh terminal without garbling
+  // (its in-place redraws/resize-repaints land at the wrong width → duplicated
+  // banners). At a normal session start the buffer is empty so this is a no-op;
+  // if the terminal is recreated mid-session (dev HMR, a reload), we skip the
+  // stale history and PtyTerminal's mount-time resize makes the TUI repaint the
+  // current screen cleanly. Scrollback across navigation is preserved a
+  // different way — the terminal is kept alive (detached), not recreated.
   const pump = (chunks: string[]) => {
     while (entry.lastSeen < chunks.length) {
       term.write(decodeBase64(chunks[entry.lastSeen]));
       entry.lastSeen++;
     }
   };
-  pump(useBoardStore.getState().outputBuffers[issueKey] ?? []);
+  entry.lastSeen = (useBoardStore.getState().outputBuffers[issueKey] ?? []).length;
   entry.unsub = useBoardStore.subscribe((s) => pump(s.outputBuffers[issueKey] ?? []));
 
   registry.set(issueKey, entry);

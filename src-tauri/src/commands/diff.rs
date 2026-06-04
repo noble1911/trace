@@ -53,20 +53,23 @@ pub struct FileDiff {
     pub hunks: Vec<Hunk>,
 }
 
-fn worktree_for(state: &AppState, issue_key: &str) -> Result<(String, String), String> {
+/// Resolve `(repo, work_dir)` for a workspace's diff. Board agents have an
+/// isolated worktree at `.worktrees/<slug>`; exploratory sessions run in the
+/// repo root and have none, so we fall back to the repo itself. Returns
+/// `(repo, work_dir)` where the diff is computed in `work_dir`.
+fn work_dir_for(state: &AppState, workspace_id: &str) -> Result<(String, String), String> {
     let repo = state
         .repo_path
         .read()
         .clone()
         .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())?;
-    let slug = slugify(issue_key);
-    let worktree = format!("{repo}/.worktrees/{slug}");
-    if !std::path::Path::new(&worktree).exists() {
-        return Err(format!(
-            "No worktree for {issue_key} yet — start a session on this issue first."
-        ));
+    let worktree = format!("{repo}/.worktrees/{}", slugify(workspace_id));
+    if std::path::Path::new(&worktree).exists() {
+        Ok((repo, worktree))
+    } else {
+        // No worktree → exploratory session working directly in the repo root.
+        Ok((repo.clone(), repo))
     }
-    Ok((repo, worktree))
 }
 
 fn base_ref(repo: &str) -> String {
@@ -80,7 +83,7 @@ pub fn git_diff_summary(
     state: State<'_, AppState>,
     issue_key: String,
 ) -> Result<DiffSummary, String> {
-    let (repo, worktree) = worktree_for(&state, &issue_key)?;
+    let (repo, worktree) = work_dir_for(&state, &issue_key)?;
     let base = base_ref(&repo);
     let out = Command::new("git")
         .args(["diff", "--numstat", &base])
@@ -121,7 +124,7 @@ pub fn git_diff_file(
     issue_key: String,
     path: String,
 ) -> Result<FileDiff, String> {
-    let (repo, worktree) = worktree_for(&state, &issue_key)?;
+    let (repo, worktree) = work_dir_for(&state, &issue_key)?;
     let base = base_ref(&repo);
     let out = Command::new("git")
         .args(["diff", "--no-color", &base, "--", &path])
