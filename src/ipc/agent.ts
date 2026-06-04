@@ -32,6 +32,11 @@ export function startAgent(
   });
 }
 
+/** Start a plain shell in the issue's worktree (the Terminal tab). */
+export function startTerminal(issueKey: string, cols: number, rows: number): Promise<void> {
+  return invoke("start_terminal", { issueKey, cols, rows });
+}
+
 export function sendAgentInput(issueKey: string, data: string): Promise<void> {
   return invoke("send_agent_input", { issueKey, data });
 }

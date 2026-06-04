@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, State};
 
-use crate::claude::pty::spawn_agent_pty;
+use crate::claude::pty::{spawn_agent_pty, spawn_shell_pty};
 use crate::git;
 use crate::helpers::{new_id, slugify};
 use crate::state::{AppState, StartGuard};
@@ -256,6 +256,50 @@ pub fn start_agent(
 
     let cli = cli.unwrap_or_else(|| "claude".to_string());
     spawn_in(app, &state, issue_key, worktree, cli, model, cols, rows)
+}
+
+/// Start a plain shell in the issue's worktree — the "Terminal" tab, separate
+/// from the Claude agent in Chat. Keyed by `term:<issue>` so it coexists with the
+/// agent session. Ensures the worktree exists first. Idempotent.
+#[tauri::command]
+pub fn start_terminal(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    issue_key: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let term_id = format!("term:{issue_key}");
+    if state.pty_sessions.lock().contains_key(&term_id) {
+        return Ok(());
+    }
+    let Some(_guard) = StartGuard::acquire(&state, &term_id) else {
+        return Ok(());
+    };
+
+    let repo = state
+        .repo_path
+        .read()
+        .clone()
+        .ok_or("Choose a repository folder in Settings before opening a terminal.")?;
+    let slug = slugify(&issue_key);
+    let worktree = format!("{repo}/.worktrees/{slug}");
+    if !std::path::Path::new(&worktree).exists() {
+        let busy = git::git_busy_check(&repo);
+        if busy.starts_with("busy") {
+            return Err(format!("Repository is {busy} — finish that git operation first."));
+        }
+        let branch = format!("workspace/{slug}");
+        let default_branch = git::get_default_branch(&repo);
+        git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
+    }
+
+    let (session, pid) = spawn_shell_pty(app, term_id.clone(), worktree, cols.max(20), rows.max(4))?;
+    state.pty_sessions.lock().insert(term_id.clone(), session);
+    if let Some(pid) = pid {
+        state.child_pids.lock().insert(term_id, pid);
+    }
+    Ok(())
 }
 
 /// Forward keystrokes / pasted text from the xterm pane to the TUI.

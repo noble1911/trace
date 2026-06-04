@@ -6,3 +6,4 @@ pub mod diff;
 pub mod jira;
 pub mod pr;
 pub mod session;
+pub mod tests;

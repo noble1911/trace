@@ -11,6 +11,8 @@ import { ContextRail } from "./ContextRail";
 import { FilesPane } from "./FilesPane";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
+import { TerminalPane } from "./TerminalPane";
+import { TestsPane } from "./TestsPane";
 import { TicketPane } from "./TicketPane";
 import { fitTerminal, resetTerminal } from "./terminalRegistry";
 
@@ -239,15 +241,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           )}
           {tab === "ticket" && <TicketPane issue={issue} />}
           {tab === "files" && <FilesPane workspaceId={issue.key} />}
-          {tab === "terminal" && (
-            <Placeholder
-              title="Terminal"
-              hint="The agent runs in the Chat tab's interactive session."
-            />
-          )}
-          {tab === "tests" && (
-            <Placeholder title="Tests" hint="Test/CI integration comes in a later round." />
-          )}
+          {tab === "terminal" && <TerminalPane issueKey={issue.key} />}
+          {tab === "tests" && <TestsPane issue={issue} />}
           {tab === "pr" && <PrPane issue={issue} />}
         </div>
 
@@ -280,17 +275,6 @@ function StartPrompt({ onStart, onStartFresh }: { onStart: () => void; onStartFr
         >
           Start fresh conversation
         </button>
-      </div>
-    </div>
-  );
-}
-
-function Placeholder({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="empty-state">
-      <div className="inner">
-        <div className="title">{title}</div>
-        <div className="hint">{hint}</div>
       </div>
     </div>
   );

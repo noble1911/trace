@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 
 use base64::Engine;
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtyPair, PtySize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::claude::discovery::find_cli_with_env;
@@ -147,10 +147,54 @@ pub fn spawn_agent_pty(
     }
     cmd.env("TERM", "xterm-256color");
 
+    run_in_pty(app, workspace_id, pair, cmd)
+}
+
+/// Spawn an interactive login shell inside a PTY rooted at `cwd` — the "Terminal"
+/// tab, a plain shell in the issue's worktree, distinct from the Claude agent in
+/// the Chat tab. Inherits the user's environment (so their PATH/tools apply).
+pub fn spawn_shell_pty(
+    app: AppHandle,
+    workspace_id: String,
+    cwd: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(PtySession, Option<u32>), String> {
+    let pair = native_pty_system()
+        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .map_err(|e| format!("Failed to open PTY: {e}"))?;
+
+    let mut cmd = CommandBuilder::new(default_shell());
+    cmd.cwd(&cwd);
+    cmd.env("TERM", "xterm-256color");
+    run_in_pty(app, workspace_id, pair, cmd)
+}
+
+/// The user's interactive shell, platform-aware.
+fn default_shell() -> String {
+    #[cfg(windows)]
+    {
+        std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+    }
+}
+
+/// Spawn `cmd` against the PTY `pair`, register a pump thread that streams output
+/// to the frontend and tears down state on EOF, and return the live session.
+/// CLI-agnostic — shared by the agent and the plain-shell terminal.
+fn run_in_pty(
+    app: AppHandle,
+    workspace_id: String,
+    pair: PtyPair,
+    cmd: CommandBuilder,
+) -> Result<(PtySession, Option<u32>), String> {
     let child = pair
         .slave
         .spawn_command(cmd)
-        .map_err(|e| format!("Failed to spawn claude in PTY: {e}"))?;
+        .map_err(|e| format!("Failed to spawn process in PTY: {e}"))?;
     // Close the parent's copy of the slave fd so the reader sees EOF on exit.
     drop(pair.slave);
     let pid = child.process_id();
@@ -170,7 +214,7 @@ pub fn spawn_agent_pty(
         let mut buf = [0u8; 8192];
         loop {
             match reader.read(&mut buf) {
-                Ok(0) => break, // EOF — the TUI process exited
+                Ok(0) => break, // EOF — the process exited
                 Ok(n) => {
                     let encoded = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
                     let _ = reader_app.emit(

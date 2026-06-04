@@ -41,6 +41,7 @@ pub fn run() {
             commands::agent::get_repo_path,
             commands::agent::agent_running,
             commands::agent::start_agent,
+            commands::agent::start_terminal,
             commands::agent::send_agent_input,
             commands::agent::resize_agent,
             commands::agent::stop_agent,
@@ -54,6 +55,7 @@ pub fn run() {
             commands::session::create_session,
             commands::session::delete_session,
             commands::session::start_session,
+            commands::tests::run_tests,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
