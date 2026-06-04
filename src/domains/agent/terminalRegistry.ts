@@ -32,6 +32,13 @@ interface TerminalEntry {
   opened: boolean;
   /** How many buffered chunks we've already written (monotonic, no double-write). */
   lastSeen: number;
+  /**
+   * Last cols/rows we told the PTY about. A resize triggers SIGWINCH and the TUI
+   * repaints on *any* SIGWINCH — even a same-size one — which lands a duplicate
+   * banner over the first paint. So we only resize when the size actually
+   * changed; this records what we last sent.
+   */
+  lastSent: { cols: number; rows: number } | null;
   unsub: () => void;
   inputSub: { dispose(): void };
 }
@@ -66,6 +73,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     container,
     opened: false,
     lastSeen: 0,
+    lastSent: null,
     unsub: () => {},
     inputSub: term.onData((data) => void sendAgentInput(issueKey, data)),
   };
@@ -92,15 +100,39 @@ export function getTerminal(issueKey: string): TerminalEntry {
 }
 
 /**
- * Fit the terminal to its current host and return the resulting cols/rows.
- * Returns null if the terminal isn't measurable yet (not in a laid-out DOM node).
+ * Fit the terminal to its host for a *spawn*: records the size as last-sent
+ * (the PTY is about to be created at it) so PtyTerminal's first post-spawn
+ * resize is recognised as a no-op and skipped. Returns null if not measurable.
  */
 export function fitTerminal(issueKey: string): { cols: number; rows: number } | null {
   const entry = registry.get(issueKey);
   if (!entry?.opened) return null;
   try {
     entry.fit.fit();
-    return { cols: entry.term.cols, rows: entry.term.rows };
+    const size = { cols: entry.term.cols, rows: entry.term.rows };
+    entry.lastSent = size;
+    return size;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fit to the host and report whether the size *changed* since the last resize we
+ * sent the PTY. Callers resize the PTY only when `changed` — a same-size resize
+ * still raises SIGWINCH and makes the TUI repaint over itself (duplicate banner).
+ */
+export function fitAndDiff(
+  issueKey: string
+): { cols: number; rows: number; changed: boolean } | null {
+  const entry = registry.get(issueKey);
+  if (!entry?.opened) return null;
+  try {
+    entry.fit.fit();
+    const { cols, rows } = entry.term;
+    const changed = !entry.lastSent || entry.lastSent.cols !== cols || entry.lastSent.rows !== rows;
+    entry.lastSent = { cols, rows };
+    return { cols, rows, changed };
   } catch {
     return null;
   }

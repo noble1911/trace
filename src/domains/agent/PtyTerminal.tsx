@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { useBoardStore } from "@/domains/board/store";
 import { resizeAgent } from "@/ipc/agent";
-import { disposeTerminal, getTerminal } from "./terminalRegistry";
+import { disposeTerminal, fitAndDiff, getTerminal } from "./terminalRegistry";
 
 // Renders the interactive Claude/Codex TUI for one issue. The actual xterm lives
 // in `terminalRegistry` and stays alive for the whole session — this component
@@ -30,15 +30,13 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
       entry.opened = true;
     }
 
-    // Fit to the visible host and tell the PTY the new geometry. The ResizeObserver
-    // re-runs this whenever the pane changes (window resize, rail toggle, etc.).
+    // Fit to the visible host and tell the PTY the new geometry — but only when
+    // the size actually changed. A redundant same-size resize raises SIGWINCH and
+    // the TUI repaints over its banner (the duplicate-banner glitch). The
+    // ResizeObserver re-runs this on real pane changes (window resize, rail toggle).
     const reportSize = () => {
-      try {
-        entry.fit.fit();
-        void resizeAgent(issueKey, entry.term.cols, entry.term.rows);
-      } catch {
-        // host not measurable yet — the ResizeObserver will fire again
-      }
+      const r = fitAndDiff(issueKey);
+      if (r?.changed) void resizeAgent(issueKey, r.cols, r.rows);
     };
     reportSize();
 
