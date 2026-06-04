@@ -119,11 +119,20 @@ function FileNode({ file, active, onSelect }: FileNodeProps) {
       title={file.path}
     >
       <I.File size={12} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
         {name}
       </span>
       <span className="stat">
-        <span className="add">+{file.add}</span> <span className="del">−{file.del}</span>
+        <span className="add">+{file.add}</span>
+        <span className="del">−{file.del}</span>
       </span>
     </div>
   );

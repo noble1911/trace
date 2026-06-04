@@ -1204,7 +1204,17 @@
 }
 .file-tree .node .stat {
   margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 8px;
   font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* Fixed, right-aligned cells so the + and − columns line up down the list. */
+.file-tree .node .add,
+.file-tree .node .del {
+  min-width: 26px;
+  text-align: right;
 }
 .file-tree .node .add {
   color: var(--c-done);

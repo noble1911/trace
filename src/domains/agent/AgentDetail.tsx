@@ -48,11 +48,22 @@ function loadStoredCli(): AgentCli {
   }
 }
 
+const RAIL_STORAGE_KEY = "trace.railOpen";
+
+function loadRailOpen(): boolean {
+  try {
+    return localStorage.getItem(RAIL_STORAGE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [tab, setTab] = useState<TabId>("chat");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(loadStoredCli);
+  const [railOpen, setRailOpen] = useState(loadRailOpen);
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
@@ -109,6 +120,17 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const startFresh = async () => {
     await resetAgentSession(issue.key).catch(() => {});
     await start();
+  };
+  const toggleRail = () => {
+    setRailOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem(RAIL_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // persistence is best-effort
+      }
+      return next;
+    });
   };
 
   const onRaisePr = async () => {
@@ -205,6 +227,15 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
               </button>
             </>
           )}
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={toggleRail}
+            title={railOpen ? "Hide details" : "Show details"}
+            aria-label={railOpen ? "Hide details panel" : "Show details panel"}
+          >
+            {railOpen ? <I.Chevron size={14} /> : <I.Back size={14} />}
+          </button>
         </div>
       </div>
 
@@ -212,7 +243,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
         <div style={{ padding: "8px 20px", color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>
       )}
 
-      <div className="detail-body">
+      <div className={`detail-body${railOpen ? "" : " no-rail"}`}>
         <div className="detail-left">
           <div className="detail-tabs">
             {TABS.map((t) => {
@@ -246,7 +277,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "pr" && <PrPane issue={issue} />}
         </div>
 
-        <ContextRail issue={issue} running={running} site={site} />
+        {railOpen && <ContextRail issue={issue} running={running} site={site} />}
       </div>
     </div>
   );
