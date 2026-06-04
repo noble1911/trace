@@ -31,19 +31,28 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     }
 
     // Fit to the visible host and tell the PTY the new geometry — but only when
-    // the size actually changed. A redundant same-size resize raises SIGWINCH and
-    // the TUI repaints over its banner (the duplicate-banner glitch). The
-    // ResizeObserver re-runs this on real pane changes (window resize, rail toggle).
+    // the size actually changed (a same-size resize still raises SIGWINCH and
+    // makes the TUI repaint over its banner).
     const reportSize = () => {
       const r = fitAndDiff(issueKey);
       if (r?.changed) void resizeAgent(issueKey, r.cols, r.rows);
     };
     reportSize();
 
-    const ro = new ResizeObserver(reportSize);
+    // The ResizeObserver fires in bursts — the detail entrance, removing the
+    // start-overlay, and xterm's own fit→relayout feedback can ramp the size
+    // across dozens of frames. Sending each to the PTY is a SIGWINCH storm that
+    // makes the TUI repaint frantically and garble its banner. Debounce so the
+    // PTY gets a single resize once the size settles.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(reportSize, 120);
+    });
     ro.observe(host);
 
     return () => {
+      if (timer) clearTimeout(timer);
       ro.disconnect();
       // While a session is live, only detach — the terminal keeps consuming
       // output via its store subscription so the screen is intact when we

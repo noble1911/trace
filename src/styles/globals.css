@@ -988,6 +988,10 @@
 .pty-pane {
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  /* Clip the xterm canvas so a transient over-wide fit can't push the grid
+     column wider, which would feed back into the ResizeObserver and oscillate. */
+  overflow: hidden;
   background: var(--bg-0);
   padding: 8px 10px;
 }
