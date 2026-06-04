@@ -1,29 +1,19 @@
-import { useState } from "react";
 import { I } from "@/components/Icon";
 import type { Issue } from "@/domains/jira/types";
-import { runTests, type TestRun } from "@/ipc/tests";
+import { useTestsStore } from "./testsStore";
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 // The "Tests" tab — runs the worktree's detected test command on demand and
 // renders the result onto the design's tests-summary / test-suite / test-detail.
+// Run state lives in testsStore (keyed by issue) so it survives leaving the tab.
 export function TestsPane({ issue }: { issue: Issue }) {
-  const [run, setRun] = useState<TestRun | null>(null);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const running = useTestsStore((s) => s.running.has(issue.key));
+  const run = useTestsStore((s) => s.results[issue.key] ?? null);
+  const error = useTestsStore((s) => s.errors[issue.key] ?? null);
+  const start = useTestsStore((s) => s.run);
 
-  const go = async () => {
-    setRunning(true);
-    setError(null);
-    try {
-      setRun(await runTests(issue.key));
-    } catch (e) {
-      setError(String(e));
-      setRun(null);
-    } finally {
-      setRunning(false);
-    }
-  };
+  const go = () => void start(issue.key);
 
   return (
     <div className="tab-pane">
