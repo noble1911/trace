@@ -65,14 +65,26 @@ fn tail(s: &str, max: usize) -> String {
 }
 
 /// Run the worktree's tests and return a single suite-level result.
+///
+/// `async` + `spawn_blocking` is essential: a synchronous command runs on the
+/// main thread, so a multi-minute `gradle`/`cargo test` would freeze the whole
+/// UI. We read the repo path off state up front (no guard held across the await)
+/// and run the process on a blocking thread.
 #[tauri::command]
-pub fn run_tests(state: State<'_, AppState>, issue_key: String) -> Result<TestRun, String> {
+pub async fn run_tests(state: State<'_, AppState>, issue_key: String) -> Result<TestRun, String> {
     let repo = state
         .repo_path
         .read()
         .clone()
         .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())?;
-    let worktree = format!("{repo}/.worktrees/{}", slugify(&issue_key));
+    tauri::async_runtime::spawn_blocking(move || run_blocking(&repo, &issue_key))
+        .await
+        .map_err(|e| format!("Test runner failed to start: {e}"))?
+}
+
+/// The blocking work — detect the toolchain and run its test command.
+fn run_blocking(repo: &str, issue_key: &str) -> Result<TestRun, String> {
+    let worktree = format!("{repo}/.worktrees/{}", slugify(issue_key));
     if !Path::new(&worktree).exists() {
         return Err(format!("No worktree for {issue_key} — start a session on this issue first."));
     }
