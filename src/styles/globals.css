@@ -953,6 +953,18 @@
 }
 
 /* xterm pane (interactive PTY) */
+.pty-host-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+/* Before the session starts, the live (empty) terminal is mounted underneath so
+   it can be measured; the StartPrompt covers it until the user starts. */
+.pty-host-wrap .empty-state {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-0);
+}
 .pty-pane {
   height: 100%;
   min-height: 0;

@@ -11,6 +11,7 @@ import { ContextRail } from "./ContextRail";
 import { FilesPane } from "./FilesPane";
 import { PtyTerminal } from "./PtyTerminal";
 import { TicketPane } from "./TicketPane";
+import { fitTerminal, resetTerminal } from "./terminalRegistry";
 
 type TabId = "chat" | "ticket" | "files" | "terminal" | "tests" | "pr";
 
@@ -51,6 +52,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [cli, setCli] = useState<AgentCli>(loadStoredCli);
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
+  const clearOutput = useBoardStore((s) => s.clearOutput);
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
 
@@ -68,8 +70,15 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
 
   const start = async () => {
     setError(null);
+    // The terminal is already mounted (behind the StartPrompt overlay) and fitted
+    // to the real pane, so we spawn the PTY at its exact size — no spawn-time
+    // SIGWINCH, which is what used to repaint the banner a second time. Clear any
+    // prior session's buffer/screen so a re-run starts clean.
+    const size = fitTerminal(issue.key) ?? { cols: 80, rows: 24 };
+    clearOutput(issue.key);
+    resetTerminal(issue.key);
     try {
-      await startAgent(issue.key, 80, 24, undefined, cli);
+      await startAgent(issue.key, size.cols, size.rows, undefined, cli);
       setAgentRunning(issue.key, true);
     } catch (err) {
       setError(String(err));
@@ -78,6 +87,10 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const stop = async () => {
     await stopAgent(issue.key).catch(() => {});
     setAgentRunning(issue.key, false);
+    clearOutput(issue.key);
+    // Keep the terminal alive and attached — it stays measurable so the next
+    // start() can spawn at the real pane size, and it's torn down by
+    // PtyTerminal's unmount cleanup once nothing is running.
   };
 
   const onRaisePr = async () => {
@@ -200,8 +213,14 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
             })}
           </div>
 
-          {tab === "chat" &&
-            (running ? <PtyTerminal issueKey={issue.key} /> : <StartPrompt onStart={start} />)}
+          {tab === "chat" && (
+            // The terminal mounts even before the session starts so it can be
+            // measured/fitted to the real pane; StartPrompt overlays it until then.
+            <div className="pty-host-wrap">
+              <PtyTerminal issueKey={issue.key} />
+              {!running && <StartPrompt onStart={start} />}
+            </div>
+          )}
           {tab === "ticket" && <TicketPane issue={issue} />}
           {tab === "files" && <FilesPane issue={issue} />}
           {tab === "terminal" && (
