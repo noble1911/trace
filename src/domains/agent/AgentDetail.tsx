@@ -8,6 +8,7 @@ import type { Issue, PullRequest } from "@/domains/jira/types";
 import { type AgentCli, startAgent, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { ContextRail } from "./ContextRail";
+import { FilesPane } from "./FilesPane";
 import { PtyTerminal } from "./PtyTerminal";
 import { TicketPane } from "./TicketPane";
 
@@ -202,9 +203,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "chat" &&
             (running ? <PtyTerminal issueKey={issue.key} /> : <StartPrompt onStart={start} />)}
           {tab === "ticket" && <TicketPane issue={issue} />}
-          {tab === "files" && (
-            <Placeholder title="No files yet" hint="Available once the agent edits files." />
-          )}
+          {tab === "files" && <FilesPane issue={issue} />}
           {tab === "terminal" && (
             <Placeholder
               title="Terminal"

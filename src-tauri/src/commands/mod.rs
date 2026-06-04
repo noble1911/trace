@@ -2,5 +2,6 @@
 //! logic lives in `jira/`, `claude/`, and `git`.
 
 pub mod agent;
+pub mod diff;
 pub mod jira;
 pub mod pr;

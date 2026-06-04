@@ -44,8 +44,11 @@ pub fn run() {
             commands::agent::send_agent_input,
             commands::agent::resize_agent,
             commands::agent::stop_agent,
+            commands::agent::reset_agent_session,
             commands::pr::raise_pr,
             commands::pr::merge_pr,
+            commands::diff::git_diff_summary,
+            commands::diff::git_diff_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -22,6 +22,13 @@ interface BoardStore {
    * and back doesn't lose scrollback.
    */
   outputBuffers: Record<string, string[]>;
+  /**
+   * Last cols/rows we sent to the PTY per workspace. Needed so a remounted
+   * xterm can replay buffered bytes at the same size they were emitted at —
+   * otherwise lines wrap at the wrong width and the historical content gets
+   * corrupted.
+   */
+  agentSizes: Record<string, { cols: number; rows: number }>;
 
   loadBoard: (boardId: number) => Promise<void>;
   refresh: () => Promise<void>;
@@ -32,6 +39,7 @@ interface BoardStore {
   setAgentRunning: (key: string, running: boolean) => void;
   appendOutput: (workspaceId: string, chunk: string) => void;
   clearOutput: (workspaceId: string) => void;
+  setAgentSize: (workspaceId: string, cols: number, rows: number) => void;
   /** Re-fetch PRs for one issue (after raise / merge). */
   refreshIssuePrs: (issueKey: string, issueId: string) => Promise<void>;
 }
@@ -46,6 +54,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   runningAgents: new Set(),
   pullRequests: {},
   outputBuffers: {},
+  agentSizes: {},
 
   async loadBoard(boardId) {
     set({ boardId, loading: true, error: null, pullRequests: {} });
@@ -125,6 +134,15 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const next = { ...s.outputBuffers };
       delete next[workspaceId];
       return { outputBuffers: next };
+    });
+  },
+  setAgentSize(workspaceId, cols, rows) {
+    set((s) => {
+      const prev = s.agentSizes[workspaceId];
+      if (prev && prev.cols === cols && prev.rows === rows) return {};
+      return {
+        agentSizes: { ...s.agentSizes, [workspaceId]: { cols, rows } },
+      };
     });
   },
   async refreshIssuePrs(issueKey, issueId) {

@@ -40,6 +40,61 @@ fn save_repo_path(path: &str) -> Result<(), String> {
     std::fs::write(&file, path).map_err(|e| e.to_string())
 }
 
+// ---- Claude session-id persistence ----------------------------------------
+// We pin a Claude session id per Jira issue the first time the user starts a
+// session on it, and persist the map across launches. Subsequent starts on the
+// same issue pass `--resume <id>` so the conversation continues where it left
+// off rather than starting fresh. Codex manages its own session state and is
+// skipped here.
+
+fn sessions_file() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("trace")
+        .join("sessions.json")
+}
+
+fn load_sessions() -> std::collections::HashMap<String, String> {
+    std::fs::read_to_string(sessions_file())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_sessions(map: &std::collections::HashMap<String, String>) -> Result<(), String> {
+    let path = sessions_file();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string(map).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+fn session_id_for(issue_key: &str) -> Option<String> {
+    load_sessions().get(issue_key).cloned()
+}
+
+fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
+    let mut map = load_sessions();
+    map.insert(issue_key.to_string(), id.to_string());
+    save_sessions(&map)
+}
+
+fn forget_session_id(issue_key: &str) -> Result<(), String> {
+    let mut map = load_sessions();
+    if map.remove(issue_key).is_some() {
+        save_sessions(&map)?;
+    }
+    Ok(())
+}
+
+/// Forget the saved Claude session id for an issue so the next start begins a
+/// fresh conversation. No-op if no session was recorded.
+#[tauri::command]
+pub fn reset_agent_session(issue_key: String) -> Result<(), String> {
+    forget_session_id(&issue_key)
+}
+
 /// Point agents at a local git repository. Worktrees are created under it.
 #[tauri::command]
 pub fn set_repo_path(state: State<'_, AppState>, path: String) -> Result<(), String> {
@@ -114,14 +169,30 @@ pub fn start_agent(
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
     let cli = cli.unwrap_or_else(|| "claude".to_string());
-    let session_id = new_id();
+
+    // For Claude, resume a previously-saved conversation for this issue, or pin
+    // (and persist) a fresh session id on the very first start. Codex manages
+    // its own session state — pass nothing.
+    let (resume_id, new_id_arg) = if cli == "claude" {
+        match session_id_for(&issue_key) {
+            Some(prev) => (Some(prev), None),
+            None => {
+                let fresh = new_id();
+                let _ = upsert_session_id(&issue_key, &fresh);
+                (None, Some(fresh))
+            }
+        }
+    } else {
+        (None, None)
+    };
+
     let (session, pid) = spawn_agent_pty(
         app,
         issue_key.clone(),
         worktree,
         cli,
-        None,
-        Some(session_id),
+        resume_id,
+        new_id_arg,
         model,
         HashMap::new(),
         cols.max(20),
