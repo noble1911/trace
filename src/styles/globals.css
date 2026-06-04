@@ -1443,6 +1443,25 @@
   color: var(--fg-3);
 }
 
+.pr-group .label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 8px;
+}
+.pr-group .check {
+  margin-bottom: 6px;
+}
+.pr-group .check:last-child {
+  margin-bottom: 0;
+}
+.pr-muted {
+  font-size: 12.5px;
+  color: var(--fg-4);
+}
+
 .review-line {
   display: flex;
   align-items: center;

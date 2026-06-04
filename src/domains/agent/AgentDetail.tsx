@@ -9,6 +9,7 @@ import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/a
 import { mergePr, raisePr } from "@/ipc/pr";
 import { ContextRail } from "./ContextRail";
 import { FilesPane } from "./FilesPane";
+import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
 import { TicketPane } from "./TicketPane";
 import { fitTerminal, resetTerminal } from "./terminalRegistry";
@@ -247,12 +248,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "tests" && (
             <Placeholder title="Tests" hint="Test/CI integration comes in a later round." />
           )}
-          {tab === "pr" && (
-            <Placeholder
-              title="No PR yet"
-              hint="Raising and reviewing PRs comes in a later round."
-            />
-          )}
+          {tab === "pr" && <PrPane issue={issue} />}
         </div>
 
         <ContextRail issue={issue} running={running} site={site} />

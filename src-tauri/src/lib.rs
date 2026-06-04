@@ -47,6 +47,7 @@ pub fn run() {
             commands::agent::reset_agent_session,
             commands::pr::raise_pr,
             commands::pr::merge_pr,
+            commands::pr::pr_details,
             commands::diff::git_diff_summary,
             commands::diff::git_diff_file,
             commands::session::list_sessions,
