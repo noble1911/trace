@@ -3,6 +3,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
+import { activity } from "@/domains/activity/store";
 import { useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/agent";
@@ -101,6 +102,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     try {
       await startAgent(issue.key, size.cols, size.rows, undefined, cli);
       setAgentRunning(issue.key, true);
+      activity.log({ kind: "agent-start", issueKey: issue.key, title: `started ${cli}` });
     } catch (err) {
       setError(String(err));
     } finally {
@@ -141,6 +143,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       const body = `Closes ${issue.key}${issue.description ? `\n\n${issue.description}` : ""}`;
       const { url } = await raisePr(issue.key, title, body);
       await refreshIssuePrs(issue.key, issue.id);
+      activity.log({ kind: "pr-raised", issueKey: issue.key, title: "raised a PR" });
       void openUrl(url);
     } catch (err) {
       setError(String(err));
@@ -156,6 +159,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     try {
       await mergePr(openPr.url);
       await refreshIssuePrs(issue.key, issue.id);
+      activity.log({ kind: "pr-merged", issueKey: issue.key, title: `merged #${openPr.number}` });
     } catch (err) {
       setError(String(err));
     } finally {

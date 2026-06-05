@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { activity } from "@/domains/activity/store";
 import type { AgentCli } from "@/ipc/agent";
 import { createSession, deleteSession, listSessions } from "@/ipc/session";
 import type { ScratchSession } from "./types";
@@ -28,6 +29,7 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
   async create(title, cli) {
     const session = await createSession(title, cli);
     set((s) => ({ sessions: [session, ...s.sessions], selectedId: session.id }));
+    activity.log({ kind: "session-created", title: `created session “${session.title}”` });
     return session;
   },
   async remove(id) {

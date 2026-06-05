@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
+import { activity } from "@/domains/activity/store";
 import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
 
@@ -107,6 +108,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       await transitionJiraIssue(key, [status.id]);
       await get().refresh();
       toast.success(`Moved ${key} to ${status.name}`);
+      activity.log({ kind: "transition", issueKey: key, title: `→ ${status.name}` });
     } catch (err) {
       // Roll the card back and surface *why* — Jira workflows don't permit every
       // status→status jump, and a silent revert reads as "transitions are broken".

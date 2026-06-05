@@ -4,6 +4,7 @@ import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
 import { I } from "@/components/Icon";
 import { Toaster } from "@/components/Toaster";
+import { ActivityView } from "@/domains/activity/ActivityView";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
@@ -140,17 +141,8 @@ export function App() {
           {nav === "board" && <Board />}
           {nav === "sessions" && <SessionsView />}
           {nav === "pr" && <PrsView />}
+          {nav === "activity" && <ActivityView />}
           {nav === "settings" && <SettingsView />}
-          {nav === "activity" && (
-            <div className="empty-state">
-              <div className="inner">
-                <div className="title">Coming soon</div>
-                <div className="hint">
-                  This view is part of a later round. The board is live now.
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
