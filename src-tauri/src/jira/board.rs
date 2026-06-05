@@ -123,14 +123,36 @@ async fn fetch_board_issues(
     }
     jql.push_str("sprint in openSprints() ORDER BY Rank ASC");
 
-    let v = client::get_query(
-        conn,
-        "/rest/api/3/search/jql",
-        &[("jql", jql.as_str()), ("fields", ISSUE_FIELDS), ("maxResults", "200")],
-    )
-    .await?;
-    let issues = v.get("issues").and_then(Value::as_array).cloned().unwrap_or_default();
-    Ok(issues.iter().filter_map(parse_issue).collect())
+    // The enhanced `/search/jql` endpoint is token-paginated (no `total`) and caps
+    // each page, so we must follow `nextPageToken` to get every issue — otherwise
+    // a whole-team sprint silently truncates and cards go missing.
+    let mut out = Vec::new();
+    let mut next_token: Option<String> = None;
+    loop {
+        let token = next_token.clone();
+        let mut query: Vec<(&str, &str)> = vec![
+            ("jql", jql.as_str()),
+            ("fields", ISSUE_FIELDS),
+            ("maxResults", "100"),
+        ];
+        if let Some(tok) = token.as_deref() {
+            query.push(("nextPageToken", tok));
+        }
+        let v = client::get_query(conn, "/rest/api/3/search/jql", &query).await?;
+        if let Some(arr) = v.get("issues").and_then(Value::as_array) {
+            out.extend(arr.iter().filter_map(parse_issue));
+        }
+        next_token = v
+            .get("nextPageToken")
+            .and_then(Value::as_str)
+            .filter(|t| !t.is_empty())
+            .map(str::to_string);
+        // Stop at the last page; cap pages as a runaway guard.
+        if next_token.is_none() || out.len() >= 5000 {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 /// Assemble the board: columns from its configuration, cards = the current
