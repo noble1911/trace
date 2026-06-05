@@ -6,10 +6,8 @@ use std::process::Command;
 
 use serde::Serialize;
 use serde_json::Value;
-use tauri::State;
 
 use crate::helpers::slugify;
-use crate::state::AppState;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,8 +72,8 @@ fn check_status(status: &str, conclusion: &str, state: &str) -> String {
 /// PR detail for the issue's tab: state, diffstat, CI checks, and reviews.
 /// Reads via `gh` from the repo so the user's existing auth applies.
 #[tauri::command]
-pub fn pr_details(state: State<'_, AppState>, pr_url: String) -> Result<PrDetails, String> {
-    let repo = read_repo(&state)?;
+pub fn pr_details(issue_key: String, pr_url: String) -> Result<PrDetails, String> {
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
     let out = Command::new("gh")
         .args([
             "pr",
@@ -148,24 +146,11 @@ pub fn pr_details(state: State<'_, AppState>, pr_url: String) -> Result<PrDetail
     })
 }
 
-fn read_repo(state: &AppState) -> Result<String, String> {
-    state
-        .repo_path
-        .read()
-        .clone()
-        .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())
-}
-
 /// Raise a PR for the given issue's worktree. Idempotent: if the branch is
 /// already pushed and a PR exists, returns that PR's URL instead of erroring.
 #[tauri::command]
-pub fn raise_pr(
-    state: State<'_, AppState>,
-    issue_key: String,
-    title: String,
-    body: String,
-) -> Result<RaisedPr, String> {
-    let repo = read_repo(&state)?;
+pub fn raise_pr(issue_key: String, title: String, body: String) -> Result<RaisedPr, String> {
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
     let slug = slugify(&issue_key);
     let worktree = format!("{repo}/.worktrees/{slug}");
     let branch = format!("workspace/{slug}");
@@ -235,11 +220,11 @@ pub fn raise_pr(
 /// Merge a PR by URL. `method` is `squash` | `merge` | `rebase` (default squash).
 #[tauri::command]
 pub fn merge_pr(
-    state: State<'_, AppState>,
+    issue_key: String,
     pr_url: String,
     method: Option<String>,
 ) -> Result<(), String> {
-    let repo = read_repo(&state)?;
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
     let flag = match method.as_deref().unwrap_or("squash") {
         "merge" => "--merge",
         "rebase" => "--rebase",

@@ -109,11 +109,8 @@ pub fn start_session(
     let session =
         load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
 
-    let repo = state
-        .repo_path
-        .read()
-        .clone()
-        .ok_or("Choose a repository folder in Settings before starting a session.")?;
+    let repo = crate::commands::repos::default_repo()
+        .ok_or("Add a repository in Settings before starting a session.")?;
 
     let busy = git::git_busy_check(&repo);
     if busy.starts_with("busy") {

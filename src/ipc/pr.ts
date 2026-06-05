@@ -10,8 +10,12 @@ export function raisePr(issueKey: string, title: string, body: string): Promise<
   return invoke("raise_pr", { issueKey, title, body });
 }
 
-export function mergePr(prUrl: string, method?: "squash" | "merge" | "rebase"): Promise<void> {
-  return invoke("merge_pr", { prUrl, method: method ?? null });
+export function mergePr(
+  issueKey: string,
+  prUrl: string,
+  method?: "squash" | "merge" | "rebase"
+): Promise<void> {
+  return invoke("merge_pr", { issueKey, prUrl, method: method ?? null });
 }
 
 export interface PrCheck {
@@ -41,6 +45,6 @@ export interface PrDetails {
   reviews: PrReview[];
 }
 
-export function prDetails(prUrl: string): Promise<PrDetails> {
-  return invoke("pr_details", { prUrl });
+export function prDetails(issueKey: string, prUrl: string): Promise<PrDetails> {
+  return invoke("pr_details", { issueKey, prUrl });
 }

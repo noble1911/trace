@@ -5,5 +5,6 @@ pub mod agent;
 pub mod diff;
 pub mod jira;
 pub mod pr;
+pub mod repos;
 pub mod session;
 pub mod tests;

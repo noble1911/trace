@@ -57,7 +57,7 @@ export function PrPane({ issue }: { issue: Issue }) {
     let cancelled = false;
     setDetails(null);
     setError(null);
-    prDetails(url)
+    prDetails(issue.key, url)
       .then((d) => {
         if (!cancelled) setDetails(d);
       })
@@ -67,7 +67,7 @@ export function PrPane({ issue }: { issue: Issue }) {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [issue.key, url]);
 
   if (!pr) {
     return (

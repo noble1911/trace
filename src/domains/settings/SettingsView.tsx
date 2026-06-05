@@ -1,7 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
+import { I } from "@/components/Icon";
 import { useJiraStore } from "@/domains/jira/store";
-import { type AgentCli, getRepoPath, setRepoPath } from "@/ipc/agent";
+import type { AgentCli } from "@/ipc/agent";
+import { addRepo, listRepos, removeRepo } from "@/ipc/repos";
+
+const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
 const CLI_KEY = "trace.agentCli";
 const MODEL_KEY = "trace.agentModel";
@@ -28,8 +32,7 @@ export function SettingsView() {
   const user = useJiraStore((s) => s.user);
   const disconnect = useJiraStore((s) => s.disconnect);
 
-  const [repo, setRepo] = useState("");
-  const [saved, setSaved] = useState<string | null>(null);
+  const [repos, setRepos] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [cli, setCli] = useState<AgentCli>(read(CLI_KEY) === "codex" ? "codex" : "claude");
   const [model, setModel] = useState(read(MODEL_KEY));
@@ -44,30 +47,31 @@ export function SettingsView() {
   };
 
   useEffect(() => {
-    void getRepoPath().then((p) => {
-      setSaved(p);
-      if (p) setRepo(p);
-    });
+    void listRepos().then(setRepos);
   }, []);
 
-  const save = async () => {
+  const addFolder = async () => {
     setMessage(null);
-    try {
-      await setRepoPath(repo.trim());
-      setSaved(repo.trim());
-      setMessage("Saved.");
-    } catch (err) {
-      setMessage(String(err));
-    }
-  };
-
-  const pickFolder = async () => {
     const picked = await open({
       directory: true,
       multiple: false,
       title: "Choose a git repository",
     });
-    if (typeof picked === "string") setRepo(picked);
+    if (typeof picked !== "string") return;
+    try {
+      setRepos(await addRepo(picked));
+    } catch (err) {
+      setMessage(String(err));
+    }
+  };
+
+  const remove = async (path: string) => {
+    setMessage(null);
+    try {
+      setRepos(await removeRepo(path));
+    } catch (err) {
+      setMessage(String(err));
+    }
   };
 
   return (
@@ -81,36 +85,43 @@ export function SettingsView() {
       <div className="page-body">
         <div className="settings-wrap">
           <section className="setting-group">
-            <h2>Repository</h2>
+            <h2>Repositories</h2>
             <div className="desc">
-              Agents run in isolated worktrees created under this git repository.
+              The git repos your tickets live in. Each ticket is assigned one when you start work on
+              it; agents run in isolated worktrees under that repo.
             </div>
-            <div className="field">
-              <label htmlFor="repo-path">Local repository path</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  id="repo-path"
-                  placeholder="/Users/you/code/your-repo"
-                  value={repo}
-                  onChange={(e) => setRepo(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <button type="button" className="btn" onClick={pickFolder}>
-                  Choose folder…
-                </button>
+            {repos.length > 0 && (
+              <div className="repo-list">
+                {repos.map((path) => (
+                  <div key={path} className="repo-row">
+                    <I.Code size={14} />
+                    <span className="repo-name">{basename(path)}</span>
+                    <span className="repo-path">{path}</span>
+                    <button
+                      type="button"
+                      className="repo-remove"
+                      onClick={() => void remove(path)}
+                      aria-label={`Remove ${basename(path)}`}
+                    >
+                      <I.X size={13} />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <span className="hint">
-                {saved
-                  ? `Current: ${saved}`
-                  : "Pick the folder of a git repository on your machine (not a GitHub URL)."}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button type="button" className="btn primary" onClick={save} disabled={!repo.trim()}>
-                Save repository
+            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+              <button type="button" className="btn" onClick={addFolder}>
+                <I.Plus size={13} /> Add repository
               </button>
-              {message && <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>{message}</span>}
+              {message && (
+                <span style={{ fontSize: 12.5, color: "var(--c-danger)" }}>{message}</span>
+              )}
             </div>
+            {repos.length === 0 && (
+              <span className="hint" style={{ marginTop: 8, display: "block" }}>
+                Add the folder of a local git repository (not a GitHub URL).
+              </span>
+            )}
           </section>
 
           <section className="setting-group">

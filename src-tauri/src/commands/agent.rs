@@ -24,20 +24,13 @@ fn repo_path_file() -> PathBuf {
         .join("repo-path")
 }
 
-/// Load the previously-saved repo path, if any. Empty/missing → None.
+/// Load the legacy single-repo path, if any — read once to migrate into the
+/// multi-repo `repos.json` (see `commands::repos`).
 pub fn load_repo_path() -> Option<String> {
     std::fs::read_to_string(repo_path_file())
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
-}
-
-fn save_repo_path(path: &str) -> Result<(), String> {
-    let file = repo_path_file();
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&file, path).map_err(|e| e.to_string())
 }
 
 // ---- Claude session-id persistence ----------------------------------------
@@ -176,41 +169,6 @@ pub fn reset_agent_session(issue_key: String) -> Result<(), String> {
     forget_session_id(&issue_key)
 }
 
-/// Point agents at a local git repository. Worktrees are created under it.
-#[tauri::command]
-pub fn set_repo_path(state: State<'_, AppState>, path: String) -> Result<(), String> {
-    let trimmed = path.trim().to_string();
-    if trimmed.is_empty() {
-        return Err("Choose a folder on your machine.".to_string());
-    }
-    // Reject obvious URLs / remote refs — this field is a local clone path.
-    if trimmed.starts_with("http://")
-        || trimmed.starts_with("https://")
-        || trimmed.starts_with("git@")
-        || trimmed.starts_with("ssh://")
-        || trimmed.contains("://")
-    {
-        return Err(
-            "That looks like a remote URL. trace needs the path to a local clone on your machine \
-             (for example /Users/you/code/your-repo)."
-                .to_string(),
-        );
-    }
-    if !git::is_git_repo(&trimmed) {
-        return Err(format!(
-            "{trimmed} isn't a git repository. Point this at a folder that contains a .git directory."
-        ));
-    }
-    save_repo_path(&trimmed)?;
-    *state.repo_path.write() = Some(trimmed);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_repo_path(state: State<'_, AppState>) -> Option<String> {
-    state.repo_path.read().clone()
-}
-
 #[tauri::command]
 pub fn agent_running(state: State<'_, AppState>, issue_key: String) -> bool {
     state.pty_sessions.lock().contains_key(&issue_key)
@@ -237,11 +195,7 @@ pub fn start_agent(
         return Ok(());
     };
 
-    let repo = state
-        .repo_path
-        .read()
-        .clone()
-        .ok_or("Choose a repository folder in Settings before starting an agent.")?;
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
 
     let busy = git::git_busy_check(&repo);
     if busy.starts_with("busy") {
@@ -277,11 +231,7 @@ pub fn start_terminal(
         return Ok(());
     };
 
-    let repo = state
-        .repo_path
-        .read()
-        .clone()
-        .ok_or("Choose a repository folder in Settings before opening a terminal.")?;
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
     let slug = slugify(&issue_key);
     let worktree = format!("{repo}/.worktrees/{slug}");
     if !std::path::Path::new(&worktree).exists() {

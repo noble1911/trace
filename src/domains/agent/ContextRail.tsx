@@ -6,9 +6,13 @@ interface ContextRailProps {
   issue: Issue;
   running: boolean;
   site: string | null;
+  /** The repo this ticket is assigned to (absolute path). */
+  repo?: string;
 }
 
-export function ContextRail({ issue, running, site }: ContextRailProps) {
+const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
+
+export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
   const slug = issue.key.toLowerCase();
   const issueUrl = site ? `https://${site}/browse/${issue.key}` : undefined;
 
@@ -27,6 +31,14 @@ export function ContextRail({ issue, running, site }: ContextRailProps) {
 
       <div className="ctx-section">
         <div className="label">Claude session</div>
+        {repo && (
+          <div className="ctx-row">
+            <span className="k">Repository</span>
+            <span className="v" title={repo}>
+              {basename(repo)}
+            </span>
+          </div>
+        )}
         {running ? (
           <>
             <div className="ctx-row">

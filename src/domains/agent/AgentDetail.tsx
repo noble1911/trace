@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
@@ -8,10 +8,12 @@ import { useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
+import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
 import { FilesPane } from "./FilesPane";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
+import { StartPrompt } from "./StartPrompt";
 import { TerminalPane } from "./TerminalPane";
 import { TestsPane } from "./TestsPane";
 import { TicketPane } from "./TicketPane";
@@ -75,6 +77,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(loadStoredCli);
   const [railOpen, setRailOpen] = useState(loadRailOpen);
+  const [repos, setRepos] = useState<string[]>([]);
+  const [repoChoice, setRepoChoice] = useState("");
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
@@ -83,6 +87,20 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
 
   const openPr = prs.find((p) => p.state !== "merged" && p.state !== "declined") ?? prs[0] ?? null;
+
+  // Load the configured repos and this issue's saved assignment, defaulting the
+  // picker to the assignment (or the first repo).
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([listRepos(), issueRepo(issue.key)]).then(([all, assigned]) => {
+      if (cancelled) return;
+      setRepos(all);
+      setRepoChoice(assigned ?? all[0] ?? "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [issue.key]);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
@@ -100,6 +118,10 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     // *second* agent into the same workspace — two processes painting one
     // terminal, which duplicates the banner.
     if (startingRef.current || running) return;
+    if (!repoChoice) {
+      setError("Add a repository in Settings, then pick one for this ticket.");
+      return;
+    }
     startingRef.current = true;
     setError(null);
     // The terminal is already mounted (behind the StartPrompt overlay) and fitted
@@ -110,6 +132,9 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     clearOutput(issue.key);
     resetTerminal(issue.key);
     try {
+      // Remember which repo this ticket runs in — the backend resolves it for
+      // every subsequent terminal/files/tests/PR command on this issue.
+      await setIssueRepo(issue.key, repoChoice);
       await startAgent(issue.key, size.cols, size.rows, loadStoredModel(), cli);
       setAgentRunning(issue.key, true);
       activity.log({ kind: "agent-start", issueKey: issue.key, title: `started ${cli}` });
@@ -167,7 +192,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     setError(null);
     setBusy("merge");
     try {
-      await mergePr(openPr.url);
+      await mergePr(issue.key, openPr.url);
       await refreshIssuePrs(issue.key, issue.id);
       activity.log({ kind: "pr-merged", issueKey: issue.key, title: `merged #${openPr.number}` });
     } catch (err) {
@@ -281,7 +306,15 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
             // measured/fitted to the real pane; StartPrompt overlays it until then.
             <div className="pty-host-wrap">
               <PtyTerminal issueKey={issue.key} />
-              {!running && <StartPrompt onStart={start} onStartFresh={startFresh} />}
+              {!running && (
+                <StartPrompt
+                  onStart={start}
+                  onStartFresh={startFresh}
+                  repos={repos}
+                  repoChoice={repoChoice}
+                  onRepoChange={setRepoChoice}
+                />
+              )}
             </div>
           )}
           {tab === "ticket" && <TicketPane issue={issue} />}
@@ -291,35 +324,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "pr" && <PrPane issue={issue} />}
         </div>
 
-        {railOpen && <ContextRail issue={issue} running={running} site={site} />}
-      </div>
-    </div>
-  );
-}
-
-function StartPrompt({ onStart, onStartFresh }: { onStart: () => void; onStartFresh: () => void }) {
-  return (
-    <div className="empty-state">
-      <div className="inner">
-        <span className="ic">
-          <I.Bolt size={28} />
-        </span>
-        <div className="title">Start an interactive Claude session</div>
-        <div className="hint">
-          The agent runs in an isolated git worktree for this issue. You'll get the full Claude TUI
-          right here.
-        </div>
-        <button type="button" className="btn primary" style={{ marginTop: 6 }} onClick={onStart}>
-          <I.Bolt size={13} /> Start session
-        </button>
-        <button
-          type="button"
-          className="link-btn"
-          onClick={onStartFresh}
-          title="Forget the saved conversation and begin a new one — use this if you see “session not found”."
-        >
-          Start fresh conversation
-        </button>
+        {railOpen && <ContextRail issue={issue} running={running} site={site} repo={repoChoice} />}
       </div>
     </div>
   );

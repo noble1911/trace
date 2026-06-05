@@ -8,10 +8,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use serde::Serialize;
-use tauri::State;
 
 use crate::helpers::slugify;
-use crate::state::AppState;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,15 +66,11 @@ fn tail(s: &str, max: usize) -> String {
 ///
 /// `async` + `spawn_blocking` is essential: a synchronous command runs on the
 /// main thread, so a multi-minute `gradle`/`cargo test` would freeze the whole
-/// UI. We read the repo path off state up front (no guard held across the await)
-/// and run the process on a blocking thread.
+/// UI. We resolve the issue's repo up front, then run the process on a blocking
+/// thread.
 #[tauri::command]
-pub async fn run_tests(state: State<'_, AppState>, issue_key: String) -> Result<TestRun, String> {
-    let repo = state
-        .repo_path
-        .read()
-        .clone()
-        .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())?;
+pub async fn run_tests(issue_key: String) -> Result<TestRun, String> {
+    let repo = crate::commands::repos::repo_for(&issue_key)?;
     tauri::async_runtime::spawn_blocking(move || run_blocking(&repo, &issue_key))
         .await
         .map_err(|e| format!("Test runner failed to start: {e}"))?

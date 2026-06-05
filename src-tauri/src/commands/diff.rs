@@ -5,11 +5,9 @@
 use std::process::Command;
 
 use serde::Serialize;
-use tauri::State;
 
 use crate::git;
 use crate::helpers::slugify;
-use crate::state::AppState;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -57,11 +55,12 @@ pub struct FileDiff {
 /// isolated worktree at `.worktrees/<slug>`; exploratory sessions run in the
 /// repo root and have none, so we fall back to the repo itself. Returns
 /// `(repo, work_dir)` where the diff is computed in `work_dir`.
-fn work_dir_for(state: &AppState, workspace_id: &str) -> Result<(String, String), String> {
-    let repo = state
-        .repo_path
-        .read()
-        .clone()
+fn work_dir_for(workspace_id: &str) -> Result<(String, String), String> {
+    // Issues resolve to their assigned repo; sessions (and anything unassigned)
+    // fall back to the default repo.
+    let repo = crate::commands::repos::repo_for(workspace_id)
+        .ok()
+        .or_else(crate::commands::repos::default_repo)
         .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())?;
     let worktree = format!("{repo}/.worktrees/{}", slugify(workspace_id));
     if std::path::Path::new(&worktree).exists() {
@@ -80,10 +79,9 @@ fn base_ref(repo: &str) -> String {
 /// Includes committed and uncommitted changes in the worktree.
 #[tauri::command]
 pub fn git_diff_summary(
-    state: State<'_, AppState>,
     issue_key: String,
 ) -> Result<DiffSummary, String> {
-    let (repo, worktree) = work_dir_for(&state, &issue_key)?;
+    let (repo, worktree) = work_dir_for(&issue_key)?;
     let base = base_ref(&repo);
     let out = Command::new("git")
         .args(["diff", "--numstat", &base])
@@ -120,11 +118,10 @@ pub fn git_diff_summary(
 /// Per-file unified diff parsed into hunks for the diff viewer.
 #[tauri::command]
 pub fn git_diff_file(
-    state: State<'_, AppState>,
     issue_key: String,
     path: String,
 ) -> Result<FileDiff, String> {
-    let (repo, worktree) = work_dir_for(&state, &issue_key)?;
+    let (repo, worktree) = work_dir_for(&issue_key)?;
     let base = base_ref(&repo);
     let out = Command::new("git")
         .args(["diff", "--no-color", &base, "--", &path])

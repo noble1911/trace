@@ -20,11 +20,6 @@ pub fn run() {
     if let Some(conn) = jira::auth::load() {
         *app_state.jira.write() = Some(conn);
     }
-    // Restore the previously-chosen repo path so the user doesn't redo Settings.
-    if let Some(repo) = commands::agent::load_repo_path() {
-        *app_state.repo_path.write() = Some(repo);
-    }
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -38,8 +33,11 @@ pub fn run() {
             commands::jira::get_jira_board,
             commands::jira::get_issue_pull_requests,
             commands::jira::transition_jira_issue,
-            commands::agent::set_repo_path,
-            commands::agent::get_repo_path,
+            commands::repos::list_repos,
+            commands::repos::add_repo,
+            commands::repos::remove_repo,
+            commands::repos::issue_repo,
+            commands::repos::set_issue_repo,
             commands::agent::agent_running,
             commands::agent::start_agent,
             commands::agent::start_terminal,

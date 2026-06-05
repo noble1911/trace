@@ -2,14 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 
 // Typed wrappers around the agent/PTY Tauri commands.
 
-export function setRepoPath(path: string): Promise<void> {
-  return invoke("set_repo_path", { path });
-}
-
-export function getRepoPath(): Promise<string | null> {
-  return invoke("get_repo_path");
-}
-
 export function agentRunning(issueKey: string): Promise<boolean> {
   return invoke("agent_running", { issueKey });
 }
