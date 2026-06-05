@@ -32,6 +32,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::jira::connect_jira,
             commands::jira::jira_session,
+            commands::jira::jira_current_user,
             commands::jira::disconnect_jira,
             commands::jira::list_jira_boards,
             commands::jira::get_jira_board,

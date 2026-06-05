@@ -106,13 +106,14 @@ async fn board_filter_jql(conn: &JiraConnection, filter_id: &str) -> Option<Stri
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
-/// The current user's issues on this board that are in an open sprint.
+/// All of this board's open-sprint issues (every assignee — the frontend filters
+/// by assignee via the avatar picker).
 ///
 /// We use the Platform search API (not the Agile board endpoint) because the
 /// Agile endpoint hides epics. To still scope to "this board", we AND the board's
 /// saved filter onto the query. `sprint in openSprints()` excludes the backlog
 /// and completed sprints, so issues demoted back to the backlog don't show.
-async fn fetch_my_issues(
+async fn fetch_board_issues(
     conn: &JiraConnection,
     board_filter: Option<&str>,
 ) -> Result<Vec<Issue>, String> {
@@ -120,7 +121,7 @@ async fn fetch_my_issues(
     if let Some(bf) = board_filter {
         jql.push_str(&format!("({bf}) AND "));
     }
-    jql.push_str("assignee = currentUser() AND sprint in openSprints() ORDER BY Rank ASC");
+    jql.push_str("sprint in openSprints() ORDER BY Rank ASC");
 
     let v = client::get_query(
         conn,
@@ -143,7 +144,7 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
         Some(id) => board_filter_jql(conn, id).await,
         None => None,
     };
-    let issues = fetch_my_issues(conn, board_filter.as_deref()).await?;
+    let issues = fetch_board_issues(conn, board_filter.as_deref()).await?;
 
     // Label each column's statuses. Prefer the instance status map (covers empty
     // statuses); fall back to names carried on the issues themselves.

@@ -17,6 +17,11 @@ interface BoardStore {
   loading: boolean;
   error: string | null;
   filter: BoardFilter;
+  /**
+   * Assignee filter: `undefined` = not chosen yet (defaults to the current user),
+   * `null` = all assignees, a string = that assignee's accountId.
+   */
+  assigneeFilter: string | null | undefined;
 
   selectedIssueKey: string | null;
   /** Issue keys with a live Claude PTY session. */
@@ -37,6 +42,7 @@ interface BoardStore {
   openIssue: (key: string) => void;
   closeIssue: () => void;
   setFilter: (filter: BoardFilter) => void;
+  setAssigneeFilter: (accountId: string | null) => void;
   setAgentRunning: (key: string, running: boolean) => void;
   appendOutput: (workspaceId: string, chunk: string) => void;
   clearOutput: (workspaceId: string) => void;
@@ -50,6 +56,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   loading: false,
   error: null,
   filter: "all",
+  assigneeFilter: undefined,
   selectedIssueKey: null,
   runningAgents: new Set(),
   pullRequests: {},
@@ -117,6 +124,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
   setFilter(filter) {
     set({ filter });
+  },
+  setAssigneeFilter(accountId) {
+    set({ assigneeFilter: accountId });
   },
   setAgentRunning(key, running) {
     const next = new Set(get().runningAgents);

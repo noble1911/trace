@@ -190,6 +190,54 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Assignee avatar filter row */
+.assignee-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border-faint);
+}
+.assignee-filter .af-all {
+  font-size: 11px;
+  color: var(--fg-3);
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.assignee-filter .af-all:hover {
+  color: var(--fg-1);
+}
+.assignee-filter .af-all.active {
+  color: var(--fg-0);
+  border-color: var(--border-strong);
+  background: var(--bg-2);
+}
+.assignee-filter .af-av {
+  padding: 1px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  line-height: 0;
+  opacity: 0.5;
+  transition:
+    opacity 0.12s ease,
+    border-color 0.12s ease;
+}
+.assignee-filter .af-av .agent-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 10.5px;
+}
+.assignee-filter .af-av:hover {
+  opacity: 1;
+}
+.assignee-filter .af-av.active {
+  opacity: 1;
+  border-color: var(--c-accent);
+}
 .filter-chip {
   display: inline-flex;
   align-items: center;

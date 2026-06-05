@@ -24,6 +24,14 @@ fn current_conn(state: &AppState) -> Result<JiraConnection, String> {
         .ok_or_else(|| "Not connected to Jira.".to_string())
 }
 
+/// The authenticated user (via `/myself`) — used to pre-select the current user
+/// in the board's assignee filter on launch.
+#[tauri::command]
+pub async fn jira_current_user(state: State<'_, AppState>) -> Result<JiraUser, String> {
+    let conn = current_conn(&state)?;
+    auth::validate(&conn).await
+}
+
 #[tauri::command]
 pub async fn connect_jira(
     state: State<'_, AppState>,

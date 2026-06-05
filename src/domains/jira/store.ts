@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import { connectJira, disconnectJira, jiraSession, listJiraBoards } from "@/ipc/jira";
+import {
+  connectJira,
+  disconnectJira,
+  jiraCurrentUser,
+  jiraSession,
+  listJiraBoards,
+} from "@/ipc/jira";
 import type { BoardSummary, JiraSession, JiraUser } from "./types";
 
 const SELECTED_BOARD_KEY = "trace.selectedBoardId";
@@ -37,8 +43,11 @@ export const useJiraStore = create<JiraStore>((set) => ({
   async init() {
     const session = await jiraSession();
     if (session) {
-      const boards = await listJiraBoards().catch(() => [] as BoardSummary[]);
-      set({ session, boards, selectedBoardId: restoreBoardId(boards) });
+      const [boards, user] = await Promise.all([
+        listJiraBoards().catch(() => [] as BoardSummary[]),
+        jiraCurrentUser().catch(() => null),
+      ]);
+      set({ session, user, boards, selectedBoardId: restoreBoardId(boards) });
     }
     set({ initialized: true });
   },

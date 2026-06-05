@@ -18,6 +18,10 @@ export function jiraSession(): Promise<JiraSession | null> {
   return invoke("jira_session");
 }
 
+export function jiraCurrentUser(): Promise<JiraUser> {
+  return invoke("jira_current_user");
+}
+
 export function disconnectJira(): Promise<void> {
   return invoke("disconnect_jira");
 }
