@@ -35,6 +35,7 @@ interface AgentDetailProps {
 }
 
 const CLI_STORAGE_KEY = "trace.agentCli";
+const MODEL_STORAGE_KEY = "trace.agentModel";
 
 // Stable reference so the board-store selector below doesn't return a brand-new
 // empty array on every render (which would churn re-renders).
@@ -46,6 +47,15 @@ function loadStoredCli(): AgentCli {
     return v === "codex" ? "codex" : "claude";
   } catch {
     return "claude";
+  }
+}
+
+// The default model from Settings, or undefined to use the CLI's own default.
+function loadStoredModel(): string | undefined {
+  try {
+    return localStorage.getItem(MODEL_STORAGE_KEY)?.trim() || undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -100,7 +110,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     clearOutput(issue.key);
     resetTerminal(issue.key);
     try {
-      await startAgent(issue.key, size.cols, size.rows, undefined, cli);
+      await startAgent(issue.key, size.cols, size.rows, loadStoredModel(), cli);
       setAgentRunning(issue.key, true);
       activity.log({ kind: "agent-start", issueKey: issue.key, title: `started ${cli}` });
     } catch (err) {

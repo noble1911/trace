@@ -1,16 +1,47 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { useJiraStore } from "@/domains/jira/store";
-import { getRepoPath, setRepoPath } from "@/ipc/agent";
+import { type AgentCli, getRepoPath, setRepoPath } from "@/ipc/agent";
 
-// Minimal settings: the local repo agents run in, plus the Jira connection.
+const CLI_KEY = "trace.agentCli";
+const MODEL_KEY = "trace.agentModel";
+
+function read(key: string, fallback = ""): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function write(key: string, value: string) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    // best-effort
+  }
+}
+
+// Settings: the local repo agents run in, agent defaults, and the Jira connection.
 export function SettingsView() {
   const session = useJiraStore((s) => s.session);
+  const user = useJiraStore((s) => s.user);
   const disconnect = useJiraStore((s) => s.disconnect);
 
   const [repo, setRepo] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [cli, setCli] = useState<AgentCli>(read(CLI_KEY) === "codex" ? "codex" : "claude");
+  const [model, setModel] = useState(read(MODEL_KEY));
+
+  const chooseCli = (next: AgentCli) => {
+    setCli(next);
+    write(CLI_KEY, next);
+  };
+  const chooseModel = (next: string) => {
+    setModel(next);
+    write(MODEL_KEY, next.trim());
+  };
 
   useEffect(() => {
     void getRepoPath().then((p) => {
@@ -83,6 +114,37 @@ export function SettingsView() {
           </section>
 
           <section className="setting-group">
+            <h2>Agent</h2>
+            <div className="desc">Defaults applied when you start a new coding session.</div>
+            <div className="field">
+              <label htmlFor="default-cli">Default agent</label>
+              <select
+                id="default-cli"
+                value={cli}
+                onChange={(e) => chooseCli(e.target.value as AgentCli)}
+              >
+                <option value="claude">Claude</option>
+                <option value="codex">Codex</option>
+              </select>
+              <span className="hint">
+                Pre-selected when starting a board or exploratory session.
+              </span>
+            </div>
+            <div className="field">
+              <label htmlFor="default-model">Default model</label>
+              <input
+                id="default-model"
+                placeholder="e.g. opus, sonnet — blank uses the CLI default"
+                value={model}
+                onChange={(e) => chooseModel(e.target.value)}
+              />
+              <span className="hint">
+                Passed to Claude as <code>--model</code>. Leave blank to use the CLI's default.
+              </span>
+            </div>
+          </section>
+
+          <section className="setting-group">
             <h2>Integrations</h2>
             <div className="desc">Where the board comes from.</div>
             <div className="integration-card">
@@ -95,7 +157,7 @@ export function SettingsView() {
                 J
               </div>
               <div className="ig-body">
-                <div className="ig-name">Jira</div>
+                <div className="ig-name">Jira{user ? ` · ${user.displayName}` : ""}</div>
                 <div className="ig-sub">
                   {session ? `${session.site} · ${session.email}` : "Not connected."}
                 </div>

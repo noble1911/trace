@@ -12,6 +12,37 @@ function formatMoveError(err: unknown): string {
 
 export type BoardFilter = "all" | "active" | "running";
 
+const FILTER_KEY = "trace.boardFilter";
+const ASSIGNEE_KEY = "trace.assigneeFilter";
+
+function loadFilter(): BoardFilter {
+  try {
+    const v = localStorage.getItem(FILTER_KEY);
+    return v === "active" || v === "running" ? v : "all";
+  } catch {
+    return "all";
+  }
+}
+
+// `undefined` = never chosen (defaults to me), `null` = all, string = an account.
+function loadAssigneeFilter(): string | null | undefined {
+  try {
+    const v = localStorage.getItem(ASSIGNEE_KEY);
+    if (v === null) return undefined;
+    return v === "all" ? null : v;
+  } catch {
+    return undefined;
+  }
+}
+
+function persist(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // best-effort
+  }
+}
+
 interface BoardStore {
   boardId: number | null;
   data: BoardData | null;
@@ -56,8 +87,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   data: null,
   loading: false,
   error: null,
-  filter: "all",
-  assigneeFilter: undefined,
+  filter: loadFilter(),
+  assigneeFilter: loadAssigneeFilter(),
   selectedIssueKey: null,
   runningAgents: new Set(),
   pullRequests: {},
@@ -125,9 +156,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     set({ selectedIssueKey: null });
   },
   setFilter(filter) {
+    persist(FILTER_KEY, filter);
     set({ filter });
   },
   setAssigneeFilter(accountId) {
+    persist(ASSIGNEE_KEY, accountId ?? "all");
     set({ assigneeFilter: accountId });
   },
   setAgentRunning(key, running) {
