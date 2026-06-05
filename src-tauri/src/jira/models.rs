@@ -26,11 +26,21 @@ pub struct BoardSummary {
 
 /// A board column and the set of status ids that map into it. Order is the
 /// board's configured order — this replaces any hardcoded column list.
+/// One status a board column maps to. A column can hold several (e.g. an
+/// "In Progress" column covering both In Progress and Blocked), so each carries
+/// its own id+name for the per-status drop zones.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnStatus {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardColumn {
     pub name: String,
-    pub status_ids: Vec<String>,
+    pub statuses: Vec<ColumnStatus>,
 }
 
 #[derive(Serialize, Clone)]

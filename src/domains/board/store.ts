@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
-import type { BoardColumn, BoardData, PullRequest } from "@/domains/jira/types";
+import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
 
 // Tauri command errors arrive as strings; trim noise so the toast reads cleanly.
@@ -33,7 +33,7 @@ interface BoardStore {
 
   loadBoard: (boardId: number) => Promise<void>;
   refresh: () => Promise<void>;
-  moveIssue: (key: string, column: BoardColumn) => Promise<void>;
+  moveIssue: (key: string, status: ColumnStatus) => Promise<void>;
   openIssue: (key: string) => void;
   closeIssue: () => void;
   setFilter: (filter: BoardFilter) => void;
@@ -81,24 +81,25 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (boardId != null) await get().loadBoard(boardId);
   },
 
-  async moveIssue(key, column) {
+  async moveIssue(key, status) {
     const { data } = get();
-    if (!data || column.statusIds.length === 0) return;
+    if (!data) return;
 
-    // Optimistically re-home the card into the target column.
+    // Optimistically move the card to the *specific* target status — a column can
+    // hold several (In Progress + Blocked), so we transition to the exact one the
+    // card was dropped onto, not just "any status in this column".
     const snapshot = data.issues;
-    const target = column.statusIds[0];
     set({
       data: {
         ...data,
-        issues: data.issues.map((i) => (i.key === key ? { ...i, statusId: target } : i)),
+        issues: data.issues.map((i) => (i.key === key ? { ...i, statusId: status.id } : i)),
       },
     });
 
     try {
-      await transitionJiraIssue(key, column.statusIds);
+      await transitionJiraIssue(key, [status.id]);
       await get().refresh();
-      toast.success(`Moved ${key} to ${column.name}`);
+      toast.success(`Moved ${key} to ${status.name}`);
     } catch (err) {
       // Roll the card back and surface *why* — Jira workflows don't permit every
       // status→status jump, and a silent revert reads as "transitions are broken".

@@ -19,9 +19,15 @@ export interface BoardSummary {
 }
 
 /** A board column and the status ids that map into it (board's configured order). */
+export interface ColumnStatus {
+  id: string;
+  name: string;
+}
+
 export interface BoardColumn {
   name: string;
-  statusIds: string[];
+  /** A column can map to several statuses (e.g. In Progress + Blocked). */
+  statuses: ColumnStatus[];
 }
 
 export interface Assignee {

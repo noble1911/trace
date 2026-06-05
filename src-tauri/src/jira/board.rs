@@ -3,8 +3,12 @@
 
 use serde_json::{json, Value};
 
+use std::collections::HashMap;
+
 use super::client;
-use super::models::{parse_issue, BoardColumn, BoardData, BoardSummary, Issue, Transition};
+use super::models::{
+    parse_issue, BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue, Transition,
+};
 use super::JiraConnection;
 
 const ISSUE_FIELDS: &str =
@@ -46,16 +50,19 @@ async fn board_config(conn: &JiraConnection, board_id: i64) -> Result<BoardConfi
         .iter()
         .filter_map(|col| {
             let name = col.get("name")?.as_str()?.to_string();
-            let status_ids = col
+            // columnConfig statuses carry only an id; names are filled in later
+            // from the status-name map (see `get_board`).
+            let statuses = col
                 .get("statuses")
                 .and_then(Value::as_array)
                 .map(|arr| {
                     arr.iter()
-                        .filter_map(|s| s.get("id").and_then(Value::as_str).map(str::to_string))
+                        .filter_map(|s| s.get("id").and_then(Value::as_str))
+                        .map(|id| ColumnStatus { id: id.to_string(), name: id.to_string() })
                         .collect()
                 })
                 .unwrap_or_default();
-            Some(BoardColumn { name, status_ids })
+            Some(BoardColumn { name, statuses })
         })
         .collect();
     let filter_id = v
@@ -64,6 +71,25 @@ async fn board_config(conn: &JiraConnection, board_id: i64) -> Result<BoardConfi
         .and_then(Value::as_str)
         .map(str::to_string);
     Ok(BoardConfig { columns, filter_id })
+}
+
+/// id → display name for every status in the instance, so a column's statuses
+/// (which arrive as bare ids) can be labelled — including empty ones. Best
+/// effort: returns whatever it can, names fall back to the id.
+async fn fetch_status_names(conn: &JiraConnection) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    if let Ok(v) = client::get(conn, "/rest/api/3/status").await {
+        if let Some(arr) = v.as_array() {
+            for s in arr {
+                if let (Some(id), Some(name)) =
+                    (s.get("id").and_then(Value::as_str), s.get("name").and_then(Value::as_str))
+                {
+                    map.insert(id.to_string(), name.to_string());
+                }
+            }
+        }
+    }
+    map
 }
 
 /// The JQL of the board's saved filter, with any trailing `ORDER BY` stripped so
@@ -110,7 +136,7 @@ async fn fetch_my_issues(
 /// user's open-sprint issues on the board, grouped into those columns by status.
 pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData, String> {
     let config = board_config(conn, board_id).await?;
-    let columns = config.columns;
+    let mut columns = config.columns;
 
     // Resolve the board's saved filter so the search mirrors the board's scope.
     let board_filter = match &config.filter_id {
@@ -118,6 +144,20 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
         None => None,
     };
     let issues = fetch_my_issues(conn, board_filter.as_deref()).await?;
+
+    // Label each column's statuses. Prefer the instance status map (covers empty
+    // statuses); fall back to names carried on the issues themselves.
+    let mut names = fetch_status_names(conn).await;
+    for issue in &issues {
+        names.entry(issue.status_id.clone()).or_insert_with(|| issue.status_name.clone());
+    }
+    for col in &mut columns {
+        for status in &mut col.statuses {
+            if let Some(name) = names.get(&status.id) {
+                status.name = name.clone();
+            }
+        }
+    }
 
     let board_name = list_boards(conn)
         .await

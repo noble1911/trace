@@ -11,5 +11,5 @@ export function columnColor(index: number, total: number): string {
 
 /** Bucket issues into columns by matching the issue's status id to the column. */
 export function groupIssuesByColumn(columns: BoardColumn[], issues: Issue[]): Issue[][] {
-  return columns.map((col) => issues.filter((i) => col.statusIds.includes(i.statusId)));
+  return columns.map((col) => issues.filter((i) => col.statuses.some((s) => s.id === i.statusId)));
 }

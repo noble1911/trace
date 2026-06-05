@@ -1,5 +1,5 @@
 import { type DragEvent, useRef } from "react";
-import type { Issue } from "@/domains/jira/types";
+import type { ColumnStatus, Issue } from "@/domains/jira/types";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
 import { FilterChip } from "./FilterChip";
@@ -58,9 +58,9 @@ export function Board() {
     // without this the dragover/drop events never fire and the card just snaps back.
     e.dataTransfer.setData("text/plain", key);
   };
-  const onDrop = (column: (typeof data.columns)[number]) => {
+  const onDrop = (status: ColumnStatus) => {
     if (draggingRef.current) {
-      void moveIssue(draggingRef.current, column);
+      void moveIssue(draggingRef.current, status);
       draggingRef.current = null;
     }
   };
