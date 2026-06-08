@@ -12,7 +12,7 @@ use super::models::{
 use super::JiraConnection;
 
 const ISSUE_FIELDS: &str =
-    "summary,status,priority,issuetype,labels,assignee,description,reporter,epic";
+    "summary,status,priority,issuetype,labels,assignee,description,reporter,epic,parent";
 
 /// List boards visible to the user (first page).
 pub async fn list_boards(conn: &JiraConnection) -> Result<Vec<BoardSummary>, String> {

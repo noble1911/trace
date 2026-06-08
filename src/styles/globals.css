@@ -417,6 +417,38 @@
 .card .priority.p3 {
   background: var(--fg-4);
 }
+.card .epic-line {
+  margin-top: 8px;
+}
+.epic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--c-review);
+  background: var(--c-review-bg);
+  border: 1px solid oklch(0.72 0.16 290 / 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.epic-chip svg {
+  flex-shrink: 0;
+}
+.epic-chip .epic-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.epic-chip {
+  cursor: pointer;
+}
+button.epic-chip:hover {
+  color: var(--fg-0);
+  border-color: oklch(0.72 0.16 290 / 0.55);
+}
 .card .title {
   margin-top: 8px;
   font-size: 13.5px;

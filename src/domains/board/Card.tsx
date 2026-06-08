@@ -2,7 +2,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DragEvent, MouseEvent } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { useJiraStore } from "@/domains/jira/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
+import { browseUrl } from "@/domains/jira/url";
 
 interface CardProps {
   issue: Issue;
@@ -22,6 +24,8 @@ function prStateClass(state: string): string {
 // nest a real `<button>` for the PR pill without breaking HTML's no-nested-interactives rule.
 export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
   const firstPr = prs && prs.length > 0 ? prs[0] : null;
+  const site = useJiraStore((s) => s.session?.site ?? null);
+  const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
 
   const open = () => onOpen(issue.key);
   const onCardKey = (e: { key: string }) => {
@@ -32,6 +36,12 @@ export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
     if (!firstPr) return;
     e.stopPropagation();
     void openUrl(firstPr.url);
+  };
+
+  const onEpicClick = (e: MouseEvent) => {
+    if (!epicUrl) return;
+    e.stopPropagation();
+    void openUrl(epicUrl);
   };
 
   return (
@@ -53,6 +63,27 @@ export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
           <AgentAvatar assignee={issue.assignee} />
         </span>
       </div>
+
+      {issue.epic && (
+        <div className="epic-line">
+          {epicUrl ? (
+            <button
+              type="button"
+              className="epic-chip"
+              onClick={onEpicClick}
+              title={`${issue.epicKey ?? ""} · ${issue.epic} — opens in Jira`}
+            >
+              <I.Branch size={10} />
+              <span className="epic-name">{issue.epic}</span>
+            </button>
+          ) : (
+            <span className="epic-chip" title={issue.epic}>
+              <I.Branch size={10} />
+              <span className="epic-name">{issue.epic}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="title">{issue.summary}</div>
 

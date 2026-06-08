@@ -56,7 +56,10 @@ export interface Issue {
   labels: string[];
   assignee?: Assignee | null;
   description?: string | null;
+  /** Epic name/summary for display. */
   epic?: string | null;
+  /** Epic issue key, for the browse link. */
+  epicKey?: string | null;
   reporter?: string | null;
 }
 

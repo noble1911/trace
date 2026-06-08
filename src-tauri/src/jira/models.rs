@@ -70,7 +70,10 @@ pub struct Issue {
     pub labels: Vec<String>,
     pub assignee: Option<Assignee>,
     pub description: Option<String>,
+    /// Epic name/summary for display.
     pub epic: Option<String>,
+    /// Epic issue key (e.g. PM-1200) for the browse link.
+    pub epic_key: Option<String>,
     pub reporter: Option<String>,
 }
 
@@ -205,6 +208,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
         .filter(|s| !s.is_empty());
 
     let priority_name = str_at(fields, &["priority", "name"]).unwrap_or("Medium");
+    let (epic_name, epic_key) = parse_epic(fields);
 
     Some(Issue {
         id,
@@ -220,7 +224,44 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
         labels,
         assignee: parse_assignee(v),
         description,
-        epic: str_at(fields, &["epic", "name"]).map(str::to_string),
+        epic: epic_name,
+        epic_key,
         reporter: str_at(fields, &["reporter", "displayName"]).map(str::to_string),
     })
+}
+
+/// Resolve the issue's epic. Company-managed projects expose an `epic` field;
+/// team-managed ones expose the epic as `parent` (only when the parent is itself
+/// an Epic — a sub-task's parent is a story, which we ignore). Returns
+/// `(name, key)`.
+fn parse_epic(fields: &Value) -> (Option<String>, Option<String>) {
+    if let Some(epic) = fields.get("epic").filter(|e| !e.is_null()) {
+        let key = epic.get("key").and_then(Value::as_str).map(str::to_string);
+        let name = epic
+            .get("name")
+            .or_else(|| epic.get("summary"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        if key.is_some() || name.is_some() {
+            return (name, key);
+        }
+    }
+    if let Some(parent) = fields.get("parent").filter(|p| !p.is_null()) {
+        let is_epic = parent
+            .get("fields")
+            .and_then(|f| f.get("issuetype"))
+            .and_then(|t| t.get("name"))
+            .and_then(Value::as_str)
+            .is_some_and(|n| n.eq_ignore_ascii_case("epic"));
+        if is_epic {
+            let key = parent.get("key").and_then(Value::as_str).map(str::to_string);
+            let name = parent
+                .get("fields")
+                .and_then(|f| f.get("summary"))
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            return (name, key);
+        }
+    }
+    (None, None)
 }
