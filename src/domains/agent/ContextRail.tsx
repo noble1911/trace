@@ -12,9 +12,18 @@ interface ContextRailProps {
 
 const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
+// The stored site may include a protocol (even a malformed `https//`) and/or a
+// path — reduce it to a bare host so the browse link is always well-formed.
+function hostOf(site: string): string {
+  return site
+    .trim()
+    .replace(/^https?:?\/\/?/i, "")
+    .replace(/\/.*$/, "");
+}
+
 export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
   const slug = issue.key.toLowerCase();
-  const issueUrl = site ? `https://${site}/browse/${issue.key}` : undefined;
+  const issueUrl = site ? `https://${hostOf(site)}/browse/${issue.key}` : undefined;
 
   return (
     <div className="detail-right">
