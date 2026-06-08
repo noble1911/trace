@@ -30,13 +30,19 @@ export function SessionsView() {
   const load = useSessionsStore((s) => s.load);
   const create = useSessionsStore((s) => s.create);
   const select = useSessionsStore((s) => s.select);
+  const archive = useSessionsStore((s) => s.archive);
+  const unarchive = useSessionsStore((s) => s.unarchive);
   const remove = useSessionsStore((s) => s.remove);
   const running = useBoardStore((s) => s.runningAgents);
   const [creating, setCreating] = useState(false);
+  const [binOpen, setBinOpen] = useState(false);
 
   useEffect(() => {
     if (!loaded) void load();
   }, [loaded, load]);
+
+  const active = sessions.filter((s) => !s.archivedAt);
+  const archived = sessions.filter((s) => s.archivedAt);
 
   const onCreate = (title: string, cli: AgentCli) => {
     try {
@@ -62,7 +68,7 @@ export function SessionsView() {
         </div>
       </div>
       <div className="page-body">
-        {sessions.length === 0 ? (
+        {active.length === 0 && archived.length === 0 ? (
           <div className="empty-state">
             <div className="inner">
               <span className="ic">
@@ -84,17 +90,52 @@ export function SessionsView() {
             </div>
           </div>
         ) : (
-          <div className="session-grid">
-            {sessions.map((s) => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                running={running.has(s.id)}
-                onOpen={() => select(s.id)}
-                onDelete={() => void remove(s.id)}
-              />
-            ))}
-          </div>
+          <>
+            {active.length > 0 ? (
+              <div className="session-grid">
+                {active.map((s) => (
+                  <SessionCard
+                    key={s.id}
+                    session={s}
+                    running={running.has(s.id)}
+                    onOpen={() => select(s.id)}
+                    onArchive={() => void archive(s.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="pr-muted">
+                No active sessions — create one or restore from the bin.
+              </div>
+            )}
+
+            {archived.length > 0 && (
+              <div className="archive-bin">
+                <button
+                  type="button"
+                  className="archive-head"
+                  onClick={() => setBinOpen((v) => !v)}
+                >
+                  <I.Chevron size={13} style={{ transform: binOpen ? "rotate(90deg)" : "none" }} />
+                  <I.Archive size={13} />
+                  Archived
+                  <span className="count">{archived.length}</span>
+                </button>
+                {binOpen && (
+                  <div className="archive-list">
+                    {archived.map((s) => (
+                      <ArchivedRow
+                        key={s.id}
+                        session={s}
+                        onRestore={() => void unarchive(s.id)}
+                        onDelete={() => void remove(s.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
       {creating && (
@@ -112,16 +153,16 @@ interface SessionCardProps {
   session: ScratchSession;
   running: boolean;
   onOpen: () => void;
-  onDelete: () => void;
+  onArchive: () => void;
 }
 
-function SessionCard({ session, running, onOpen, onDelete }: SessionCardProps) {
-  const del = (e: MouseEvent) => {
+function SessionCard({ session, running, onOpen, onArchive }: SessionCardProps) {
+  const archive = (e: MouseEvent) => {
     e.stopPropagation();
-    onDelete();
+    onArchive();
   };
   return (
-    // biome-ignore lint/a11y/useSemanticElements: hosts a nested delete button; HTML forbids nested interactives
+    // biome-ignore lint/a11y/useSemanticElements: hosts a nested archive button; HTML forbids nested interactives
     <div
       className="session-card"
       role="button"
@@ -134,12 +175,45 @@ function SessionCard({ session, running, onOpen, onDelete }: SessionCardProps) {
       <div className="session-card-head">
         <span className={`session-cli ${session.cli}`}>{session.cli}</span>
         {running && <span className="session-live">live</span>}
-        <button type="button" className="session-del" onClick={del} aria-label="Delete session">
-          <I.X size={13} />
+        <button
+          type="button"
+          className="session-del"
+          onClick={archive}
+          aria-label="Archive session"
+          title="Archive"
+        >
+          <I.Archive size={13} />
         </button>
       </div>
       <div className="session-title">{session.title}</div>
       <div className="session-meta">{relTime(session.createdAt)}</div>
+    </div>
+  );
+}
+
+interface ArchivedRowProps {
+  session: ScratchSession;
+  onRestore: () => void;
+  onDelete: () => void;
+}
+
+function ArchivedRow({ session, onRestore, onDelete }: ArchivedRowProps) {
+  return (
+    <div className="archive-row">
+      <span className={`session-cli ${session.cli}`}>{session.cli}</span>
+      <span className="archive-title">{session.title}</span>
+      <span className="archive-when">archived {relTime(session.archivedAt ?? 0)}</span>
+      <button type="button" className="archive-action" onClick={onRestore} title="Restore">
+        <I.Back size={13} /> Restore
+      </button>
+      <button
+        type="button"
+        className="archive-action danger"
+        onClick={onDelete}
+        title="Delete permanently"
+      >
+        <I.X size={13} />
+      </button>
     </div>
   );
 }

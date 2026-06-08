@@ -24,7 +24,14 @@ pub struct ScratchSession {
     pub cli: String,
     /// Unix epoch seconds at creation (display ordering on the frontend).
     pub created_at: u64,
+    /// Epoch seconds when archived (in the recycle bin); `None` = active. Purged
+    /// automatically after the retention window.
+    #[serde(default)]
+    pub archived_at: Option<u64>,
 }
+
+/// How long an archived session lingers before it's auto-purged (14 days).
+const ARCHIVE_RETENTION_SECS: u64 = 14 * 24 * 60 * 60;
 
 fn sessions_file() -> PathBuf {
     dirs::config_dir()
@@ -53,10 +60,26 @@ fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// All saved exploratory sessions, newest first.
+/// All saved sessions (active + archived), newest first. Archived sessions past
+/// the retention window are purged here (and their Claude ids forgotten).
 #[tauri::command]
 pub fn list_sessions() -> Vec<ScratchSession> {
+    let now = now_secs();
     let mut list = load();
+    let before = list.len();
+    list.retain(|s| match s.archived_at {
+        Some(at) => {
+            let keep = now.saturating_sub(at) < ARCHIVE_RETENTION_SECS;
+            if !keep {
+                let _ = forget_session_id(&s.id);
+            }
+            keep
+        }
+        None => true,
+    });
+    if list.len() != before {
+        let _ = save(&list);
+    }
     list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     list
 }
@@ -67,11 +90,43 @@ pub fn create_session(title: String, cli: String) -> Result<ScratchSession, Stri
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
-    let session = ScratchSession { id: new_id(), title, cli, created_at: now_secs() };
+    let session =
+        ScratchSession { id: new_id(), title, cli, created_at: now_secs(), archived_at: None };
     let mut list = load();
     list.push(session.clone());
     save(&list)?;
     Ok(session)
+}
+
+/// Move a session to the recycle bin: stop its PTY but keep its metadata and
+/// Claude id so it can be restored and resumed.
+#[tauri::command]
+pub fn archive_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let live = state.pty_sessions.lock().remove(&id);
+    if let Some(mut session) = live {
+        session.kill();
+    }
+    state.child_pids.lock().remove(&id);
+    let mut list = load();
+    let now = now_secs();
+    for s in &mut list {
+        if s.id == id {
+            s.archived_at = Some(now);
+        }
+    }
+    save(&list)
+}
+
+/// Restore a session from the recycle bin.
+#[tauri::command]
+pub fn unarchive_session(id: String) -> Result<(), String> {
+    let mut list = load();
+    for s in &mut list {
+        if s.id == id {
+            s.archived_at = None;
+        }
+    }
+    save(&list)
 }
 
 /// Delete a session: stop its PTY if live, drop its saved Claude id, remove it.

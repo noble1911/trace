@@ -52,6 +52,8 @@ pub fn run() {
             commands::diff::git_diff_file,
             commands::session::list_sessions,
             commands::session::create_session,
+            commands::session::archive_session,
+            commands::session::unarchive_session,
             commands::session::delete_session,
             commands::session::start_session,
             commands::tests::run_tests,

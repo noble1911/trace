@@ -7,4 +7,6 @@ export interface ScratchSession {
   cli: AgentCli;
   /** Unix epoch seconds at creation. */
   createdAt: number;
+  /** Epoch seconds when archived (recycle bin); null/undefined = active. */
+  archivedAt?: number | null;
 }

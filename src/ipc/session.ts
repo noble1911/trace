@@ -13,6 +13,14 @@ export function createSession(title: string, cli: AgentCli): Promise<ScratchSess
   return invoke("create_session", { title, cli });
 }
 
+export function archiveSession(id: string): Promise<void> {
+  return invoke("archive_session", { id });
+}
+
+export function unarchiveSession(id: string): Promise<void> {
+  return invoke("unarchive_session", { id });
+}
+
 export function deleteSession(id: string): Promise<void> {
   return invoke("delete_session", { id });
 }
