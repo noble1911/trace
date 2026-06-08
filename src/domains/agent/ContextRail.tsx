@@ -4,6 +4,13 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import type { Issue } from "@/domains/jira/types";
 import { browseUrl } from "@/domains/jira/url";
+import { type Editor, openInEditor } from "@/ipc/editor";
+
+const EDITORS: { id: Editor; label: string }[] = [
+  { id: "vscode", label: "VS Code" },
+  { id: "intellij", label: "IntelliJ" },
+  { id: "cursor", label: "Cursor" },
+];
 
 interface ContextRailProps {
   issue: Issue;
@@ -61,6 +68,10 @@ export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
   const issueUrl = browseUrl(site, issue.key);
   const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
 
+  const openEditor = (editor: Editor) => {
+    void openInEditor(issue.key, editor).catch((e) => toast.error(String(e)));
+  };
+
   return (
     <div className="detail-right">
       <div className="ctx-section">
@@ -107,6 +118,23 @@ export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
             <span className="v plain">not started</span>
           </div>
         )}
+      </div>
+
+      <div className="ctx-section">
+        <div className="label">Open in</div>
+        <div className="open-in">
+          {EDITORS.map((ed) => (
+            <button
+              key={ed.id}
+              type="button"
+              className="open-btn"
+              onClick={() => openEditor(ed.id)}
+              title={`Open the worktree in ${ed.label}`}
+            >
+              <I.Code size={12} /> {ed.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="ctx-section" style={{ flex: 1 }}>

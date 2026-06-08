@@ -1252,6 +1252,29 @@ button.epic-chip:hover {
   font-family: var(--font-sans);
 }
 
+/* Open-in-editor buttons */
+.open-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--fg-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+}
+.open-btn:hover {
+  color: var(--fg-0);
+  border-color: var(--border-strong);
+}
+
 /* Linked references (issue, epic) with copy buttons */
 .linked-list {
   display: flex;
