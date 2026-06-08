@@ -17,6 +17,11 @@ export function deleteSession(id: string): Promise<void> {
   return invoke("delete_session", { id });
 }
 
-export function startSession(id: string, cols: number, rows: number): Promise<void> {
-  return invoke("start_session", { id, cols, rows });
+export function startSession(
+  id: string,
+  cols: number,
+  rows: number,
+  extraArgs?: string[]
+): Promise<void> {
+  return invoke("start_session", { id, cols, rows, extraArgs: extraArgs ?? null });
 }

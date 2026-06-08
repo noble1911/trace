@@ -98,6 +98,7 @@ pub fn start_session(
     id: String,
     cols: u16,
     rows: u16,
+    extra_args: Option<Vec<String>>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&id) {
         return Ok(());
@@ -117,5 +118,5 @@ pub fn start_session(
         return Err(format!("Repository is {busy} — finish that git operation first."));
     }
 
-    spawn_in(app, &state, id, repo, session.cli, None, cols, rows)
+    spawn_in(app, &state, id, repo, session.cli, None, extra_args.unwrap_or_default(), cols, rows)
 }

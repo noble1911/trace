@@ -9,6 +9,7 @@ const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
 const CLI_KEY = "trace.agentCli";
 const MODEL_KEY = "trace.agentModel";
+const ARGS_KEY = "trace.agentArgs";
 
 function read(key: string, fallback = ""): string {
   try {
@@ -36,6 +37,7 @@ export function SettingsView() {
   const [message, setMessage] = useState<string | null>(null);
   const [cli, setCli] = useState<AgentCli>(read(CLI_KEY) === "codex" ? "codex" : "claude");
   const [model, setModel] = useState(read(MODEL_KEY));
+  const [args, setArgs] = useState(read(ARGS_KEY));
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
@@ -44,6 +46,10 @@ export function SettingsView() {
   const chooseModel = (next: string) => {
     setModel(next);
     write(MODEL_KEY, next.trim());
+  };
+  const chooseArgs = (next: string) => {
+    setArgs(next);
+    write(ARGS_KEY, next.trim());
   };
 
   useEffect(() => {
@@ -151,6 +157,19 @@ export function SettingsView() {
               />
               <span className="hint">
                 Passed to Claude as <code>--model</code>. Leave blank to use the CLI's default.
+              </span>
+            </div>
+            <div className="field">
+              <label htmlFor="extra-args">Extra arguments</label>
+              <input
+                id="extra-args"
+                placeholder="e.g. --dangerously-skip-permissions --verbose"
+                value={args}
+                onChange={(e) => chooseArgs(e.target.value)}
+              />
+              <span className="hint">
+                Appended verbatim to the agent command (split on spaces). Use any flags the CLI
+                supports — applied to board agents and exploratory sessions.
               </span>
             </div>
           </section>

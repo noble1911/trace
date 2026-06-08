@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
+import { agentArgs } from "@/domains/agent/defaults";
 import { FilesPane } from "@/domains/agent/FilesPane";
 import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
@@ -40,7 +41,7 @@ export function SessionDetail({
     clearOutput(session.id);
     resetTerminal(session.id);
     try {
-      await startSession(session.id, size.cols, size.rows);
+      await startSession(session.id, size.cols, size.rows, agentArgs());
       setAgentRunning(session.id, true);
     } catch (err) {
       setError(String(err));

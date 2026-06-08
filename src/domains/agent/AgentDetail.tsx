@@ -10,6 +10,7 @@ import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/a
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
+import { agentArgs, agentModel } from "./defaults";
 import { FilesPane } from "./FilesPane";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
@@ -37,7 +38,6 @@ interface AgentDetailProps {
 }
 
 const CLI_STORAGE_KEY = "trace.agentCli";
-const MODEL_STORAGE_KEY = "trace.agentModel";
 
 // Stable reference so the board-store selector below doesn't return a brand-new
 // empty array on every render (which would churn re-renders).
@@ -49,15 +49,6 @@ function loadStoredCli(): AgentCli {
     return v === "codex" ? "codex" : "claude";
   } catch {
     return "claude";
-  }
-}
-
-// The default model from Settings, or undefined to use the CLI's own default.
-function loadStoredModel(): string | undefined {
-  try {
-    return localStorage.getItem(MODEL_STORAGE_KEY)?.trim() || undefined;
-  } catch {
-    return undefined;
   }
 }
 
@@ -135,7 +126,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       // Remember which repo this ticket runs in — the backend resolves it for
       // every subsequent terminal/files/tests/PR command on this issue.
       await setIssueRepo(issue.key, repoChoice);
-      await startAgent(issue.key, size.cols, size.rows, loadStoredModel(), cli);
+      await startAgent(issue.key, size.cols, size.rows, agentModel(), cli, agentArgs());
       setAgentRunning(issue.key, true);
       activity.log({ kind: "agent-start", issueKey: issue.key, title: `started ${cli}` });
     } catch (err) {

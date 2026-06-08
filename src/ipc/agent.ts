@@ -13,7 +13,8 @@ export function startAgent(
   cols: number,
   rows: number,
   model?: string,
-  cli?: AgentCli
+  cli?: AgentCli,
+  extraArgs?: string[]
 ): Promise<void> {
   return invoke("start_agent", {
     issueKey,
@@ -21,6 +22,7 @@ export function startAgent(
     rows,
     model: model ?? null,
     cli: cli ?? "claude",
+    extraArgs: extraArgs ?? null,
   });
 }
 

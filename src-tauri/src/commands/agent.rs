@@ -129,6 +129,7 @@ pub(crate) fn claude_session_ids(
 /// in state, and wire its Claude session-id persistence. Identifier-agnostic —
 /// `workspace_id` is a Jira key for board agents or a session id for exploratory
 /// ones. Idempotent: a no-op if a session is already live for the id.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_in(
     app: AppHandle,
     state: &AppState,
@@ -136,6 +137,7 @@ pub(crate) fn spawn_in(
     cwd: String,
     cli: String,
     model: Option<String>,
+    extra_args: Vec<String>,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
@@ -151,6 +153,7 @@ pub(crate) fn spawn_in(
         resume_id,
         new_id_arg,
         model,
+        extra_args,
         HashMap::new(),
         cols.max(20),
         rows.max(4),
@@ -176,6 +179,7 @@ pub fn agent_running(state: State<'_, AppState>, issue_key: String) -> bool {
 
 /// Start an interactive Claude TUI for an issue, in its own git worktree.
 /// Idempotent: if a session already exists for the issue, it's a no-op.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn start_agent(
     app: AppHandle,
@@ -185,6 +189,7 @@ pub fn start_agent(
     rows: u16,
     model: Option<String>,
     cli: Option<String>,
+    extra_args: Option<Vec<String>>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
@@ -209,7 +214,7 @@ pub fn start_agent(
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
     let cli = cli.unwrap_or_else(|| "claude".to_string());
-    spawn_in(app, &state, issue_key, worktree, cli, model, cols, rows)
+    spawn_in(app, &state, issue_key, worktree, cli, model, extra_args.unwrap_or_default(), cols, rows)
 }
 
 /// Start a plain shell in the issue's worktree — the "Terminal" tab, separate

@@ -88,6 +88,9 @@ pub fn spawn_agent_pty(
     claude_session_id: Option<String>,
     new_session_id: Option<String>,
     model: Option<String>,
+    // Extra CLI flags the user configured (e.g. --dangerously-skip-permissions),
+    // appended verbatim after the managed flags.
+    extra_args: Vec<String>,
     env_overrides: HashMap<String, String>,
     cols: u16,
     rows: u16,
@@ -132,6 +135,10 @@ pub fn spawn_agent_pty(
         other => {
             return Err(format!("Unknown agent CLI: {other}"));
         }
+    }
+    // User-provided flags last, so they can override or extend the managed ones.
+    for arg in &extra_args {
+        cmd.arg(arg);
     }
 
     // Start from a clean env, apply the effective env, skip model-override
