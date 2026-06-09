@@ -54,11 +54,11 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     return () => {
       if (timer) clearTimeout(timer);
       ro.disconnect();
-      // While a session is live, only detach — the terminal keeps consuming
-      // output via its store subscription so the screen is intact when we
-      // re-attach. If nothing is running (never started, or already stopped),
-      // there's nothing to preserve, so dispose to avoid leaking an empty term.
-      if (useBoardStore.getState().runningAgents.has(issueKey)) {
+      // Keep the terminal alive (just detach) if it's running OR has produced
+      // any output — its scrollback is preserved for when we re-attach, since a
+      // recreated terminal comes back blank (we never replay). Only dispose a
+      // truly-empty, never-started terminal to avoid leaking one per visited card.
+      if (useBoardStore.getState().runningAgents.has(issueKey) || entry.hasOutput) {
         entry.container.remove();
       } else {
         disposeTerminal(issueKey);

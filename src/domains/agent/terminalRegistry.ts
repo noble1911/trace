@@ -33,6 +33,13 @@ interface TerminalEntry {
   /** How many buffered chunks we've already written (monotonic, no double-write). */
   lastSeen: number;
   /**
+   * Whether this terminal has ever rendered output. A terminal with scrollback is
+   * kept alive across navigation even after the agent stops, so its history is
+   * preserved (we never replay, so a disposed terminal comes back blank). Only
+   * truly-empty, never-started terminals are disposed on unmount.
+   */
+  hasOutput: boolean;
+  /**
    * Last cols/rows we told the PTY about. A resize triggers SIGWINCH and the TUI
    * repaints on *any* SIGWINCH — even a same-size one — which lands a duplicate
    * banner over the first paint. So we only resize when the size actually
@@ -73,6 +80,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     container,
     opened: false,
     lastSeen: 0,
+    hasOutput: false,
     lastSent: null,
     unsub: () => {},
     inputSub: term.onData((data) => void sendAgentInput(issueKey, data)),
@@ -90,6 +98,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     while (entry.lastSeen < chunks.length) {
       term.write(decodeBase64(chunks[entry.lastSeen]));
       entry.lastSeen++;
+      entry.hasOutput = true;
     }
   };
   entry.lastSeen = (useBoardStore.getState().outputBuffers[issueKey] ?? []).length;
@@ -147,6 +156,7 @@ export function resetTerminal(issueKey: string): void {
   if (!entry) return;
   entry.term.reset();
   entry.lastSeen = 0;
+  entry.hasOutput = false;
 }
 
 /** Tear down a session's terminal entirely (store sub, input, renderer, DOM). */
