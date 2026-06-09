@@ -139,8 +139,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-prog);
-  box-shadow: 0 0 8px var(--c-prog);
+  background: var(--c-review);
+  box-shadow: 0 0 8px var(--c-review);
 }
 .rail .me {
   width: 32px;
@@ -558,14 +558,15 @@ button.epic-chip:hover {
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 10.5px;
-  color: var(--c-prog);
+  color: var(--c-review);
 }
 .waiting::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-prog);
+  background: var(--c-review);
+  box-shadow: 0 0 8px var(--c-review);
   animation: blink 1.6s steps(2) infinite;
 }
 @keyframes blink {

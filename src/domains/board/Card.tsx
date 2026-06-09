@@ -2,13 +2,13 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DragEvent, MouseEvent } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { statusOf, useBoardStore } from "@/domains/board/store";
 import { useJiraStore } from "@/domains/jira/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 import { browseUrl } from "@/domains/jira/url";
 
 interface CardProps {
   issue: Issue;
-  running: boolean;
   prs?: PullRequest[];
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
@@ -22,8 +22,11 @@ function prStateClass(state: string): string {
 
 // The card outer is a `div role="button"` (rather than a real `<button>`) so we can
 // nest a real `<button>` for the PR pill without breaking HTML's no-nested-interactives rule.
-export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
+export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
   const firstPr = prs && prs.length > 0 ? prs[0] : null;
+  const status = useBoardStore((s) =>
+    statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
+  );
   const site = useJiraStore((s) => s.session?.site ?? null);
   const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
 
@@ -47,7 +50,7 @@ export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
   return (
     // biome-ignore lint/a11y/useSemanticElements: needs to host a nested <button> for the PR pill (HTML forbids nested interactives) — keyboard activation handled
     <div
-      className={`card${running ? " glow" : ""}`}
+      className={`card${status === "working" ? " glow" : ""}`}
       draggable
       role="button"
       tabIndex={0}
@@ -59,7 +62,8 @@ export function Card({ issue, running, prs, onOpen, onDragStart }: CardProps) {
         <span className={`priority ${issue.priority}`} />
         <span className="ticket-id">{issue.key}</span>
         <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {running && <span className="thinking">working</span>}
+          {status === "working" && <span className="thinking">working</span>}
+          {status === "waiting" && <span className="waiting">waiting</span>}
           <AgentAvatar assignee={issue.assignee} />
         </span>
       </div>

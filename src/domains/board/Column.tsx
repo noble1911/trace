@@ -6,7 +6,6 @@ interface ColumnProps {
   column: BoardColumn;
   color: string;
   issues: Issue[];
-  runningKeys: Set<string>;
   pullRequests: Record<string, PullRequest[]>;
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
@@ -17,7 +16,6 @@ export function Column({
   column,
   color,
   issues,
-  runningKeys,
   pullRequests,
   onOpen,
   onDragStart,
@@ -42,7 +40,6 @@ export function Column({
             status={status}
             issues={issues.filter((i) => i.statusId === status.id)}
             multi={multi}
-            runningKeys={runningKeys}
             pullRequests={pullRequests}
             onOpen={onOpen}
             onDragStart={onDragStart}
@@ -59,7 +56,6 @@ interface StatusZoneProps {
   status: ColumnStatus;
   issues: Issue[];
   multi: boolean;
-  runningKeys: Set<string>;
   pullRequests: Record<string, PullRequest[]>;
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
@@ -70,7 +66,6 @@ function StatusZone({
   status,
   issues,
   multi,
-  runningKeys,
   pullRequests,
   onOpen,
   onDragStart,
@@ -99,7 +94,6 @@ function StatusZone({
           <Card
             key={issue.key}
             issue={issue}
-            running={runningKeys.has(issue.key)}
             prs={pullRequests[issue.key]}
             onOpen={onOpen}
             onDragStart={onDragStart}

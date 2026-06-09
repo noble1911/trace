@@ -34,6 +34,8 @@ export function App() {
   const refresh = useBoardStore((s) => s.refresh);
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
   const closeIssue = useBoardStore((s) => s.closeIssue);
+  const runningAgents = useBoardStore((s) => s.runningAgents);
+  const agentActivity = useBoardStore((s) => s.agentActivity);
   const sessions = useSessionsStore((s) => s.sessions);
   const selectedSessionId = useSessionsStore((s) => s.selectedId);
   const closeSession = useSessionsStore((s) => s.close);
@@ -135,7 +137,11 @@ export function App() {
   return (
     <>
       <div className="app">
-        <Rail nav={nav} onNav={setNav} waitingCount={0} />
+        <Rail
+          nav={nav}
+          onNav={setNav}
+          waitingCount={[...runningAgents].filter((k) => agentActivity[k] === "waiting").length}
+        />
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}

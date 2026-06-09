@@ -113,7 +113,6 @@ export function Board() {
             column={col}
             color={columnColor(i, data.columns.length)}
             issues={grouped[i]}
-            runningKeys={runningAgents}
             pullRequests={pullRequests}
             onOpen={openIssue}
             onDragStart={onDragStart}

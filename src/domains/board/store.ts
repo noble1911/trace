@@ -43,6 +43,24 @@ function persist(key: string, value: string) {
   }
 }
 
+/** Live state of an issue's agent. */
+export type SessionStatus = "idle" | "working" | "waiting";
+
+// A running agent flips from "working" to "waiting" after this much output
+// silence — Claude streams bytes while generating, so a quiet gap means it has
+// finished its turn and is waiting on the user.
+const WAITING_AFTER_MS = 1800;
+const waitingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Derive a session's status from the running set + activity flag. */
+export function statusOf(
+  running: boolean,
+  activity: "working" | "waiting" | undefined
+): SessionStatus {
+  if (!running) return "idle";
+  return activity ?? "working";
+}
+
 interface BoardStore {
   boardId: number | null;
   data: BoardData | null;
@@ -58,6 +76,8 @@ interface BoardStore {
   selectedIssueKey: string | null;
   /** Issue keys with a live Claude PTY session. */
   runningAgents: Set<string>;
+  /** For running agents: whether they're actively generating or awaiting input. */
+  agentActivity: Record<string, "working" | "waiting">;
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
   /**
@@ -91,6 +111,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   assigneeFilter: loadAssigneeFilter(),
   selectedIssueKey: null,
   runningAgents: new Set(),
+  agentActivity: {},
   pullRequests: {},
   outputBuffers: {},
 
@@ -167,15 +188,48 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const next = new Set(get().runningAgents);
     if (running) next.add(key);
     else next.delete(key);
-    set({ runningAgents: next });
+    set((s) => {
+      const agentActivity = { ...s.agentActivity };
+      if (running) {
+        // Just started — treat as working until output settles.
+        agentActivity[key] = "working";
+      } else {
+        // Stopped/exited — clear any activity and its pending timer.
+        delete agentActivity[key];
+        const t = waitingTimers.get(key);
+        if (t) {
+          clearTimeout(t);
+          waitingTimers.delete(key);
+        }
+      }
+      return { runningAgents: next, agentActivity };
+    });
   },
   appendOutput(workspaceId, chunk) {
     set((s) => {
       const prev = s.outputBuffers[workspaceId] ?? [];
-      return {
+      const out: Partial<BoardStore> = {
         outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, chunk] },
       };
+      // Output means the agent is generating — mark it working and (re)arm the
+      // timer that flips it to "waiting" once the stream goes quiet.
+      if (s.agentActivity[workspaceId] !== "working") {
+        out.agentActivity = { ...s.agentActivity, [workspaceId]: "working" };
+      }
+      return out;
     });
+    const existing = waitingTimers.get(workspaceId);
+    if (existing) clearTimeout(existing);
+    waitingTimers.set(
+      workspaceId,
+      setTimeout(() => {
+        waitingTimers.delete(workspaceId);
+        set((s) => {
+          if (!s.runningAgents.has(workspaceId)) return {};
+          return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
+        });
+      }, WAITING_AFTER_MS)
+    );
   },
   clearOutput(workspaceId) {
     set((s) => {

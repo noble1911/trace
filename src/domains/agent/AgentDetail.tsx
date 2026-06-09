@@ -4,7 +4,7 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
 import { activity } from "@/domains/activity/store";
-import { useBoardStore } from "@/domains/board/store";
+import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
@@ -71,6 +71,9 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
+  const status = useBoardStore((s) =>
+    statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
+  );
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const startingRef = useRef(false);
@@ -208,7 +211,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           <div className="ttl">{issue.summary}</div>
         </div>
         <div className="right">
-          {running && <span className="thinking">working</span>}
+          {status === "working" && <span className="thinking">working</span>}
+          {status === "waiting" && <span className="waiting">waiting</span>}
           {openPr && openPr.state !== "merged" ? (
             <button
               type="button"
@@ -315,7 +319,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "pr" && <PrPane issue={issue} />}
         </div>
 
-        {railOpen && <ContextRail issue={issue} running={running} site={site} repo={repoChoice} />}
+        {railOpen && <ContextRail issue={issue} status={status} site={site} repo={repoChoice} />}
       </div>
     </div>
   );

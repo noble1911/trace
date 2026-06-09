@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { toast } from "@/app/toast";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import type { SessionStatus } from "@/domains/board/store";
 import type { Issue } from "@/domains/jira/types";
 import { browseUrl } from "@/domains/jira/url";
 import { type Editor, openInEditor } from "@/ipc/editor";
@@ -14,7 +15,7 @@ const EDITORS: { id: Editor; label: string }[] = [
 
 interface ContextRailProps {
   issue: Issue;
-  running: boolean;
+  status: SessionStatus;
   site: string | null;
   /** The repo this ticket is assigned to (absolute path). */
   repo?: string;
@@ -63,8 +64,9 @@ function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
   );
 }
 
-export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
+export function ContextRail({ issue, status, site, repo }: ContextRailProps) {
   const slug = issue.key.toLowerCase();
+  const live = status !== "idle";
   const issueUrl = browseUrl(site, issue.key);
   const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
 
@@ -95,14 +97,16 @@ export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
             </span>
           </div>
         )}
-        {running ? (
+        <div className="ctx-row">
+          <span className="k">Status</span>
+          <span className="v plain">
+            {status === "working" && <span className="thinking">working</span>}
+            {status === "waiting" && <span className="waiting">waiting for input</span>}
+            {status === "idle" && "not started"}
+          </span>
+        </div>
+        {live && (
           <>
-            <div className="ctx-row">
-              <span className="k">Status</span>
-              <span className="v plain">
-                <span className="thinking">working</span>
-              </span>
-            </div>
             <div className="ctx-row">
               <span className="k">Branch</span>
               <span className="v">workspace/{slug}</span>
@@ -112,11 +116,6 @@ export function ContextRail({ issue, running, site, repo }: ContextRailProps) {
               <span className="v">.worktrees/{slug}</span>
             </div>
           </>
-        ) : (
-          <div className="ctx-row">
-            <span className="k">Status</span>
-            <span className="v plain">not started</span>
-          </div>
         )}
       </div>
 
