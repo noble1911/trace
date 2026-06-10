@@ -1,8 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
-import { StatusPill } from "@/components/StatusPill";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
@@ -10,7 +8,8 @@ import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/a
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
-import { agentArgs, agentModel } from "./defaults";
+import { DetailHeader } from "./DetailHeader";
+import { agentArgs, agentCli, agentModel, setAgentCli } from "./defaults";
 import { FilesPane } from "./FilesPane";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
@@ -37,20 +36,9 @@ interface AgentDetailProps {
   onBack: () => void;
 }
 
-const CLI_STORAGE_KEY = "trace.agentCli";
-
 // Stable reference so the board-store selector below doesn't return a brand-new
 // empty array on every render (which would churn re-renders).
 const EMPTY_PRS: PullRequest[] = [];
-
-function loadStoredCli(): AgentCli {
-  try {
-    const v = localStorage.getItem(CLI_STORAGE_KEY);
-    return v === "codex" ? "codex" : "claude";
-  } catch {
-    return "claude";
-  }
-}
 
 const RAIL_STORAGE_KEY = "trace.railOpen";
 
@@ -66,7 +54,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [tab, setTab] = useState<TabId>("chat");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
-  const [cli, setCli] = useState<AgentCli>(loadStoredCli);
+  const [cli, setCli] = useState<AgentCli>(agentCli);
   const [railOpen, setRailOpen] = useState(loadRailOpen);
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
@@ -98,12 +86,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
-    try {
-      localStorage.setItem(CLI_STORAGE_KEY, next);
-    } catch {
-      // localStorage can be unavailable in some sandboxed contexts — keep the
-      // in-memory choice and silently skip persistence.
-    }
+    setAgentCli(next);
   };
 
   const start = async () => {
@@ -198,80 +181,22 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
 
   return (
     <div className="detail">
-      <div className="detail-top">
-        <button type="button" className="back" onClick={onBack}>
-          <I.Back size={14} /> Board
-        </button>
-        <AgentAvatar assignee={issue.assignee} size="lg" />
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="id">{issue.key}</span>
-            <StatusPill name={issue.statusName} category={issue.statusCategory} />
-          </div>
-          <div className="ttl">{issue.summary}</div>
-        </div>
-        <div className="right">
-          {status === "working" && <span className="thinking">working</span>}
-          {status === "waiting" && <span className="waiting">waiting</span>}
-          {openPr && openPr.state !== "merged" ? (
-            <button
-              type="button"
-              className="btn success"
-              onClick={onMergePr}
-              disabled={busy === "merge"}
-            >
-              <I.Check size={13} /> {busy === "merge" ? "Merging…" : `Merge #${openPr.number}`}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn"
-              onClick={onRaisePr}
-              disabled={busy === "raise"}
-              title="Push branch and open a pull request via gh"
-            >
-              <I.GitPR size={13} /> {busy === "raise" ? "Raising…" : "Raise PR"}
-            </button>
-          )}
-          {running ? (
-            <button type="button" className="btn" onClick={stop}>
-              <I.X size={13} /> Stop session
-            </button>
-          ) : (
-            <>
-              <select
-                value={cli}
-                onChange={(e) => chooseCli(e.target.value as AgentCli)}
-                title="Which coding agent to launch"
-                style={{
-                  background: "var(--bg-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-sm)",
-                  color: "var(--fg-1)",
-                  height: 30,
-                  padding: "0 8px",
-                  fontSize: 12.5,
-                }}
-              >
-                <option value="claude">Claude</option>
-                <option value="codex">Codex</option>
-              </select>
-              <button type="button" className="btn primary" onClick={start}>
-                <I.Bolt size={13} /> Start {cli}
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={toggleRail}
-            title={railOpen ? "Hide details" : "Show details"}
-            aria-label={railOpen ? "Hide details panel" : "Show details panel"}
-          >
-            {railOpen ? <I.Chevron size={14} /> : <I.Back size={14} />}
-          </button>
-        </div>
-      </div>
+      <DetailHeader
+        issue={issue}
+        status={status}
+        running={running}
+        cli={cli}
+        openPr={openPr}
+        busy={busy}
+        railOpen={railOpen}
+        onBack={onBack}
+        onRaisePr={onRaisePr}
+        onMergePr={onMergePr}
+        onStart={start}
+        onStop={stop}
+        onChooseCli={chooseCli}
+        onToggleRail={toggleRail}
+      />
 
       {error && (
         <div style={{ padding: "8px 20px", color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>

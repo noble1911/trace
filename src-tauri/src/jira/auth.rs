@@ -8,9 +8,11 @@
 //! `gh`, `npm`, `aws`) reconnects silently. The token is never logged.
 //! When release builds are code-signed we can move back to the keychain.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+
+use crate::helpers::restrict_perms;
 
 use super::client;
 use super::models::{parse_user, JiraUser};
@@ -69,12 +71,3 @@ fn session_path() -> PathBuf {
         .join("trace")
         .join("jira-session.json")
 }
-
-#[cfg(unix)]
-fn restrict_perms(path: &Path) {
-    use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-}
-
-#[cfg(not(unix))]
-fn restrict_perms(_path: &Path) {}

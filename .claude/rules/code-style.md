@@ -38,4 +38,3 @@
 - `rustfmt` defaults. `Result<T, String>` at the command boundary; richer errors (`thiserror`) inside modules.
 - No `unwrap()`/`expect()` on fallible runtime paths — propagate with `?` and map at the edge.
 - Doc-comment (`///`) every public fn/struct with the *why*, matching the style already in `claude/pty.rs`.
-</content>

@@ -14,20 +14,37 @@ use super::JiraConnection;
 const ISSUE_FIELDS: &str =
     "summary,status,priority,issuetype,labels,assignee,description,reporter,epic,parent";
 
-/// List boards visible to the user (first page).
+/// List boards visible to the user. The Agile board endpoint pages with
+/// `startAt`/`isLast`, so we follow every page — a single request silently
+/// drops boards in orgs with more than one page of them.
 pub async fn list_boards(conn: &JiraConnection) -> Result<Vec<BoardSummary>, String> {
-    let v = client::get_query(conn, "/rest/agile/1.0/board", &[("maxResults", "50")]).await?;
-    let values = v.get("values").and_then(Value::as_array).cloned().unwrap_or_default();
-    Ok(values
-        .iter()
-        .filter_map(|b| {
+    let mut out = Vec::new();
+    let mut start_at: usize = 0;
+    loop {
+        let start = start_at.to_string();
+        let v = client::get_query(
+            conn,
+            "/rest/agile/1.0/board",
+            &[("maxResults", "50"), ("startAt", start.as_str())],
+        )
+        .await?;
+        let values = v.get("values").and_then(Value::as_array).cloned().unwrap_or_default();
+        let page_len = values.len();
+        out.extend(values.iter().filter_map(|b| {
             Some(BoardSummary {
                 id: b.get("id")?.as_i64()?,
                 name: b.get("name")?.as_str()?.to_string(),
                 board_type: b.get("type").and_then(Value::as_str).unwrap_or("scrum").to_string(),
             })
-        })
-        .collect())
+        }));
+        let is_last = v.get("isLast").and_then(Value::as_bool).unwrap_or(page_len == 0);
+        start_at += page_len;
+        // Stop at the last page; cap as a runaway guard (mirrors fetch_board_issues).
+        if is_last || page_len == 0 || out.len() >= 2000 {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 struct BoardConfig {
@@ -182,11 +199,12 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
         }
     }
 
-    let board_name = list_boards(conn)
+    // The board's own endpoint carries its name — no need to re-list every
+    // board just to resolve one.
+    let board_name = client::get(conn, &format!("/rest/agile/1.0/board/{board_id}"))
         .await
         .ok()
-        .and_then(|bs| bs.into_iter().find(|b| b.id == board_id))
-        .map(|b| b.name)
+        .and_then(|v| v.get("name").and_then(Value::as_str).map(str::to_string))
         .unwrap_or_else(|| format!("Board {board_id}"));
 
     Ok(BoardData {

@@ -1,7 +1,22 @@
 //! Small shared helpers used across modules.
 
+use std::path::Path;
+
 use chrono::Utc;
 use uuid::Uuid;
+
+/// Restrict a config file to user-only access (0600). Everything we persist
+/// under the config dir goes through this — session ids and repo paths aren't
+/// token-grade secrets, but a world-readable session id still lets another
+/// local user resume the conversation.
+#[cfg(unix)]
+pub fn restrict_perms(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+}
+
+#[cfg(not(unix))]
+pub fn restrict_perms(_path: &Path) {}
 
 /// Current time as an RFC3339 string.
 pub fn now_rfc3339() -> String {

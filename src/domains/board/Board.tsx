@@ -78,6 +78,12 @@ export function Board() {
       draggingRef.current = null;
     }
   };
+  // dragend bubbles up from the card even when the drop happened outside any
+  // StatusZone — without this a cancelled drag leaves a stale key that the
+  // next drop would move instead of the card actually dragged.
+  const onDragEnd = () => {
+    draggingRef.current = null;
+  };
 
   return (
     <div className="board">
@@ -106,7 +112,8 @@ export function Board() {
         </div>
       </div>
 
-      <div className="columns">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: dragend cleanup on the board container, not an interactive control */}
+      <div className="columns" onDragEnd={onDragEnd}>
         {data.columns.map((col, i) => (
           <Column
             key={col.name}

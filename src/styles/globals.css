@@ -915,6 +915,15 @@ button.epic-chip:hover {
   align-items: center;
   gap: 8px;
 }
+.cli-select {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-1);
+  height: 30px;
+  padding: 0 8px;
+  font-size: 12.5px;
+}
 .btn {
   display: inline-flex;
   align-items: center;
@@ -2075,6 +2084,9 @@ button.epic-chip:hover {
   color: #fff;
   font-weight: 700;
   flex-shrink: 0;
+}
+.ig-ic-jira {
+  background: linear-gradient(135deg, var(--c-jira), var(--c-jira-deep));
 }
 .ig-body {
   flex: 1;

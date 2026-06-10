@@ -1,31 +1,19 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { I } from "@/components/Icon";
+import {
+  agentArgsRaw,
+  agentCli,
+  agentModelRaw,
+  setAgentArgs,
+  setAgentCli,
+  setAgentModel,
+} from "@/domains/agent/defaults";
 import { useJiraStore } from "@/domains/jira/store";
 import type { AgentCli } from "@/ipc/agent";
 import { addRepo, listRepos, removeRepo } from "@/ipc/repos";
 
 const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
-
-const CLI_KEY = "trace.agentCli";
-const MODEL_KEY = "trace.agentModel";
-const ARGS_KEY = "trace.agentArgs";
-
-function read(key: string, fallback = ""): string {
-  try {
-    return localStorage.getItem(key) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-function write(key: string, value: string) {
-  try {
-    if (value) localStorage.setItem(key, value);
-    else localStorage.removeItem(key);
-  } catch {
-    // best-effort
-  }
-}
 
 // Settings: the local repo agents run in, agent defaults, and the Jira connection.
 export function SettingsView() {
@@ -35,21 +23,21 @@ export function SettingsView() {
 
   const [repos, setRepos] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [cli, setCli] = useState<AgentCli>(read(CLI_KEY) === "codex" ? "codex" : "claude");
-  const [model, setModel] = useState(read(MODEL_KEY));
-  const [args, setArgs] = useState(read(ARGS_KEY));
+  const [cli, setCli] = useState<AgentCli>(agentCli);
+  const [model, setModel] = useState(agentModelRaw);
+  const [args, setArgs] = useState(agentArgsRaw);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
-    write(CLI_KEY, next);
+    setAgentCli(next);
   };
   const chooseModel = (next: string) => {
     setModel(next);
-    write(MODEL_KEY, next.trim());
+    setAgentModel(next);
   };
   const chooseArgs = (next: string) => {
     setArgs(next);
-    write(ARGS_KEY, next.trim());
+    setAgentArgs(next);
   };
 
   useEffect(() => {
@@ -178,14 +166,7 @@ export function SettingsView() {
             <h2>Integrations</h2>
             <div className="desc">Where the board comes from.</div>
             <div className="integration-card">
-              <div
-                className="ig-ic"
-                style={{
-                  background: "linear-gradient(135deg, oklch(0.55 0.18 250), oklch(0.4 0.18 250))",
-                }}
-              >
-                J
-              </div>
+              <div className="ig-ic ig-ic-jira">J</div>
               <div className="ig-body">
                 <div className="ig-name">Jira{user ? ` · ${user.displayName}` : ""}</div>
                 <div className="ig-sub">

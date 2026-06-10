@@ -3,12 +3,13 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use tauri::{AppHandle, State};
 
 use crate::claude::pty::{spawn_agent_pty, spawn_shell_pty};
 use crate::git;
-use crate::helpers::{new_id, slugify};
+use crate::helpers::{new_id, restrict_perms, slugify};
 use crate::state::{AppState, StartGuard};
 
 // ---- repo-path persistence ------------------------------------------------
@@ -47,6 +48,12 @@ fn sessions_file() -> PathBuf {
         .join("sessions.json")
 }
 
+/// Serializes every load→mutate→save cycle on `sessions.json`. Two agents
+/// starting concurrently (the start guard is per-issue, not global) would
+/// otherwise read the same snapshot and the second write would drop the
+/// first one's mapping.
+static SESSIONS_FILE_LOCK: Mutex<()> = Mutex::new(());
+
 fn load_sessions() -> std::collections::HashMap<String, String> {
     std::fs::read_to_string(sessions_file())
         .ok()
@@ -60,20 +67,25 @@ fn save_sessions(map: &std::collections::HashMap<String, String>) -> Result<(), 
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string(map).map_err(|e| e.to_string())?;
-    std::fs::write(&path, json).map_err(|e| e.to_string())
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    restrict_perms(&path);
+    Ok(())
 }
 
 fn session_id_for(issue_key: &str) -> Option<String> {
+    let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     load_sessions().get(issue_key).cloned()
 }
 
 fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
+    let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let mut map = load_sessions();
     map.insert(issue_key.to_string(), id.to_string());
     save_sessions(&map)
 }
 
 pub(crate) fn forget_session_id(issue_key: &str) -> Result<(), String> {
+    let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let mut map = load_sessions();
     if map.remove(issue_key).is_some() {
         save_sessions(&map)?;

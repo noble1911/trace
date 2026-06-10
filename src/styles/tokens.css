@@ -32,6 +32,10 @@
   --c-danger: oklch(0.68 0.18 25);
   --c-warn: oklch(0.78 0.15 70);
 
+  /* Brand hues for integration icons */
+  --c-jira: oklch(0.55 0.18 250);
+  --c-jira-deep: oklch(0.4 0.18 250);
+
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;

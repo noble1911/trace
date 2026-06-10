@@ -6,15 +6,15 @@
 - Heuristics for *what* to split out:
   - A JSX block that renders an independent piece of UI → its own component file.
   - Repeated stateful logic → a hook (`src/domains/<d>/hooks/useX.ts` or `src/hooks/`).
-  - A pure transform → a function in the domain's `api.ts`/`utils`, unit-testable in isolation.
+  - A pure transform → a function in a small domain module (e.g. `columns.ts`), unit-testable in isolation.
   - A Rust concern that can be named in one phrase → its own module file.
 - `App.tsx` (< ~150 lines) and `lib.rs` are shells. If you're adding logic there, you're adding it in the wrong
   place.
 
 ## Frontend: domain folders
 
-- `src/domains/<domain>/` owns a feature. Typical contents: `api.ts` (typed calls), `types.ts`, `store.ts`
-  (Zustand slice), `components/`, optional `hooks/`.
+- `src/domains/<domain>/` owns a feature. Typical contents: `types.ts`, `store.ts` (Zustand slice), component
+  files, optional `hooks/`. Typed backend calls live in `src/ipc/<area>.ts`, **not** inside the domain.
 - **Cross-domain imports** use the absolute alias `@/domains/<other>`. **Within a domain**, use relative paths.
 - **No barrel files** (`index.ts` that only re-exports). Import from the source module directly.
 - Shared, domain-agnostic primitives live in `src/components/` (e.g. `Icon`, `AgentAvatar`, `StatusPill`,
@@ -32,8 +32,8 @@
 
 - **Client/session state:** Zustand stores, one slice per domain (`src/domains/<d>/store.ts`). No prop-drilling
   marathons, no 30-`useState` god component.
-- **Server (Jira) data:** fetch through `domains/jira/api.ts`; cache in a store or React Query. Do **not** keep
-  fetched Jira data in ad-hoc `useState`.
+- **Server (Jira) data:** fetch through the typed wrappers in `src/ipc/jira.ts`; cache in a store. Do **not**
+  keep fetched Jira data in ad-hoc `useState`.
 - **No localStorage effect-pairs.** If something must persist, wrap it once in a hook — don't sprinkle
   `useEffect(() => localStorage.setItem(...))` (a documented anti-pattern from the old project).
 
@@ -41,7 +41,7 @@
 
 - `commands/*.rs` contain only `#[tauri::command]` functions that validate inputs, call into a domain module,
   and map errors to `Result<T, String>`. No business logic.
-- Domain logic lives in `claude/`, `jira/`, `git.rs`, `database.rs`.
+- Domain logic lives in `claude/`, `jira/`, `git.rs`; shared mutable state in `state.rs` (`AppState`).
 - Register every command in the single `invoke_handler!` list in `lib.rs`.
 - Rust concurrency (carried over from the old project's hard-won lessons):
   - Use `std::thread::spawn` for Claude/PTY pump threads, not `tokio::spawn` (avoids runtime conflicts).
@@ -51,7 +51,7 @@
 
 - **New command:** add `#[tauri::command]` in the right `commands/*.rs`, register in `lib.rs`, add a typed
   wrapper in `src/ipc/`, call the wrapper from the frontend.
-- **New domain:** create `src/domains/<name>/` with `api.ts`/`types.ts`/`store.ts`/`components/`.
+- **New domain:** create `src/domains/<name>/` with `types.ts`/`store.ts`/components as needed; its backend
+  calls go in a new `src/ipc/<name>.ts`.
 - **New shared type (TS):** co-locate with its domain and `export` it; only truly global types go in a shared
   module.
-</content>

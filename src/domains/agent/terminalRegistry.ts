@@ -9,6 +9,12 @@ import { sendAgentInput } from "@/ipc/agent";
 // columns. Pass the literal font stack instead (mirrors tokens.css).
 const PTY_FONT = '"Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace';
 
+// Same constraint for colors: xterm paints to a canvas and can't resolve CSS
+// variables, so these mirror tokens.css (--bg-0 / --fg-1). If the tokens change,
+// change these too.
+const PTY_BG = "#050505"; // --bg-0
+const PTY_FG = "#ededed"; // --fg-1
+
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
@@ -69,7 +75,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     fontFamily: PTY_FONT,
     fontSize: 12,
     cursorBlink: true,
-    theme: { background: "#050505", foreground: "#ededed", cursor: "#ededed" },
+    theme: { background: PTY_BG, foreground: PTY_FG, cursor: PTY_FG },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);

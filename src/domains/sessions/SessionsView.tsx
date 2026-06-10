@@ -1,20 +1,11 @@
 import { type MouseEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
+import { agentCli, setAgentCli } from "@/domains/agent/defaults";
 import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import { NewSessionModal } from "./NewSessionModal";
 import { useSessionsStore } from "./store";
 import type { ScratchSession } from "./types";
-
-const CLI_KEY = "trace.agentCli";
-
-function storedCli(): AgentCli {
-  try {
-    return localStorage.getItem(CLI_KEY) === "codex" ? "codex" : "claude";
-  } catch {
-    return "claude";
-  }
-}
 
 function relTime(epochSecs: number): string {
   const diff = Date.now() / 1000 - epochSecs;
@@ -45,11 +36,7 @@ export function SessionsView() {
   const archived = sessions.filter((s) => s.archivedAt);
 
   const onCreate = (title: string, cli: AgentCli) => {
-    try {
-      localStorage.setItem(CLI_KEY, cli);
-    } catch {
-      // non-fatal — keep the in-memory choice
-    }
+    setAgentCli(cli);
     setCreating(false);
     void create(title, cli); // create() selects it, opening the detail overlay
   };
@@ -140,7 +127,7 @@ export function SessionsView() {
       </div>
       {creating && (
         <NewSessionModal
-          defaultCli={storedCli()}
+          defaultCli={agentCli()}
           onClose={() => setCreating(false)}
           onCreate={onCreate}
         />

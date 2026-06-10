@@ -167,6 +167,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const current = get().data;
       if (current) set({ data: { ...current, issues: snapshot } });
       toast.error(formatMoveError(err));
+      // The snapshot predates any move that raced this one, so reconcile with
+      // Jira rather than trusting it as the final state.
+      await get().refresh();
     }
   },
 
