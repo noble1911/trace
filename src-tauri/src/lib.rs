@@ -23,6 +23,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::jira::connect_jira,
@@ -58,6 +59,8 @@ pub fn run() {
             commands::session::delete_session,
             commands::session::start_session,
             commands::tests::run_tests,
+            commands::update::check_app_update,
+            commands::update::install_app_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

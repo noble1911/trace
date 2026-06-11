@@ -98,6 +98,17 @@ npx @biomejs/biome check src                 # lint + format check
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+## Releases & updates
+
+- Publishing a GitHub release (tag `vX.Y.Z`) triggers `.github/workflows/release.yml` — the only CI in the
+  repo, so credits are spent solely on releases. It builds `trace.app` at the tag's version and uploads a zip,
+  DMG, updater tarball + minisign signature, and `latest.json` to the release.
+- In-app updates (`tauri-plugin-updater`) poll `releases/latest/download/latest.json`; users install from
+  Settings → Updates. Signing needs the `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` repo secrets (same key pair as
+  claude-orchestrator; the pubkey is in `tauri.conf.json`).
+- Don't bump `version` in `Cargo.toml`/`tauri.conf.json` by hand for releases — the workflow syncs it from the
+  release tag.
+
 ## Non-negotiables (full list in .claude/rules/)
 
 - Keep files small (above). Split at the cap.

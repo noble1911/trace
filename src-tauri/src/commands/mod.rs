@@ -9,3 +9,4 @@ pub mod pr;
 pub mod repos;
 pub mod session;
 pub mod tests;
+pub mod update;

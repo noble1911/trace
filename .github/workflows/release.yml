@@ -1,0 +1,232 @@
+name: Release
+
+# Builds and uploads macOS release assets — runs ONLY when a GitHub release is
+# published (or manually for a tag), so no CI minutes are spent on pushes.
+#
+# Release flow:
+#   1. Tag + publish a GitHub release (tag like v0.2.0).
+#   2. This workflow builds trace.app at that version, packages a zip + DMG,
+#      and — when the updater signing secrets are present — an updater
+#      tarball, its minisign signature, and latest.json.
+#   3. The app's updater plugin polls
+#      releases/latest/download/latest.json, so publishing the release IS the
+#      update rollout.
+#
+# Required repo secrets for the in-app update path (same key pair as
+# claude-orchestrator): TAURI_SIGNING_PRIVATE_KEY,
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD. Without them the workflow still uploads
+# the zip/DMG, just no updater assets.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to build/upload (e.g. v0.2.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Build macOS release
+    runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.event.release.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref }}
+
+      - name: Resolve release publish date
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PUBLISHED_AT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq '.publishedAt')"
+          if [ -z "${PUBLISHED_AT:-}" ] || [ "$PUBLISHED_AT" = "null" ]; then
+            echo "::error::Unable to determine publishedAt for release tag '$RELEASE_TAG'."
+            exit 1
+          fi
+          echo "RELEASE_PUBLISHED_AT=$PUBLISHED_AT" >> "$GITHUB_ENV"
+
+      - name: Sync app version from release tag
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::RELEASE_TAG '$RELEASE_TAG' does not map to a valid semantic version."
+            exit 1
+          fi
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          awk -v version="$VERSION" '
+            BEGIN { updated = 0 }
+            !updated && /^version = "/ { print "version = \"" version "\""; updated = 1; next }
+            { print }
+            END { if (!updated) exit 1 }
+          ' src-tauri/Cargo.toml > src-tauri/Cargo.toml.tmp
+          mv src-tauri/Cargo.toml.tmp src-tauri/Cargo.toml
+
+          jq --arg version "$VERSION" '.version = $version' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+          echo "Build version set to $VERSION from tag $RELEASE_TAG"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve updater signing secrets (optional)
+        id: signing
+        env:
+          RAW_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RAW_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RAW_KEY:-}" ] || [ -z "${RAW_PASSWORD:-}" ]; then
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Updater signing secrets missing — building without updater assets."
+            exit 0
+          fi
+
+          KEY="${RAW_KEY//$'\r'/}"
+          # Accept keys pasted with literal '\n' sequences.
+          if [[ "$KEY" == *"\\n"* ]]; then
+            KEY="$(printf '%b' "$KEY")"
+          fi
+          # Accept already-base64-encoded key text.
+          if ! printf '%s' "$KEY" | grep -q '^untrusted comment:'; then
+            DECODED="$(printf '%s' "$KEY" | base64 --decode 2>/dev/null || true)"
+            if printf '%s' "$DECODED" | grep -q '^untrusted comment:'; then
+              KEY="$DECODED"
+            fi
+          fi
+          # Accept payload-only secrets (just the RW... line).
+          if ! printf '%s' "$KEY" | grep -q '^untrusted comment:'; then
+            if printf '%s' "$KEY" | grep -Eq '^RW[0-9A-Za-z+/=]+$'; then
+              KEY=$'untrusted comment: minisign encrypted secret key\n'"$KEY"
+            fi
+          fi
+          if ! printf '%s\n' "$KEY" | grep -q -E '^RW[0-9A-Za-z+/=]+$'; then
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY format not recognized — building without updater assets."
+            exit 0
+          fi
+
+          # Tauri expects the key base64-encoded; mask every transformed form.
+          KEY_B64="$(printf '%s' "$KEY" | base64 | tr -d '\n')"
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done <<< "$KEY"
+          echo "::add-mask::$KEY_B64"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY<<EOF"
+            printf '%s\n' "$KEY_B64"
+            echo "EOF"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<EOF"
+            printf '%s\n' "$RAW_PASSWORD"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+          echo "has_signing=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build app (+ updater artifacts when signing is enabled)
+        env:
+          HAS_SIGNING: ${{ steps.signing.outputs.has_signing }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_SIGNING" = "true" ]; then
+            npx tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          else
+            npx tauri build --bundles app
+          fi
+
+      - name: Package release assets
+        env:
+          HAS_SIGNING: ${{ steps.signing.outputs.has_signing }}
+        run: |
+          set -euo pipefail
+          TAG="$RELEASE_TAG"
+          APP_SOURCE="src-tauri/target/release/bundle/macos/trace.app"
+          mkdir -p builds release-assets
+          rm -rf "builds/trace.app"
+          ditto "$APP_SOURCE" "builds/trace.app"
+
+          # Re-sign ad-hoc if staging broke the signature (unsigned dev cert).
+          if ! codesign --verify --deep --strict "builds/trace.app"; then
+            codesign --force --deep --sign - "builds/trace.app"
+          fi
+
+          # DMG with the conventional /Applications shortcut.
+          rm -rf builds/dmg-root && mkdir -p builds/dmg-root
+          ditto "builds/trace.app" "builds/dmg-root/trace.app"
+          ln -sfn /Applications "builds/dmg-root/Applications"
+          hdiutil create -volname "trace" -srcfolder "builds/dmg-root" -ov -format UDZO "release-assets/trace-${TAG}-macos.dmg"
+          ditto -c -k --sequesterRsrc --keepParent "builds/trace.app" "release-assets/trace-${TAG}-macos-app.zip"
+
+          if [ "$HAS_SIGNING" != "true" ]; then
+            echo "Updater signing disabled; skipping updater assets and latest.json."
+            exit 0
+          fi
+
+          UPDATER_SOURCE="$(find src-tauri/target/release/bundle -type f -name '*.app.tar.gz' | head -n 1)"
+          UPDATER_SIG_SOURCE="$(find src-tauri/target/release/bundle -type f -name '*.app.tar.gz.sig' | head -n 1)"
+          if [ -z "$UPDATER_SOURCE" ] || [ -z "$UPDATER_SIG_SOURCE" ]; then
+            echo "::error::Updater bundle or signature not found after a signed build."
+            exit 1
+          fi
+          UPDATER_FILE="trace-${TAG}-macos-updater.tar.gz"
+          cp "$UPDATER_SOURCE" "release-assets/$UPDATER_FILE"
+          cp "$UPDATER_SIG_SOURCE" "release-assets/${UPDATER_FILE}.sig"
+
+          ARCH="$(uname -m)"
+          if [ "$ARCH" = "arm64" ]; then TARGET_ARCH="aarch64"; else TARGET_ARCH="x86_64"; fi
+          TARGET="darwin-${TARGET_ARCH}"
+          jq -n \
+            --arg version "$APP_VERSION" \
+            --arg notes "Release $APP_VERSION" \
+            --arg pub_date "$RELEASE_PUBLISHED_AT" \
+            --arg target "$TARGET" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${UPDATER_FILE}" \
+            --arg signature "$(cat "release-assets/${UPDATER_FILE}.sig")" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                ($target): { url: $url, signature: $signature },
+                (($target + "-app")): { url: $url, signature: $signature }
+              }
+            }' > release-assets/latest.json
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          fail_on_unmatched_files: false
+          files: |
+            release-assets/trace-${{ env.RELEASE_TAG }}-macos-app.zip
+            release-assets/trace-${{ env.RELEASE_TAG }}-macos.dmg
+            release-assets/trace-${{ env.RELEASE_TAG }}-macos-updater.tar.gz
+            release-assets/trace-${{ env.RELEASE_TAG }}-macos-updater.tar.gz.sig
+            release-assets/latest.json

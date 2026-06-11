@@ -12,6 +12,8 @@ import {
 import { useJiraStore } from "@/domains/jira/store";
 import type { AgentCli } from "@/ipc/agent";
 import { addRepo, listRepos, removeRepo } from "@/ipc/repos";
+import { TerminalSettings } from "./TerminalSettings";
+import { UpdateSettings } from "./UpdateSettings";
 
 const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
@@ -162,6 +164,8 @@ export function SettingsView() {
             </div>
           </section>
 
+          <TerminalSettings />
+
           <section className="setting-group">
             <h2>Integrations</h2>
             <div className="desc">Where the board comes from.</div>
@@ -186,6 +190,8 @@ export function SettingsView() {
               )}
             </div>
           </section>
+
+          <UpdateSettings />
         </div>
       </div>
     </div>
