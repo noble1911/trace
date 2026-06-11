@@ -1,0 +1,284 @@
+/* Issue card: layout, badges, drag ghost, running glow — extracted from globals.css; class names match the design handoff. */
+
+/* ============ Card ============ */
+.card {
+  position: relative;
+  background: var(--bg-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  cursor: grab;
+  transition:
+    border-color 0.15s,
+    transform 0.1s,
+    background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.card:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-3);
+}
+.card:active {
+  cursor: grabbing;
+}
+.card.dragging {
+  opacity: 0.5;
+}
+.card .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card .ticket-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.card .priority {
+  width: 4px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--fg-4);
+}
+.card .priority.p0 {
+  background: var(--c-danger);
+  box-shadow: 0 0 8px oklch(0.68 0.18 25 / 0.5);
+}
+.card .priority.p1 {
+  background: var(--c-warn);
+}
+.card .priority.p2 {
+  background: var(--fg-3);
+}
+.card .priority.p3 {
+  background: var(--fg-4);
+}
+.card .epic-line {
+  margin-top: 8px;
+}
+.epic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--c-review);
+  background: var(--c-review-bg);
+  border: 1px solid oklch(0.72 0.16 290 / 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.epic-chip svg {
+  flex-shrink: 0;
+}
+.epic-chip .epic-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.epic-chip {
+  cursor: pointer;
+}
+button.epic-chip:hover {
+  color: var(--fg-0);
+  border-color: oklch(0.72 0.16 290 / 0.55);
+}
+.card .title {
+  margin-top: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--fg-0);
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  text-wrap: pretty;
+}
+.card .meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+.card .meta .dot-sep {
+  color: var(--fg-4);
+}
+.card .agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-1);
+}
+.agent-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0a0a0a;
+  flex-shrink: 0;
+}
+.agent-avatar.lg {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.agent-avatar.xl {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.card .activity {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+
+/* Progress bar (rich card) */
+.progress {
+  margin-top: 10px;
+  height: 3px;
+  background: var(--bg-elev);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, oklch(0.72 0.16 290), oklch(0.78 0.15 70));
+  border-radius: 999px;
+}
+
+/* "thinking" indicator (animated underline) */
+.thinking {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--c-prog);
+}
+.thinking::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-prog);
+  box-shadow: 0 0 8px var(--c-prog);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+.waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--c-review);
+}
+.waiting::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-review);
+  box-shadow: 0 0 8px var(--c-review);
+  animation: blink 1.6s steps(2) infinite;
+}
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* Diff stats */
+.diff {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  display: inline-flex;
+  gap: 6px;
+}
+.diff .add {
+  color: var(--c-done);
+}
+.diff .del {
+  color: var(--c-danger);
+}
+
+/* PR pill */
+.pr-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.pr-pill.open {
+  color: var(--c-review);
+  border-color: oklch(0.72 0.16 290 / 0.4);
+  background: var(--c-review-bg);
+}
+.pr-pill.draft {
+  color: var(--fg-2);
+}
+.pr-pill.merged {
+  color: var(--c-done);
+  border-color: oklch(0.74 0.14 155 / 0.4);
+  background: var(--c-done-bg);
+}
+.pr-pill.closed {
+  color: var(--c-danger);
+  border-color: oklch(0.68 0.18 25 / 0.4);
+  background: oklch(0.68 0.18 25 / 0.12);
+}
+
+/* Drag ghost */
+.placeholder {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  height: 84px;
+  background: var(--bg-1);
+}
+
+/* Subtle glow on in-progress card */
+.card.glow {
+  box-shadow:
+    0 0 0 1px oklch(0.78 0.15 70 / 0.25),
+    0 0 24px -8px oklch(0.78 0.15 70 / 0.3);
+}
+.card.glow:hover {
+  box-shadow:
+    0 0 0 1px oklch(0.78 0.15 70 / 0.5),
+    0 0 32px -6px oklch(0.78 0.15 70 / 0.4);
+}
+

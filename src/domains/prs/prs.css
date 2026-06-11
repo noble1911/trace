@@ -1,0 +1,127 @@
+/* PRs page: unified pull-request list — extracted from globals.css; class names match the design handoff. */
+
+/* PRs page — unified list */
+.pr-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-1);
+  overflow: hidden;
+}
+.pr-row-head,
+.pr-row {
+  display: grid;
+  grid-template-columns: 26px 56px minmax(0, 1fr) minmax(0, 200px) 168px 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+.pr-row-head {
+  height: 34px;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-4);
+}
+.pr-row {
+  height: 48px;
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.pr-row:last-child {
+  border-bottom: 0;
+}
+.pr-row:hover {
+  background: var(--bg-2);
+}
+.pr-row:focus-visible {
+  outline: none;
+  background: var(--bg-2);
+  box-shadow: inset 2px 0 0 var(--c-accent);
+}
+.pr-row .status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--bg-3);
+}
+.pr-row .status-dot.open {
+  color: var(--c-review);
+}
+.pr-row .status-dot.merged {
+  color: var(--c-done);
+}
+.pr-row .status-dot.draft {
+  color: var(--fg-2);
+}
+.pr-row .status-dot.closed {
+  color: var(--c-danger);
+}
+.pr-row .num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.pr-row .ttl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--fg-1);
+}
+.pr-row .ttl .text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-row .ticket {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  background: var(--bg-3);
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.pr-row .ticket:hover {
+  color: var(--fg-0);
+  border-color: var(--border);
+}
+.pr-row .branch {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-row .who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.pr-row .who .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-row-head .col-state,
+.pr-row .col-state {
+  justify-self: end;
+}
+.pr-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--fg-4);
+  font-size: 13px;
+}
+

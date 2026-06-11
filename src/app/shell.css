@@ -1,0 +1,214 @@
+/* App shell (rail, topbar) + toasts — extracted from globals.css; class names match the design handoff. */
+
+/* ============ App shell ============ */
+.app {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: 52px 1fr;
+  grid-template-areas:
+    "rail topbar"
+    "rail main";
+  height: 100vh;
+}
+
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-faint);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  z-index: 20;
+}
+.topbar .crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.topbar .crumbs .sep {
+  color: var(--fg-4);
+}
+.topbar .crumbs .project {
+  color: var(--fg-0);
+  font-weight: 500;
+}
+.topbar .search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  color: var(--fg-3);
+  width: 280px;
+  font-size: 13px;
+}
+.topbar .search:focus-within {
+  border-color: var(--border-strong);
+  color: var(--fg-1);
+}
+.topbar .search input {
+  flex: 1;
+}
+.topbar .search kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-3);
+  background: var(--bg-1);
+}
+.topbar .actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 8px;
+  border-right: 1px solid var(--border-faint);
+  background: var(--bg-0);
+  z-index: 21;
+}
+.rail .logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, oklch(0.72 0.16 290), oklch(0.78 0.15 70));
+  display: grid;
+  place-items: center;
+  color: #0a0a0a;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 16px;
+  box-shadow: 0 0 24px -4px oklch(0.72 0.16 290 / 0.5);
+}
+.rail .nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  align-items: center;
+}
+.rail .nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--fg-3);
+  position: relative;
+}
+.rail .nav-btn:hover {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+.rail .nav-btn.active {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+.rail .nav-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 16px;
+  background: var(--fg-0);
+  border-radius: 2px;
+}
+.rail .nav-btn .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-review);
+  box-shadow: 0 0 8px var(--c-review);
+}
+.rail .me {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #555, #222);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--fg-1);
+  font-weight: 600;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+}
+
+/* ============ Toasts ============ */
+.toaster {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  font-size: 12.5px;
+  color: var(--fg-1);
+  animation: toast-in 0.18s ease;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast .toast-ic {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.toast.error {
+  border-color: oklch(0.68 0.18 25 / 0.5);
+}
+.toast.error .toast-ic {
+  color: var(--c-danger);
+}
+.toast.success .toast-ic {
+  color: var(--c-done);
+}
+.toast.info .toast-ic {
+  color: var(--c-accent);
+}
+.toast .toast-msg {
+  flex: 1;
+  line-height: 1.45;
+}
+.toast .toast-x {
+  flex-shrink: 0;
+  color: var(--fg-4);
+  margin-top: 1px;
+}
+.toast .toast-x:hover {
+  color: var(--fg-1);
+}
+

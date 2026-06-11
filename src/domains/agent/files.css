@@ -1,0 +1,170 @@
+/* Agent files tab: file tree + diff viewer — extracted from globals.css; class names match the design handoff. */
+
+/* File tree / diff */
+.files-pane {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100%;
+}
+.file-tree {
+  border-right: 1px solid var(--border-faint);
+  overflow-y: auto;
+  padding: 10px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.file-tree .node {
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: var(--fg-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.file-tree .node:hover {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+.file-tree .node.active {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.file-tree .node .stat {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 8px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+/* Fixed, right-aligned cells so the + and − columns line up down the list. */
+.file-tree .node .add,
+.file-tree .node .del {
+  min-width: 26px;
+  text-align: right;
+}
+.file-tree .node .add {
+  color: var(--c-done);
+}
+.file-tree .node .del {
+  color: var(--c-danger);
+}
+.file-tree .node .new {
+  color: var(--c-done);
+  font-style: italic;
+}
+.file-tree .group {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-4);
+  padding: 10px 8px 4px;
+}
+
+.diff-pane {
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.diff-head {
+  position: sticky;
+  top: 0;
+  padding: 10px 16px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.diff-head .path {
+  color: var(--fg-1);
+}
+.diff-head .stat {
+  color: var(--fg-3);
+  margin-left: auto;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 40px 40px 1fr;
+  align-items: stretch;
+}
+.diff-line .ln {
+  text-align: right;
+  padding: 0 8px;
+  color: var(--fg-4);
+  user-select: none;
+}
+.diff-line .content {
+  padding: 0 12px;
+  white-space: pre;
+}
+.diff-line.add {
+  background: oklch(0.74 0.14 155 / 0.08);
+}
+.diff-line.add .content {
+  color: oklch(0.85 0.12 155);
+}
+.diff-line.add .content::before {
+  content: "+ ";
+  color: var(--c-done);
+}
+.diff-line.del {
+  background: oklch(0.68 0.18 25 / 0.08);
+}
+.diff-line.del .content {
+  color: oklch(0.82 0.13 25);
+}
+.diff-line.del .content::before {
+  content: "- ";
+  color: var(--c-danger);
+}
+.diff-line.ctx .content::before {
+  content: "  ";
+}
+.diff-hunk {
+  background: var(--bg-2);
+  color: var(--fg-3);
+  padding: 4px 16px;
+  font-size: 11.5px;
+  border-top: 1px solid var(--border-faint);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+/* Terminal */
+.terminal {
+  background: var(--bg-0);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 18px;
+  color: var(--fg-1);
+  height: 100%;
+  overflow-y: auto;
+}
+.terminal .prompt {
+  color: var(--c-accent);
+}
+.terminal .dim {
+  color: var(--fg-3);
+}
+.terminal .ok {
+  color: var(--c-done);
+}
+.terminal .err {
+  color: var(--c-danger);
+}
+.terminal .warn {
+  color: var(--c-warn);
+}
+.terminal .cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--fg-1);
+  vertical-align: middle;
+  animation: blink 1s steps(2) infinite;
+}
+
