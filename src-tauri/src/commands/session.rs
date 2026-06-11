@@ -28,6 +28,12 @@ pub struct ScratchSession {
     /// automatically after the retention window.
     #[serde(default)]
     pub archived_at: Option<u64>,
+    /// Owning tab id (`commands::groups`); `None` = the default tab.
+    #[serde(default)]
+    pub tab: Option<String>,
+    /// Section id within the tab; `None` = the tab's unsectioned area.
+    #[serde(default)]
+    pub section: Option<String>,
 }
 
 /// How long an archived session lingers before it's auto-purged (14 days).
@@ -92,8 +98,15 @@ pub fn create_session(title: String, cli: String) -> Result<ScratchSession, Stri
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
-    let session =
-        ScratchSession { id: new_id(), title, cli, created_at: now_secs(), archived_at: None };
+    let session = ScratchSession {
+        id: new_id(),
+        title,
+        cli,
+        created_at: now_secs(),
+        archived_at: None,
+        tab: None,
+        section: None,
+    };
     let mut list = load();
     list.push(session.clone());
     save(&list)?;
@@ -119,6 +132,56 @@ pub fn rename_session(id: String, title: String) -> Result<ScratchSession, Strin
     let renamed = renamed.ok_or("That session no longer exists.")?;
     save(&list)?;
     Ok(renamed)
+}
+
+/// File a session under a tab and/or section (`None` = default/unsectioned).
+#[tauri::command]
+pub fn set_session_group(
+    id: String,
+    tab: Option<String>,
+    section: Option<String>,
+) -> Result<ScratchSession, String> {
+    let mut list = load();
+    let Some(s) = list.iter_mut().find(|s| s.id == id) else {
+        return Err("That session no longer exists.".to_string());
+    };
+    s.tab = tab;
+    s.section = section;
+    let updated = s.clone();
+    save(&list)?;
+    Ok(updated)
+}
+
+/// Clear session refs to tabs/sections that no longer exist (after a
+/// groups save deleted them). Sessions fall back to default/unsectioned.
+pub(crate) fn reconcile_groups(
+    groups: &crate::commands::groups::SessionGroups,
+) -> Result<(), String> {
+    let mut list = load();
+    let mut changed = false;
+    for s in &mut list {
+        if let Some(tab) = &s.tab {
+            if !groups.tabs.iter().any(|t| &t.id == tab) {
+                s.tab = None;
+                s.section = None;
+                changed = true;
+            }
+        }
+        if let Some(section) = &s.section {
+            let valid = groups
+                .sections
+                .iter()
+                .any(|sec| &sec.id == section && sec.tab == s.tab);
+            if !valid {
+                s.section = None;
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        save(&list)?;
+    }
+    Ok(())
 }
 
 /// Move a session to the recycle bin: stop its PTY but keep its metadata and

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ScratchSession } from "@/domains/sessions/types";
+import type { ScratchSession, SessionGroups } from "@/domains/sessions/types";
 import type { AgentCli } from "./agent";
 
 // Typed wrappers around the exploratory-session commands. Start/stop/input/resize
@@ -27,6 +27,25 @@ export function unarchiveSession(id: string): Promise<void> {
 
 export function deleteSession(id: string): Promise<void> {
   return invoke("delete_session", { id });
+}
+
+/** Tabs + sections, in display order. */
+export function listSessionGroups(): Promise<SessionGroups> {
+  return invoke("list_session_groups");
+}
+
+/** Replace the whole structure; returns it sanitized (dangling refs cleared). */
+export function saveSessionGroups(groups: SessionGroups): Promise<SessionGroups> {
+  return invoke("save_session_groups", { groups });
+}
+
+/** File a session under a tab and/or section (null = default/unsectioned). */
+export function setSessionGroup(
+  id: string,
+  tab: string | null,
+  section: string | null
+): Promise<ScratchSession> {
+  return invoke("set_session_group", { id, tab, section });
 }
 
 export function startSession(

@@ -4,6 +4,7 @@
 pub mod agent;
 pub mod diff;
 pub mod editor;
+pub mod groups;
 pub mod jira;
 pub mod pr;
 pub mod repos;
