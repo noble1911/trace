@@ -2,6 +2,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useState } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { dedupePrs } from "@/domains/board/prDedupe";
 import { useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 
@@ -43,20 +44,20 @@ export function PrsView() {
   const openIssue = useBoardStore((s) => s.openIssue);
   const [tab, setTab] = useState<Tab>("open");
 
-  // Bucket every PR once, de-duplicating by url. The dev-status endpoint can
-  // report the same PR under multiple issues (it closes several) or multiple
-  // GitHub instances, which previously produced duplicate React keys — that
-  // broke reconciliation and left stale rows visible after a tab switch.
-  const buckets: Record<Tab, Row[]> = { open: [], draft: [], merged: [], closed: [] };
-  const seen = new Set<string>();
+  // Bucket every PR once, de-duplicating by url with state finality — the
+  // dev-status endpoint reports the same PR under every issue it closes, and
+  // a stale per-issue cache ("open") must not shadow a fresh one ("merged").
+  const entries: [PullRequest, Issue][] = [];
   if (data) {
     for (const issue of data.issues) {
       for (const pr of pullRequests[issue.key] ?? []) {
-        if (!pr.url || seen.has(pr.url)) continue;
-        seen.add(pr.url);
-        buckets[bucketOf(pr.state)].push({ pr, issue });
+        entries.push([pr, issue]);
       }
     }
+  }
+  const buckets: Record<Tab, Row[]> = { open: [], draft: [], merged: [], closed: [] };
+  for (const [pr, issue] of dedupePrs(entries)) {
+    buckets[bucketOf(pr.state)].push({ pr, issue });
   }
   const list = buckets[tab];
 

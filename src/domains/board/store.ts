@@ -81,6 +81,15 @@ function maybeNotifyWaiting(workspaceId: string) {
   void notify(`${title} is waiting`, "The agent finished its turn and needs your input.");
 }
 
+/** An agent finishing its turn may have just raised or merged a PR via gh —
+ * re-check the issue's dev-status so badges don't go stale. */
+function refreshPrsFor(workspaceId: string) {
+  if (workspaceId.startsWith("term:")) return;
+  const { data, refreshIssuePrs } = useBoardStore.getState();
+  const issue = data?.issues.find((i) => i.key === workspaceId);
+  if (issue) void refreshIssuePrs(issue.key, issue.id);
+}
+
 /** Derive a session's status from the running set + activity flag. */
 export function statusOf(
   running: boolean,
@@ -136,6 +145,8 @@ interface BoardStore {
   clearOutput: (workspaceId: string) => void;
   /** Re-fetch PRs for one issue (after raise / merge). */
   refreshIssuePrs: (issueKey: string, issueId: string) => Promise<void>;
+  /** Re-fetch PRs for every issue (window focus, periodic catch-up). */
+  refreshAllPrs: () => void;
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -301,6 +312,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
         });
         maybeNotifyWaiting(workspaceId);
+        refreshPrsFor(workspaceId);
       }, WAITING_AFTER_MS)
     );
   },
@@ -313,10 +325,33 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
   async refreshIssuePrs(issueKey, issueId) {
     try {
-      const prs = await getIssuePullRequests(issueId);
+      // Targeted refresh → bust Jira's cache; this is the path that runs
+      // right after something changed the PR's state.
+      const prs = await getIssuePullRequests(issueId, true);
       set((s) => ({ pullRequests: { ...s.pullRequests, [issueKey]: prs } }));
     } catch {
       // Silent — dev-status unavailability isn't worth surfacing here.
+    }
+  },
+  refreshAllPrs() {
+    const { data, pullRequests } = get();
+    if (!data) return;
+    for (const issue of data.issues) {
+      // Cache-bust only issues whose known PRs are still in a live state —
+      // those are the ones Jira's cache can hold wrong in a way that matters.
+      // Merged/declined are final; issues with no PRs stay on the cheap path.
+      const fresh =
+        pullRequests[issue.key]?.some((pr) => pr.state !== "merged" && pr.state !== "declined") ??
+        false;
+      getIssuePullRequests(issue.id, fresh)
+        .then((prs) => {
+          set((s) => {
+            // Skip no-op updates, but do clear an entry whose PRs vanished.
+            if (prs.length === 0 && !s.pullRequests[issue.key]) return {};
+            return { pullRequests: { ...s.pullRequests, [issue.key]: prs } };
+          });
+        })
+        .catch(() => {});
     }
   },
 }));

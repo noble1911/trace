@@ -38,6 +38,8 @@ export function transitionJiraIssue(issueKey: string, targetStatusIds: string[])
   return invoke("transition_jira_issue", { issueKey, targetStatusIds });
 }
 
-export function getIssuePullRequests(issueId: string): Promise<PullRequest[]> {
-  return invoke("get_issue_pull_requests", { issueId });
+/** `fresh` busts Jira's dev-status cache (re-syncs from GitHub) — use for
+ * targeted single-issue refreshes, not bulk fan-outs. */
+export function getIssuePullRequests(issueId: string, fresh = false): Promise<PullRequest[]> {
+  return invoke("get_issue_pull_requests", { issueId, fresh });
 }

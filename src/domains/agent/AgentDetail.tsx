@@ -91,6 +91,11 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     if (status === "waiting") ackWaiting(issue.key);
   }, [status, issue.key, ackWaiting]);
 
+  // Re-check this issue's PRs on open — they change outside the app.
+  useEffect(() => {
+    void refreshIssuePrs(issue.key, issue.id);
+  }, [issue.key, issue.id, refreshIssuePrs]);
+
   const chooseCli = (next: AgentCli) => {
     setCli(next);
     setAgentCli(next);

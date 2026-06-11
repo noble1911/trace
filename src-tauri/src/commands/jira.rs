@@ -88,9 +88,10 @@ pub async fn get_jira_board(
 pub async fn get_issue_pull_requests(
     state: State<'_, AppState>,
     issue_id: String,
+    fresh: Option<bool>,
 ) -> Result<Vec<PullRequest>, String> {
     let conn = current_conn(&state)?;
-    dev::get_pull_requests(&conn, &issue_id).await
+    dev::get_pull_requests(&conn, &issue_id, fresh.unwrap_or(false)).await
 }
 
 #[tauri::command]

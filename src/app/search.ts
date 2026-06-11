@@ -1,4 +1,6 @@
+import { dedupePrs } from "@/domains/board/prDedupe";
 import { useBoardStore } from "@/domains/board/store";
+import type { PullRequest } from "@/domains/jira/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 
 // Global search over everything the app already holds in memory: board
@@ -100,20 +102,20 @@ export function runSearch(query: string): SearchResults {
     }
   }
 
-  const seenPr = new Set<string>();
-  for (const [issueKey, prs] of Object.entries(board.pullRequests)) {
-    for (const pr of prs) {
-      if (out.prs.length >= PER_GROUP) break;
-      if (!pr.url || seenPr.has(pr.url)) continue;
-      seenPr.add(pr.url);
-      if (`#${pr.number} ${pr.title} ${issueKey}`.toLowerCase().includes(q)) {
-        out.prs.push({
-          kind: "pr",
-          url: pr.url,
-          title: pr.title,
-          sub: `#${pr.number} · ${pr.state}`,
-        });
-      }
+  // Dedupe by url with state finality first — a stale per-issue cache must
+  // not surface a closed PR as "open" (see prDedupe).
+  const prEntries = Object.entries(board.pullRequests).flatMap(([issueKey, prs]) =>
+    prs.map((pr): [PullRequest, string] => [pr, issueKey])
+  );
+  for (const [pr, issueKey] of dedupePrs(prEntries)) {
+    if (out.prs.length >= PER_GROUP) break;
+    if (`#${pr.number} ${pr.title} ${issueKey}`.toLowerCase().includes(q)) {
+      out.prs.push({
+        kind: "pr",
+        url: pr.url,
+        title: pr.title,
+        sub: `#${pr.number} · ${pr.state}`,
+      });
     }
   }
 

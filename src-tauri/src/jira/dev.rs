@@ -11,20 +11,26 @@ use super::JiraConnection;
 /// PRs linked to the issue's numeric id, across configured GitHub instances.
 /// Returns an empty list (not an error) when no PRs / no integration — the UI
 /// just renders no badge in that case.
+///
+/// `fresh` adds `resetCache=true`, forcing Jira to re-sync from GitHub
+/// instead of serving its cache — Jira's dev-status can hold a stale state
+/// (e.g. a closed PR still "open") indefinitely when a webhook was missed.
+/// Costs a GitHub round-trip on Jira's side, so callers use it for targeted
+/// single-issue refreshes, not bulk fan-outs.
 pub async fn get_pull_requests(
     conn: &JiraConnection,
     issue_id: &str,
+    fresh: bool,
 ) -> Result<Vec<PullRequest>, String> {
-    let v = client::get_query(
-        conn,
-        "/rest/dev-status/latest/issue/detail",
-        &[
-            ("issueId", issue_id),
-            ("applicationType", "GitHub"),
-            ("dataType", "pullrequest"),
-        ],
-    )
-    .await?;
+    let mut query = vec![
+        ("issueId", issue_id),
+        ("applicationType", "GitHub"),
+        ("dataType", "pullrequest"),
+    ];
+    if fresh {
+        query.push(("resetCache", "true"));
+    }
+    let v = client::get_query(conn, "/rest/dev-status/latest/issue/detail", &query).await?;
 
     let mut out = Vec::new();
     for detail in v.get("detail").and_then(Value::as_array).into_iter().flatten() {

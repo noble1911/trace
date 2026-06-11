@@ -82,6 +82,21 @@ export function App() {
     if (session && selectedBoardId != null) void loadBoard(selectedBoardId);
   }, [session, selectedBoardId, loadBoard]);
 
+  // PR statuses change outside the app (agents run gh; merges happen in the
+  // browser) — re-check them when the window regains focus, at most once a
+  // minute. Catches both state changes and brand-new PRs.
+  const refreshAllPrs = useBoardStore((s) => s.refreshAllPrs);
+  useEffect(() => {
+    let last = 0;
+    const onFocus = () => {
+      if (Date.now() - last < 60_000) return;
+      last = Date.now();
+      refreshAllPrs();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshAllPrs]);
+
   // Agents waiting on input that the user hasn't looked at yet (shells
   // excluded — they're always "waiting"; viewing a session acknowledges it).
   const waitingCount = [...runningAgents].filter(
