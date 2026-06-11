@@ -72,11 +72,16 @@ fn validate_repo(path: &str) -> Result<(), String> {
 
 /// The repo a workspace is assigned to. Errors (prompting assignment) if none.
 pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
-    load()
-        .assignments
-        .get(workspace_id)
-        .cloned()
-        .ok_or_else(|| "No repository assigned yet — pick one to start.".to_string())
+    let cfg = load();
+    if let Some(repo) = cfg.assignments.get(workspace_id) {
+        return Ok(repo.clone());
+    }
+    // With exactly one configured repo there's no ambiguity — auto-assign so
+    // board-drag auto-start works without opening the card to pick.
+    if cfg.repos.len() == 1 {
+        return Ok(cfg.repos[0].clone());
+    }
+    Err("No repository assigned yet — open the card and pick one to start.".to_string())
 }
 
 /// First configured repo — the default for exploratory sessions and as a

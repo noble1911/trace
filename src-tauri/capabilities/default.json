@@ -3,5 +3,11 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
-  "permissions": ["core:default", "opener:default", "dialog:allow-open"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-badge-count",
+    "opener:default",
+    "dialog:allow-open",
+    "notification:default"
+  ]
 }

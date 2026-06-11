@@ -34,6 +34,10 @@ pub struct BoardSummary {
 pub struct ColumnStatus {
     pub id: String,
     pub name: String,
+    /// Jira status category key: `new` | `indeterminate` | `done`. Lets the
+    /// frontend tell "work starts here" columns from to-do/done ones without
+    /// hardcoding column names.
+    pub category: String,
 }
 
 #[derive(Serialize, Clone)]

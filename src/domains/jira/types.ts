@@ -22,6 +22,8 @@ export interface BoardSummary {
 export interface ColumnStatus {
   id: string;
   name: string;
+  /** Jira status category — "indeterminate" marks in-progress-ish statuses. */
+  category: StatusCategory;
 }
 
 export interface BoardColumn {

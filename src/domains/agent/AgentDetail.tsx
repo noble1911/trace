@@ -4,20 +4,20 @@ import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { type AgentCli, resetAgentSession, startAgent, stopAgent } from "@/ipc/agent";
+import { type AgentCli, resetAgentSession, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
 import { DetailHeader } from "./DetailHeader";
-import { agentArgs, agentCli, agentModel, setAgentCli } from "./defaults";
+import { agentCli, setAgentCli } from "./defaults";
 import { FilesPane } from "./FilesPane";
+import { launchIssueAgent } from "./launch";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
 import { StartPrompt } from "./StartPrompt";
 import { TerminalPane } from "./TerminalPane";
 import { TestsPane } from "./TestsPane";
 import { TicketPane } from "./TicketPane";
-import { fitTerminal, resetTerminal } from "./terminalRegistry";
 
 type TabId = "chat" | "ticket" | "files" | "terminal" | "tests" | "pr";
 
@@ -101,20 +101,14 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     }
     startingRef.current = true;
     setError(null);
-    // The terminal is already mounted (behind the StartPrompt overlay) and fitted
-    // to the real pane, so we spawn the PTY at its exact size — no spawn-time
-    // SIGWINCH, which is what used to repaint the banner a second time. Clear any
-    // prior session's buffer/screen so a re-run starts clean.
-    const size = fitTerminal(issue.key) ?? { cols: 80, rows: 24 };
-    clearOutput(issue.key);
-    resetTerminal(issue.key);
     try {
       // Remember which repo this ticket runs in — the backend resolves it for
       // every subsequent terminal/files/tests/PR command on this issue.
       await setIssueRepo(issue.key, repoChoice);
-      await startAgent(issue.key, size.cols, size.rows, agentModel(), cli, agentArgs());
-      setAgentRunning(issue.key, true);
-      activity.log({ kind: "agent-start", issueKey: issue.key, title: `started ${cli}` });
+      // The terminal is already mounted (behind the StartPrompt overlay) and
+      // fitted, so launch spawns the PTY at its exact size — no spawn-time
+      // SIGWINCH double-painting the banner.
+      await launchIssueAgent(issue.key, cli);
     } catch (err) {
       setError(String(err));
     } finally {

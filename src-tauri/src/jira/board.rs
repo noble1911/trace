@@ -67,15 +67,19 @@ async fn board_config(conn: &JiraConnection, board_id: i64) -> Result<BoardConfi
         .iter()
         .filter_map(|col| {
             let name = col.get("name")?.as_str()?.to_string();
-            // columnConfig statuses carry only an id; names are filled in later
-            // from the status-name map (see `get_board`).
+            // columnConfig statuses carry only an id; names and categories are
+            // filled in later from the status map (see `get_board`).
             let statuses = col
                 .get("statuses")
                 .and_then(Value::as_array)
                 .map(|arr| {
                     arr.iter()
                         .filter_map(|s| s.get("id").and_then(Value::as_str))
-                        .map(|id| ColumnStatus { id: id.to_string(), name: id.to_string() })
+                        .map(|id| ColumnStatus {
+                            id: id.to_string(),
+                            name: id.to_string(),
+                            category: "new".to_string(),
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -90,10 +94,10 @@ async fn board_config(conn: &JiraConnection, board_id: i64) -> Result<BoardConfi
     Ok(BoardConfig { columns, filter_id })
 }
 
-/// id → display name for every status in the instance, so a column's statuses
-/// (which arrive as bare ids) can be labelled — including empty ones. Best
-/// effort: returns whatever it can, names fall back to the id.
-async fn fetch_status_names(conn: &JiraConnection) -> HashMap<String, String> {
+/// id → (display name, category key) for every status in the instance, so a
+/// column's statuses (which arrive as bare ids) can be labelled — including
+/// empty ones. Best effort: returns whatever it can, names fall back to the id.
+async fn fetch_status_meta(conn: &JiraConnection) -> HashMap<String, (String, String)> {
     let mut map = HashMap::new();
     if let Ok(v) = client::get(conn, "/rest/api/3/status").await {
         if let Some(arr) = v.as_array() {
@@ -101,7 +105,12 @@ async fn fetch_status_names(conn: &JiraConnection) -> HashMap<String, String> {
                 if let (Some(id), Some(name)) =
                     (s.get("id").and_then(Value::as_str), s.get("name").and_then(Value::as_str))
                 {
-                    map.insert(id.to_string(), name.to_string());
+                    let category = s
+                        .get("statusCategory")
+                        .and_then(|c| c.get("key"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("new");
+                    map.insert(id.to_string(), (name.to_string(), category.to_string()));
                 }
             }
         }
@@ -186,15 +195,17 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
     let issues = fetch_board_issues(conn, board_filter.as_deref()).await?;
 
     // Label each column's statuses. Prefer the instance status map (covers empty
-    // statuses); fall back to names carried on the issues themselves.
-    let mut names = fetch_status_names(conn).await;
+    // statuses); fall back to names/categories carried on the issues themselves.
+    let mut meta = fetch_status_meta(conn).await;
     for issue in &issues {
-        names.entry(issue.status_id.clone()).or_insert_with(|| issue.status_name.clone());
+        meta.entry(issue.status_id.clone())
+            .or_insert_with(|| (issue.status_name.clone(), issue.status_category.clone()));
     }
     for col in &mut columns {
         for status in &mut col.statuses {
-            if let Some(name) = names.get(&status.id) {
+            if let Some((name, category)) = meta.get(&status.id) {
                 status.name = name.clone();
+                status.category = category.clone();
             }
         }
     }

@@ -16,6 +16,7 @@ import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
 import { onAgentRunState, onPtyOutput } from "@/ipc/events";
+import { setDockBadge } from "@/ipc/notify";
 
 // Shell only — boot, the Jira login gate, nav routing, and the detail overlay.
 // All feature logic lives in src/domains/*.
@@ -80,6 +81,14 @@ export function App() {
     if (session && selectedBoardId != null) void loadBoard(selectedBoardId);
   }, [session, selectedBoardId, loadBoard]);
 
+  // Agents waiting on input (shells excluded — they're always "waiting").
+  const waitingCount = [...runningAgents].filter(
+    (k) => !k.startsWith("term:") && agentActivity[k] === "waiting"
+  ).length;
+  useEffect(() => {
+    setDockBadge(waitingCount);
+  }, [waitingCount]);
+
   if (!initialized) {
     return (
       <div className="empty-state">
@@ -137,11 +146,7 @@ export function App() {
   return (
     <>
       <div className="app">
-        <Rail
-          nav={nav}
-          onNav={setNav}
-          waitingCount={[...runningAgents].filter((k) => agentActivity[k] === "waiting").length}
-        />
+        <Rail nav={nav} onNav={setNav} waitingCount={waitingCount} />
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}

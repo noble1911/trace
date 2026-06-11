@@ -2,7 +2,10 @@ import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
 import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
+import { useSessionsStore } from "@/domains/sessions/store";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
+import { notify } from "@/ipc/notify";
+import { isStartOfWork } from "./columns";
 
 // Tauri command errors arrive as strings; trim noise so the toast reads cleanly.
 function formatMoveError(err: unknown): string {
@@ -51,6 +54,30 @@ export type SessionStatus = "idle" | "working" | "waiting";
 // finished its turn and is waiting on the user.
 const WAITING_AFTER_MS = 1800;
 const waitingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// When each workspace last flipped to "working". A waiting notification only
+// fires after a real stretch of work — idle TUI repaints cause brief
+// working-blips that would otherwise re-notify on every status-line redraw.
+const MIN_WORK_FOR_NOTIFY_MS = 5000;
+const workingSince = new Map<string, number>();
+
+/** Notify that an agent finished its turn — unless the user is watching it. */
+function maybeNotifyWaiting(workspaceId: string) {
+  // Plain shells (`term:`) are always "waiting"; only agents are news.
+  if (workspaceId.startsWith("term:")) return;
+  const started = workingSince.get(workspaceId);
+  workingSince.delete(workspaceId);
+  if (started === undefined || Date.now() - started < MIN_WORK_FOR_NOTIFY_MS) return;
+  const { runningAgents, selectedIssueKey } = useBoardStore.getState();
+  if (!runningAgents.has(workspaceId)) return;
+  const sessions = useSessionsStore.getState();
+  const watching =
+    document.hasFocus() &&
+    (selectedIssueKey === workspaceId || sessions.selectedId === workspaceId);
+  if (watching) return;
+  const title = sessions.sessions.find((s) => s.id === workspaceId)?.title ?? workspaceId;
+  void notify(`${title} is waiting`, "The agent finished its turn and needs your input.");
+}
 
 /** Derive a session's status from the running set + activity flag. */
 export function statusOf(
@@ -161,6 +188,17 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       await get().refresh();
       toast.success(`Moved ${key} to ${status.name}`);
       activity.log({ kind: "transition", issueKey: key, title: `→ ${status.name}` });
+      // Landing in the board's first in-progress column starts the work:
+      // spawn the agent automatically. Fire-and-forget — worktree creation
+      // takes seconds and the card move shouldn't wait on it. (Dynamic import:
+      // launch.ts imports this store, so a static import would be a cycle.)
+      if (isStartOfWork(data.columns, status.id) && !get().runningAgents.has(key)) {
+        void import("@/domains/agent/launch").then(({ launchIssueAgent }) =>
+          launchIssueAgent(key)
+            .then(() => toast.success(`Started agent on ${key}`))
+            .catch((err) => toast.error(`Agent didn't start: ${formatMoveError(err)}`))
+        );
+      }
     } catch (err) {
       // Roll the card back and surface *why* — Jira workflows don't permit every
       // status→status jump, and a silent revert reads as "transitions are broken".
@@ -199,6 +237,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       } else {
         // Stopped/exited — clear any activity and its pending timer.
         delete agentActivity[key];
+        workingSince.delete(key);
         const t = waitingTimers.get(key);
         if (t) {
           clearTimeout(t);
@@ -209,6 +248,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     });
   },
   appendOutput(workspaceId, chunk) {
+    if (get().agentActivity[workspaceId] !== "working") {
+      workingSince.set(workspaceId, Date.now());
+    }
     set((s) => {
       const prev = s.outputBuffers[workspaceId] ?? [];
       const out: Partial<BoardStore> = {
@@ -231,6 +273,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           if (!s.runningAgents.has(workspaceId)) return {};
           return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
         });
+        maybeNotifyWaiting(workspaceId);
       }, WAITING_AFTER_MS)
     );
   },
