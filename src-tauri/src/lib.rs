@@ -66,6 +66,8 @@ pub fn run() {
             commands::tests::run_tests,
             commands::update::check_app_update,
             commands::update::install_app_update,
+            commands::worktrees::list_worktrees,
+            commands::worktrees::remove_worktree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

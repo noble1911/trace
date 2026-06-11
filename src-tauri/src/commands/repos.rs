@@ -84,6 +84,11 @@ pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
     Err("No repository assigned yet — open the card and pick one to start.".to_string())
 }
 
+/// All configured repos, in the order the user added them.
+pub(crate) fn all_repos() -> Vec<String> {
+    load().repos
+}
+
 /// First configured repo — the default for exploratory sessions and as a
 /// fallback when a workspace has no explicit assignment.
 pub(crate) fn default_repo() -> Option<String> {

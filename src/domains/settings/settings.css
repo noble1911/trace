@@ -194,3 +194,24 @@ button.ig-status.connected:hover {
   color: var(--c-danger);
   background: oklch(0.68 0.18 25 / 0.12);
 }
+
+/* Worktree status chips */
+.wt-chip {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.wt-chip.merged {
+  color: var(--c-done);
+  background: var(--c-done-bg);
+}
+.wt-chip.dirty {
+  color: var(--c-warn);
+  background: var(--c-prog-bg);
+}
+.wt-chip.running {
+  color: var(--c-review);
+  background: var(--c-review-bg);
+}

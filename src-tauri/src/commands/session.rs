@@ -80,6 +80,7 @@ pub fn list_sessions() -> Vec<ScratchSession> {
             let keep = now.saturating_sub(at) < ARCHIVE_RETENTION_SECS;
             if !keep {
                 let _ = forget_session_id(&s.id);
+                crate::commands::worktrees::remove_for_workspace(&s.id);
             }
             keep
         }
@@ -226,6 +227,9 @@ pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), Stri
     }
     state.child_pids.lock().remove(&id);
     let _ = forget_session_id(&id);
+    // Clean up any worktree/branch backing this workspace — the session is
+    // gone for good, so its checkout is too.
+    crate::commands::worktrees::remove_for_workspace(&id);
     let mut list = load();
     list.retain(|s| s.id != id);
     save(&list)

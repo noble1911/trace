@@ -7,7 +7,7 @@
     "core:default",
     "core:window:allow-set-badge-count",
     "opener:default",
-    "dialog:allow-open",
+    "dialog:default",
     "notification:default"
   ]
 }
