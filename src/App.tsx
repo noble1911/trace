@@ -37,6 +37,7 @@ export function App() {
   const closeIssue = useBoardStore((s) => s.closeIssue);
   const runningAgents = useBoardStore((s) => s.runningAgents);
   const agentActivity = useBoardStore((s) => s.agentActivity);
+  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
   const sessions = useSessionsStore((s) => s.sessions);
   const selectedSessionId = useSessionsStore((s) => s.selectedId);
   const closeSession = useSessionsStore((s) => s.close);
@@ -81,9 +82,10 @@ export function App() {
     if (session && selectedBoardId != null) void loadBoard(selectedBoardId);
   }, [session, selectedBoardId, loadBoard]);
 
-  // Agents waiting on input (shells excluded — they're always "waiting").
+  // Agents waiting on input that the user hasn't looked at yet (shells
+  // excluded — they're always "waiting"; viewing a session acknowledges it).
   const waitingCount = [...runningAgents].filter(
-    (k) => !k.startsWith("term:") && agentActivity[k] === "waiting"
+    (k) => !k.startsWith("term:") && agentActivity[k] === "waiting" && !ackedWaiting.has(k)
   ).length;
   useEffect(() => {
     setDockBadge(waitingCount);

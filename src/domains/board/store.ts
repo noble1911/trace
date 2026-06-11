@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
+import { notifyOnWaiting } from "@/domains/agent/defaults";
 import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
@@ -65,6 +66,7 @@ const workingSince = new Map<string, number>();
 function maybeNotifyWaiting(workspaceId: string) {
   // Plain shells (`term:`) are always "waiting"; only agents are news.
   if (workspaceId.startsWith("term:")) return;
+  if (!notifyOnWaiting()) return;
   const started = workingSince.get(workspaceId);
   workingSince.delete(workspaceId);
   if (started === undefined || Date.now() - started < MIN_WORK_FOR_NOTIFY_MS) return;
@@ -105,6 +107,13 @@ interface BoardStore {
   runningAgents: Set<string>;
   /** For running agents: whether they're actively generating or awaiting input. */
   agentActivity: Record<string, "working" | "waiting">;
+  /**
+   * Waiting sessions the user has already looked at — excluded from the rail
+   * and Dock badges until the agent works again. Viewing a session is the
+   * acknowledgement; replying isn't required to clear the flag.
+   */
+  ackedWaiting: Set<string>;
+  ackWaiting: (key: string) => void;
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
   /**
@@ -139,6 +148,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   selectedIssueKey: null,
   runningAgents: new Set(),
   agentActivity: {},
+  ackedWaiting: new Set(),
   pullRequests: {},
   outputBuffers: {},
 
@@ -214,6 +224,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   openIssue(key) {
     set({ selectedIssueKey: key });
   },
+  ackWaiting(key) {
+    set((s) => {
+      if (s.ackedWaiting.has(key)) return {};
+      const next = new Set(s.ackedWaiting);
+      next.add(key);
+      return { ackedWaiting: next };
+    });
+  },
   closeIssue() {
     set({ selectedIssueKey: null });
   },
@@ -231,12 +249,15 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     else next.delete(key);
     set((s) => {
       const agentActivity = { ...s.agentActivity };
+      const ackedWaiting = new Set(s.ackedWaiting);
       if (running) {
         // Just started — treat as working until output settles.
         agentActivity[key] = "working";
+        ackedWaiting.delete(key);
       } else {
         // Stopped/exited — clear any activity and its pending timer.
         delete agentActivity[key];
+        ackedWaiting.delete(key);
         workingSince.delete(key);
         const t = waitingTimers.get(key);
         if (t) {
@@ -244,7 +265,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           waitingTimers.delete(key);
         }
       }
-      return { runningAgents: next, agentActivity };
+      return { runningAgents: next, agentActivity, ackedWaiting };
     });
   },
   appendOutput(workspaceId, chunk) {
@@ -257,9 +278,15 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, chunk] },
       };
       // Output means the agent is generating — mark it working and (re)arm the
-      // timer that flips it to "waiting" once the stream goes quiet.
+      // timer that flips it to "waiting" once the stream goes quiet. Working
+      // again also resets the acknowledgement so the *next* wait re-flags.
       if (s.agentActivity[workspaceId] !== "working") {
         out.agentActivity = { ...s.agentActivity, [workspaceId]: "working" };
+        if (s.ackedWaiting.has(workspaceId)) {
+          const acked = new Set(s.ackedWaiting);
+          acked.delete(workspaceId);
+          out.ackedWaiting = acked;
+        }
       }
       return out;
     });

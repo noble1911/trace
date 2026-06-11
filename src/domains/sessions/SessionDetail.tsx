@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { agentArgs } from "@/domains/agent/defaults";
@@ -29,9 +29,16 @@ export function SessionDetail({
   const [renaming, setRenaming] = useState(false);
   const rename = useSessionsStore((s) => s.rename);
   const running = useBoardStore((s) => s.runningAgents.has(session.id));
+  const waiting = useBoardStore((s) => s.agentActivity[session.id] === "waiting");
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
+  const ackWaiting = useBoardStore((s) => s.ackWaiting);
   const startingRef = useRef(false);
+
+  // Viewing a waiting session acknowledges it — see AgentDetail.
+  useEffect(() => {
+    if (waiting) ackWaiting(session.id);
+  }, [waiting, session.id, ackWaiting]);
 
   const start = async () => {
     // See AgentDetail.start — a re-entrant start would spawn a second agent into

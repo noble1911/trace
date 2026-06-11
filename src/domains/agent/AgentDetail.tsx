@@ -64,6 +64,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   );
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
+  const ackWaiting = useBoardStore((s) => s.ackWaiting);
   const startingRef = useRef(false);
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
@@ -83,6 +84,12 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       cancelled = true;
     };
   }, [issue.key]);
+
+  // Viewing a waiting session acknowledges it: the rail/Dock badges clear
+  // without requiring a reply. Re-runs when the status flips while open.
+  useEffect(() => {
+    if (status === "waiting") ackWaiting(issue.key);
+  }, [status, issue.key, ackWaiting]);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);

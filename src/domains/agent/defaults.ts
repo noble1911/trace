@@ -6,6 +6,7 @@ import type { AgentCli } from "@/ipc/agent";
 const CLI_KEY = "trace.agentCli";
 const MODEL_KEY = "trace.agentModel";
 const ARGS_KEY = "trace.agentArgs";
+const NOTIFY_WAITING_KEY = "trace.notifyOnWaiting";
 
 function read(key: string): string {
   try {
@@ -52,6 +53,16 @@ export function setAgentModel(next: string) {
 export function agentArgs(): string[] {
   const raw = read(ARGS_KEY).trim();
   return raw ? raw.split(/\s+/) : [];
+}
+
+/** Whether a working→waiting flip fires a native notification. Default on. */
+export function notifyOnWaiting(): boolean {
+  return read(NOTIFY_WAITING_KEY) !== "0";
+}
+
+export function setNotifyOnWaiting(on: boolean) {
+  // On is the default — store nothing rather than a redundant "1".
+  write(NOTIFY_WAITING_KEY, on ? "" : "0");
 }
 
 /** The extra-args setting as typed, for the Settings input. */
