@@ -1,17 +1,24 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import { useBoardStore } from "@/domains/board/store";
-import { sendAgentInput } from "@/ipc/agent";
+import { resizeAgent, sendAgentInput } from "@/ipc/agent";
+import { termFontFamily, termFontSize, termLineHeight } from "./terminalPrefs";
 
-// xterm.js measures glyphs in its own hidden DOM elements, which fall outside any
-// `var(--font-mono)` CSS scope — using the variable there resolves to a generic
-// monospace whose metrics don't match the canvas font, producing stretched
-// columns. Pass the literal font stack instead (mirrors tokens.css).
-const PTY_FONT = '"Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace';
+/**
+ * Open a link surfaced in terminal output in the system browser. The webview
+ * can't `window.open` (Tauri blocks it), so clicks route through the opener
+ * plugin — and only for http(s): terminal bytes are untrusted, and other
+ * schemes (file:, custom app handlers) could do more than open a page.
+ */
+function openLink(uri: string) {
+  if (/^https?:\/\//i.test(uri)) void openUrl(uri);
+}
 
-// Same constraint for colors: xterm paints to a canvas and can't resolve CSS
-// variables, so these mirror tokens.css (--bg-0 / --fg-1). If the tokens change,
-// change these too.
+// xterm paints to a canvas and can't resolve CSS variables, so these mirror
+// tokens.css (--bg-0 / --fg-1). If the tokens change, change these too.
+// (The font has the same constraint — see `terminalPrefs.ts`.)
 const PTY_BG = "#050505"; // --bg-0
 const PTY_FG = "#ededed"; // --fg-1
 
@@ -72,13 +79,20 @@ export function getTerminal(issueKey: string): TerminalEntry {
   container.style.width = "100%";
 
   const term = new Terminal({
-    fontFamily: PTY_FONT,
-    fontSize: 12,
+    fontFamily: termFontFamily(),
+    fontSize: termFontSize(),
+    lineHeight: termLineHeight(),
     cursorBlink: true,
     theme: { background: PTY_BG, foreground: PTY_FG, cursor: PTY_FG },
+    // OSC 8 hyperlinks (gh and modern CLIs emit these) are ignored by xterm
+    // unless a handler is set.
+    linkHandler: { activate: (_event, uri) => openLink(uri) },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  // Plain-text URLs (PR links in agent output) become clickable. Disposed
+  // with the terminal — loadAddon ties the addon's lifetime to it.
+  term.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri)));
 
   const entry: TerminalEntry = {
     term,
@@ -163,6 +177,37 @@ export function resetTerminal(issueKey: string): void {
   entry.term.reset();
   entry.lastSeen = 0;
   entry.hasOutput = false;
+}
+
+/**
+ * Push the current presentation prefs into every live terminal. Terminals
+ * outlive Settings (the registry keeps them across navigation), so changes
+ * must be applied in place. New metrics change cols/rows, so each visible
+ * terminal is refitted and its PTY resized — with the same changed-size guard
+ * as `fitAndDiff` (a same-size SIGWINCH makes TUIs repaint over themselves).
+ */
+export function applyTerminalPrefs(): void {
+  const fontFamily = termFontFamily();
+  const fontSize = termFontSize();
+  const lineHeight = termLineHeight();
+  for (const [key, entry] of registry) {
+    entry.term.options.fontFamily = fontFamily;
+    entry.term.options.fontSize = fontSize;
+    entry.term.options.lineHeight = lineHeight;
+    if (!entry.opened) continue;
+    try {
+      // A detached container measures 0×0 and fit() is a no-op — the next
+      // mount's fitAndDiff picks up the new metrics instead.
+      entry.fit.fit();
+      const { cols, rows } = entry.term;
+      const changed =
+        !entry.lastSent || entry.lastSent.cols !== cols || entry.lastSent.rows !== rows;
+      entry.lastSent = { cols, rows };
+      if (changed) void resizeAgent(key, cols, rows);
+    } catch {
+      // Not measurable — leave geometry to the next mount.
+    }
+  }
 }
 
 /** Tear down a session's terminal entirely (store sub, input, renderer, DOM). */
