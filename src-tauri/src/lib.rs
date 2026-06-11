@@ -54,6 +54,7 @@ pub fn run() {
             commands::editor::open_in_editor,
             commands::session::list_sessions,
             commands::session::create_session,
+            commands::session::rename_session,
             commands::session::archive_session,
             commands::session::unarchive_session,
             commands::session::delete_session,

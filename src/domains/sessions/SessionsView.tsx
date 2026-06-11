@@ -5,6 +5,7 @@ import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import { NewSessionModal } from "./NewSessionModal";
 import { useSessionsStore } from "./store";
+import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
 function relTime(epochSecs: number): string {
@@ -20,6 +21,7 @@ export function SessionsView() {
   const loaded = useSessionsStore((s) => s.loaded);
   const load = useSessionsStore((s) => s.load);
   const create = useSessionsStore((s) => s.create);
+  const rename = useSessionsStore((s) => s.rename);
   const select = useSessionsStore((s) => s.select);
   const archive = useSessionsStore((s) => s.archive);
   const unarchive = useSessionsStore((s) => s.unarchive);
@@ -87,6 +89,7 @@ export function SessionsView() {
                     running={running.has(s.id)}
                     onOpen={() => select(s.id)}
                     onArchive={() => void archive(s.id)}
+                    onRename={(title) => void rename(s.id, title)}
                   />
                 ))}
               </div>
@@ -141,12 +144,18 @@ interface SessionCardProps {
   running: boolean;
   onOpen: () => void;
   onArchive: () => void;
+  onRename: (title: string) => void;
 }
 
-function SessionCard({ session, running, onOpen, onArchive }: SessionCardProps) {
+function SessionCard({ session, running, onOpen, onArchive, onRename }: SessionCardProps) {
+  const [renaming, setRenaming] = useState(false);
   const archive = (e: MouseEvent) => {
     e.stopPropagation();
     onArchive();
+  };
+  const startRename = (e: MouseEvent) => {
+    e.stopPropagation();
+    setRenaming(true);
   };
   return (
     // biome-ignore lint/a11y/useSemanticElements: hosts a nested archive button; HTML forbids nested interactives
@@ -165,6 +174,15 @@ function SessionCard({ session, running, onOpen, onArchive }: SessionCardProps) 
         <button
           type="button"
           className="session-del"
+          onClick={startRename}
+          aria-label="Rename session"
+          title="Rename"
+        >
+          <I.Pencil size={13} />
+        </button>
+        <button
+          type="button"
+          className="session-del"
           onClick={archive}
           aria-label="Archive session"
           title="Archive"
@@ -172,7 +190,11 @@ function SessionCard({ session, running, onOpen, onArchive }: SessionCardProps) 
           <I.Archive size={13} />
         </button>
       </div>
-      <div className="session-title">{session.title}</div>
+      {renaming ? (
+        <TitleEditor initial={session.title} onSave={onRename} onClose={() => setRenaming(false)} />
+      ) : (
+        <div className="session-title">{session.title}</div>
+      )}
       <div className="session-meta">{relTime(session.createdAt)}</div>
     </div>
   );

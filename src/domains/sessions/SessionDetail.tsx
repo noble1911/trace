@@ -8,6 +8,8 @@ import { fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { resetAgentSession, stopAgent } from "@/ipc/agent";
 import { startSession } from "@/ipc/session";
+import { useSessionsStore } from "./store";
+import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
 type TabId = "chat" | "files";
@@ -24,6 +26,8 @@ export function SessionDetail({
 }) {
   const [tab, setTab] = useState<TabId>("chat");
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const rename = useSessionsStore((s) => s.rename);
   const running = useBoardStore((s) => s.runningAgents.has(session.id));
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
@@ -71,7 +75,26 @@ export function SessionDetail({
         </span>
         <div>
           <span className="id">{session.cli}</span>
-          <div className="ttl">{session.title}</div>
+          {renaming ? (
+            <TitleEditor
+              initial={session.title}
+              onSave={(title) => void rename(session.id, title)}
+              onClose={() => setRenaming(false)}
+            />
+          ) : (
+            <div className="ttl">
+              {session.title}
+              <button
+                type="button"
+                className="ttl-edit"
+                onClick={() => setRenaming(true)}
+                aria-label="Rename session"
+                title="Rename"
+              >
+                <I.Pencil size={12} />
+              </button>
+            </div>
+          )}
         </div>
         <div className="right">
           {running && <span className="thinking">working</span>}

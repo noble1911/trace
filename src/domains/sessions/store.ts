@@ -6,6 +6,7 @@ import {
   createSession,
   deleteSession,
   listSessions,
+  renameSession,
   unarchiveSession,
 } from "@/ipc/session";
 import type { ScratchSession } from "./types";
@@ -19,6 +20,7 @@ interface SessionsStore {
   loaded: boolean;
   load: () => Promise<void>;
   create: (title: string, cli: AgentCli) => Promise<ScratchSession>;
+  rename: (id: string, title: string) => Promise<void>;
   archive: (id: string) => Promise<void>;
   unarchive: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -47,6 +49,10 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     set((s) => ({ sessions: [session, ...s.sessions], selectedId: session.id }));
     activity.log({ kind: "session-created", title: `created session “${session.title}”` });
     return session;
+  },
+  async rename(id, title) {
+    const updated = await renameSession(id, title);
+    set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? updated : x)) }));
   },
   async archive(id) {
     await archiveSession(id);

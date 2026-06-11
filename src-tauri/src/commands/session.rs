@@ -100,6 +100,27 @@ pub fn create_session(title: String, cli: String) -> Result<ScratchSession, Stri
     Ok(session)
 }
 
+/// Rename a session. Empty titles are rejected rather than silently kept so
+/// the UI can surface the validation.
+#[tauri::command]
+pub fn rename_session(id: String, title: String) -> Result<ScratchSession, String> {
+    let title = title.trim().to_string();
+    if title.is_empty() {
+        return Err("Give the session a name.".to_string());
+    }
+    let mut list = load();
+    let mut renamed = None;
+    for s in &mut list {
+        if s.id == id {
+            s.title = title.clone();
+            renamed = Some(s.clone());
+        }
+    }
+    let renamed = renamed.ok_or("That session no longer exists.")?;
+    save(&list)?;
+    Ok(renamed)
+}
+
 /// Move a session to the recycle bin: stop its PTY but keep its metadata and
 /// Claude id so it can be restored and resumed.
 #[tauri::command]
