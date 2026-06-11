@@ -5,6 +5,16 @@ import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import { ArchiveBin } from "./ArchiveBin";
 import { sessionsDrag } from "./dragState";
+import {
+  moveBefore,
+  patchSectionIn,
+  renameTabIn,
+  sectionToEnd,
+  withNewSection,
+  withNewTab,
+  withoutSection,
+  withoutTab,
+} from "./groupOps";
 import { NewSessionModal } from "./NewSessionModal";
 import { SectionGroup } from "./SectionGroup";
 import { SessionCard } from "./SessionCard";
@@ -12,16 +22,6 @@ import { SessionTabs } from "./SessionTabs";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession, SessionSection } from "./types";
-
-/** Remove `dragId` and re-insert it before `targetId`. */
-function moveBefore<T extends { id: string }>(list: T[], dragId: string, targetId: string): T[] {
-  const dragged = list.find((x) => x.id === dragId);
-  if (!dragged) return list;
-  const without = list.filter((x) => x.id !== dragId);
-  const at = without.findIndex((x) => x.id === targetId);
-  if (at < 0) return list;
-  return [...without.slice(0, at), dragged, ...without.slice(at)];
-}
 
 export function SessionsView() {
   const sessions = useSessionsStore((s) => s.sessions);
@@ -60,46 +60,19 @@ export function SessionsView() {
     s.section && sectionIds.has(s.section) ? s.section : null;
   const unsectioned = inTab.filter((s) => sectionOf(s) === null);
 
-  // --- groups manipulation (frontend owns the structure; backend sanitizes) ---
+  // --- groups manipulation (pure ops in groupOps.ts; backend sanitizes) ---
   const addTab = (name: string) => {
-    const id = crypto.randomUUID();
-    void saveGroups({ ...groups, tabs: [...groups.tabs, { id, name }] }).then(() =>
-      setActiveTab(id)
-    );
+    const { next, id } = withNewTab(groups, name);
+    void saveGroups(next).then(() => setActiveTab(id));
   };
-  const renameTab = (id: string, name: string) =>
-    void saveGroups({
-      ...groups,
-      tabs: groups.tabs.map((t) => (t.id === id ? { ...t, name } : t)),
-    });
   const deleteTab = (id: string) => {
     setActiveTab(null);
     // Reload sessions afterwards — the backend re-homed the tab's sessions.
-    void saveGroups({ ...groups, tabs: groups.tabs.filter((t) => t.id !== id) }).then(load);
+    void saveGroups(withoutTab(groups, id)).then(load);
   };
-  const addSection = (name: string) =>
-    void saveGroups({
-      ...groups,
-      sections: [
-        ...groups.sections,
-        { id: crypto.randomUUID(), name, tab: activeTab, collapsed: false },
-      ],
-    });
   const patchSection = (id: string, patch: Partial<SessionSection>) =>
-    void saveGroups({
-      ...groups,
-      sections: groups.sections.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    });
-  const deleteSection = (id: string) =>
-    void saveGroups({ ...groups, sections: groups.sections.filter((s) => s.id !== id) }).then(load);
-  const sectionToEnd = (dragId: string) => {
-    const dragged = groups.sections.find((s) => s.id === dragId);
-    if (!dragged) return;
-    void saveGroups({
-      ...groups,
-      sections: [...groups.sections.filter((s) => s.id !== dragId), dragged],
-    });
-  };
+    void saveGroups(patchSectionIn(groups, id, patch));
+  const deleteSection = (id: string) => void saveGroups(withoutSection(groups, id)).then(load);
 
   const onCreate = (title: string, cli: AgentCli) => {
     setAgentCli(cli);
@@ -121,7 +94,7 @@ export function SessionsView() {
       sessionsDrag.current = null;
       if (!drag) return;
       if (drag.kind === "session") void assign(drag.id, activeTab, null);
-      else if (drag.kind === "section") sectionToEnd(drag.id);
+      else if (drag.kind === "section") void saveGroups(sectionToEnd(groups, drag.id));
     },
   };
 
@@ -161,7 +134,7 @@ export function SessionsView() {
         active={activeTab}
         onSelect={setActiveTab}
         onAdd={addTab}
-        onRename={(id, name) => renameTab(id, name)}
+        onRename={(id, name) => void saveGroups(renameTabIn(groups, id, name))}
         onDelete={deleteTab}
         onReorder={(dragId, targetId) =>
           void saveGroups({ ...groups, tabs: moveBefore(groups.tabs, dragId, targetId) })
@@ -224,7 +197,7 @@ export function SessionsView() {
               <div className="sec-add-edit">
                 <TitleEditor
                   initial=""
-                  onSave={addSection}
+                  onSave={(name) => void saveGroups(withNewSection(groups, name, activeTab))}
                   onClose={() => setAddingSection(false)}
                 />
               </div>

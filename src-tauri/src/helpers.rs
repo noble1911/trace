@@ -43,3 +43,18 @@ pub fn slugify(input: &str) -> String {
     }
     out.trim_matches('-').to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::slugify;
+
+    #[test]
+    fn slugify_issue_keys_and_edges() {
+        assert_eq!(slugify("TRACE-12"), "trace-12");
+        assert_eq!(slugify("My Feature!!"), "my-feature");
+        assert_eq!(slugify("--weird  input--"), "weird-input");
+        assert_eq!(slugify("héllo wörld"), "h-llo-w-rld");
+        assert_eq!(slugify(""), "");
+        assert_eq!(slugify("!!!"), "");
+    }
+}
