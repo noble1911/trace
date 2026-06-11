@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
 import { useJiraStore } from "../store";
 
@@ -22,9 +23,7 @@ export function JiraLogin() {
       <div className="modal" style={{ width: "min(440px, calc(100vw - 32px))" }}>
         <div className="modal-head">
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span className="logo" style={{ width: 28, height: 28, marginBottom: 0, fontSize: 12 }}>
-              tr
-            </span>
+            <AppLogo size={28} />
             <h2 style={{ margin: 0 }}>Connect to Jira</h2>
           </div>
           <div className="desc">
@@ -62,7 +61,8 @@ export function JiraLogin() {
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
             <span className="hint">
-              Create one at id.atlassian.com → Security → API tokens. Stored in your OS keychain.
+              Create one at id.atlassian.com → Security → API tokens. Stored in a private file only
+              your user account can read; it never leaves this Mac.
             </span>
           </div>
           {error && <div style={{ color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>}

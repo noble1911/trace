@@ -1,4 +1,6 @@
+import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
+import { useJiraStore } from "@/domains/jira/store";
 import type { NavId } from "./nav";
 
 interface RailProps {
@@ -8,9 +10,13 @@ interface RailProps {
 }
 
 export function Rail({ nav, onNav, waitingCount }: RailProps) {
+  const user = useJiraStore((s) => s.user);
+
   return (
     <aside className="rail">
-      <div className="logo">tr</div>
+      <div className="logo">
+        <AppLogo size={32} />
+      </div>
       <nav className="nav">
         <button
           type="button"
@@ -55,9 +61,19 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
       >
         <I.Settings size={16} />
       </button>
-      <div className="me" title="you">
-        M
-      </div>
+      {/* The connected Jira account; opens Settings (where the connection lives). */}
+      <button
+        type="button"
+        className="me"
+        title={user ? user.displayName : "Not connected"}
+        onClick={() => onNav("settings")}
+      >
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt={user.displayName} />
+        ) : (
+          (user?.displayName?.trim()[0]?.toUpperCase() ?? "?")
+        )}
+      </button>
     </aside>
   );
 }
