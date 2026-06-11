@@ -4,29 +4,98 @@
 .settings-wrap {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 640px;
-}
-.setting-group {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-1);
-  padding: 18px;
+  gap: 32px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 .setting-group h2 {
   margin: 0 0 4px;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--fg-0);
+  letter-spacing: -0.005em;
 }
 .setting-group > .desc {
   font-size: 12.5px;
   color: var(--fg-3);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
-.setting-group .field {
-  margin-bottom: 14px;
+
+/* Label + hint on the left, control on the right (per the design). */
+.setting-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-faint);
+  align-items: center;
 }
+.setting-row:last-child {
+  border-bottom: 0;
+}
+.setting-row .label {
+  font-size: 13px;
+  color: var(--fg-0);
+}
+.setting-row .hint {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  margin-top: 2px;
+}
+.setting-row .control {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.setting-row select,
+.setting-row input[type="text"],
+.setting-row input[type="number"] {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--fg-0);
+}
+.setting-row select:focus,
+.setting-row input:focus {
+  border-color: var(--border-strong);
+  outline: none;
+}
+
+.switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--fg-2);
+  transition: left 0.15s, background 0.15s;
+}
+.switch.on {
+  background: var(--fg-0);
+  border-color: var(--fg-0);
+}
+.switch.on::after {
+  left: 16px;
+  background: var(--bg-0);
+}
+
 .repo-list {
   display: flex;
   flex-direction: column;
@@ -64,23 +133,24 @@
 .repo-row .repo-remove:hover {
   color: var(--c-danger);
 }
+
 .integration-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--border-faint);
   border-radius: var(--radius);
-  background: var(--bg-2);
+  background: var(--bg-1);
 }
 .ig-ic {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 .ig-ic-jira {
@@ -91,28 +161,36 @@
   min-width: 0;
 }
 .ig-name {
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--fg-0);
 }
 .ig-sub {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--fg-3);
+  margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ig-status {
   flex-shrink: 0;
-  font-size: 11.5px;
   font-family: var(--font-mono);
-  padding: 4px 10px;
+  font-size: 10.5px;
+  padding: 2px 7px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--fg-2);
+  border: 1px solid transparent;
 }
-button.ig-status:hover {
+.ig-status.connected {
+  color: var(--c-done);
+  background: var(--c-done-bg);
+}
+.ig-status.disconnected {
+  color: var(--fg-3);
+  background: var(--bg-3);
+}
+/* The connected pill doubles as the disconnect action. */
+button.ig-status.connected:hover {
   color: var(--c-danger);
-  border-color: oklch(0.68 0.18 25 / 0.4);
+  background: oklch(0.68 0.18 25 / 0.12);
 }
-

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { appVersion, checkAppUpdate, installAppUpdate, type UpdateInfo } from "@/ipc/update";
+import { SettingRow } from "./SettingRow";
 
 type Phase = "idle" | "checking" | "current" | "available" | "installing";
 
@@ -42,17 +43,21 @@ export function UpdateSettings() {
     }
   };
 
+  const hint =
+    phase === "current"
+      ? "You're on the latest version."
+      : phase === "installing"
+        ? "Downloading and installing…"
+        : "Updates are downloaded from GitHub releases and verified before installing.";
+
   return (
     <section className="setting-group">
       <h2>Updates</h2>
-      <div className="desc">
-        trace {version ? `v${version}` : ""} — updates are downloaded from GitHub releases and
-        verified before installing.
-      </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+      <div className="desc">trace {version ? `v${version}` : ""}</div>
+      <SettingRow label={update ? `v${update.version} available` : "App version"} hint={hint}>
         {phase === "available" && update ? (
           <button type="button" className="btn primary" onClick={() => void install()}>
-            <I.Bolt size={13} /> Install v{update.version} &amp; restart
+            <I.Bolt size={13} /> Install &amp; restart
           </button>
         ) : (
           <button
@@ -64,10 +69,8 @@ export function UpdateSettings() {
             {phase === "checking" ? "Checking…" : "Check for updates"}
           </button>
         )}
-        {phase === "installing" && <span className="hint">Downloading and installing…</span>}
-        {phase === "current" && <span className="hint">You're on the latest version.</span>}
-        {error && <span style={{ fontSize: 12.5, color: "var(--c-danger)" }}>{error}</span>}
-      </div>
+      </SettingRow>
+      {error && <span style={{ fontSize: 12.5, color: "var(--c-danger)" }}>{error}</span>}
       {phase === "available" && update?.notes && (
         <span className="hint" style={{ marginTop: 8, display: "block" }}>
           {update.notes}

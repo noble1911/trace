@@ -10,6 +10,7 @@ import {
   termLineHeightRaw,
 } from "@/domains/agent/terminalPrefs";
 import { applyTerminalPrefs } from "@/domains/agent/terminalRegistry";
+import { SettingRow } from "./SettingRow";
 
 // The Terminal section of Settings. Every change persists and is pushed into
 // the live terminals immediately (they survive navigation in the registry, so
@@ -42,23 +43,19 @@ export function TerminalSettings() {
         Presentation of the agent chat and shell terminals. Changes apply to open terminals
         immediately.
       </div>
-      <div className="field">
-        <label htmlFor="term-font">Font</label>
+      <SettingRow label="Font" hint="Any installed monospace font; missing glyphs fall back.">
         <input
-          id="term-font"
-          placeholder="e.g. JetBrains Mono — blank uses Geist Mono"
+          type="text"
+          aria-label="Terminal font"
+          placeholder="Geist Mono"
           value={font}
           onChange={(e) => changeFont(e.target.value)}
         />
-        <span className="hint">
-          Any monospace font installed on your Mac. Glyphs it lacks fall back to the default stack.
-        </span>
-      </div>
-      <div className="field">
-        <label htmlFor="term-font-size">Font size</label>
+      </SettingRow>
+      <SettingRow label="Font size" hint={`Pixels, 8–32. Blank uses ${DEFAULT_TERM_FONT_SIZE}.`}>
         <input
-          id="term-font-size"
           type="number"
+          aria-label="Terminal font size"
           min={8}
           max={32}
           step={1}
@@ -66,13 +63,11 @@ export function TerminalSettings() {
           value={size}
           onChange={(e) => changeSize(e.target.value)}
         />
-        <span className="hint">Pixels, 8–32. Blank uses {DEFAULT_TERM_FONT_SIZE}.</span>
-      </div>
-      <div className="field">
-        <label htmlFor="term-line-height">Line height</label>
+      </SettingRow>
+      <SettingRow label="Line height" hint="1–2; a little extra (1.1–1.3) reads less cramped.">
         <input
-          id="term-line-height"
           type="number"
+          aria-label="Terminal line height"
           min={1}
           max={2}
           step={0.05}
@@ -80,10 +75,7 @@ export function TerminalSettings() {
           value={lineHeight}
           onChange={(e) => changeLineHeight(e.target.value)}
         />
-        <span className="hint">
-          Multiplier between 1 and 2 — a little extra (1.1–1.3) reads less cramped.
-        </span>
-      </div>
+      </SettingRow>
     </section>
   );
 }

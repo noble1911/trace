@@ -136,8 +136,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-review);
-  box-shadow: 0 0 8px var(--c-review);
+  background: var(--c-prog);
+  box-shadow: 0 0 8px var(--c-prog);
 }
 .rail .me {
   width: 32px;

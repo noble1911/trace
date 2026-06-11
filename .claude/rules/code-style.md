@@ -28,6 +28,9 @@
 
 ## CSS / design tokens
 
+- The original design (Claude design tool; class names/tokens ported verbatim):
+  https://claude.ai/design/p/3afb6134-f901-41e8-944f-9bca76f92943?file=ClaudeOrchestrator.html
+  (named ClaudeOrchestrator.html, but it is trace's design — the project was renamed).
 - All colors, radii, fonts come from `src/styles/tokens.css` (ported from the design's `--c-*` oklch tokens).
   **Never hardcode a hex/oklch value in a component.**
 - Use the design's existing class names and structure for pixel fidelity; add new classes in the relevant

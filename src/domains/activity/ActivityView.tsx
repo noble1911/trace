@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { I } from "@/components/Icon";
+import { useBoardStore } from "@/domains/board/store";
 import { type ActivityEvent, type ActivityKind, useActivityStore } from "./store";
 
 const ICON: Record<ActivityKind, (p: { size?: number }) => ReactNode> = {
@@ -10,15 +11,45 @@ const ICON: Record<ActivityKind, (p: { size?: number }) => ReactNode> = {
   "session-created": I.Sparkles,
 };
 
-function relTime(at: number): string {
-  const diff = (Date.now() - at) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+// Design timeline class per kind: merge=green, pr=violet, spawn=amber.
+const ROW_CLASS: Record<ActivityKind, string> = {
+  transition: "",
+  "agent-start": "spawn",
+  "session-created": "spawn",
+  "pr-raised": "pr",
+  "pr-merged": "merge",
+};
+
+function dayLabel(at: number): string {
+  const d = new Date(at);
+  const today = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOf(today) - startOf(d)) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
 }
 
-// The "Activity" view — a reverse-chronological timeline of board/agent events.
+function timeLabel(at: number): string {
+  return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/** Events interleaved with day headers (events arrive newest-first). */
+function withDayHeaders(events: ActivityEvent[]): (ActivityEvent | { day: string })[] {
+  const out: (ActivityEvent | { day: string })[] = [];
+  let last = "";
+  for (const e of events) {
+    const day = dayLabel(e.at);
+    if (day !== last) {
+      out.push({ day });
+      last = day;
+    }
+    out.push(e);
+  }
+  return out;
+}
+
+// The "Activity" view — a day-grouped timeline of board/agent events.
 export function ActivityView() {
   const events = useActivityStore((s) => s.events);
   const clear = useActivityStore((s) => s.clear);
@@ -52,10 +83,16 @@ export function ActivityView() {
             </div>
           </div>
         ) : (
-          <div className="activity-list">
-            {events.map((e) => (
-              <ActivityRow key={e.id} event={e} />
-            ))}
+          <div className="activity">
+            {withDayHeaders(events).map((row) =>
+              "day" in row ? (
+                <div key={row.day} className="activity-day">
+                  {row.day}
+                </div>
+              ) : (
+                <ActivityRow key={row.id} event={row} />
+              )
+            )}
           </div>
         )}
       </div>
@@ -64,17 +101,27 @@ export function ActivityView() {
 }
 
 function ActivityRow({ event }: { event: ActivityEvent }) {
+  const openIssue = useBoardStore((s) => s.openIssue);
   const Ico = ICON[event.kind];
+  const clickable = Boolean(event.issueKey);
+  const open = () => {
+    if (event.issueKey) openIssue(event.issueKey);
+  };
   return (
-    <div className="activity-row">
-      <span className={`activity-ic ${event.kind}`}>
-        <Ico size={13} />
+    // biome-ignore lint/a11y/noStaticElementInteractions: timeline row; only issue-linked rows are interactive
+    // biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — the board offers the keyboard path
+    <div
+      className={`act-row ${ROW_CLASS[event.kind]}${clickable ? " click" : ""}`}
+      onClick={clickable ? open : undefined}
+    >
+      <span className="time">{timeLabel(event.at)}</span>
+      <span className="ic">
+        <Ico size={12} />
       </span>
-      <span className="activity-text">
-        {event.issueKey && <span className="activity-key">{event.issueKey}</span>}
+      <div className="body">
+        {event.issueKey && <span className="ticket">{event.issueKey}</span>}
         {event.title}
-      </span>
-      <span className="activity-when">{relTime(event.at)}</span>
+      </div>
     </div>
   );
 }

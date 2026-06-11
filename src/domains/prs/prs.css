@@ -2,7 +2,7 @@
 
 /* PRs page — unified list */
 .pr-list {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-faint);
   border-radius: var(--radius-lg);
   background: var(--bg-1);
   overflow: hidden;
@@ -20,8 +20,10 @@
   border-bottom: 1px solid var(--border-faint);
   font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--fg-4);
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  font-weight: 600;
+  background: var(--bg-2);
 }
 .pr-row {
   height: 48px;
@@ -41,29 +43,32 @@
   box-shadow: inset 2px 0 0 var(--c-accent);
 }
 .pr-row .status-dot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   background: var(--bg-3);
 }
 .pr-row .status-dot.open {
   color: var(--c-review);
+  background: var(--c-review-bg);
 }
 .pr-row .status-dot.merged {
   color: var(--c-done);
+  background: var(--c-done-bg);
 }
 .pr-row .status-dot.draft {
   color: var(--fg-2);
+  background: var(--bg-3);
 }
 .pr-row .status-dot.closed {
   color: var(--c-danger);
+  background: oklch(0.68 0.18 25 / 0.12);
 }
 .pr-row .num {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--fg-3);
 }
 .pr-row .ttl {
@@ -72,12 +77,13 @@
   gap: 8px;
   min-width: 0;
   font-size: 13px;
-  color: var(--fg-1);
+  color: var(--fg-0);
 }
 .pr-row .ttl .text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 .pr-row .ticket {
   flex-shrink: 0;
@@ -95,8 +101,8 @@
 }
 .pr-row .branch {
   font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-3);
+  font-size: 11px;
+  color: var(--fg-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
