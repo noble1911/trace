@@ -2,6 +2,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DragEvent, MouseEvent } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { epicColor } from "@/domains/board/epicColor";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import { useJiraStore } from "@/domains/jira/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
@@ -74,6 +75,7 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
             <button
               type="button"
               className="epic-chip"
+              style={{ color: epicColor(issue.epicKey, issue.epicColor) }}
               onClick={onEpicClick}
               title={`${issue.epicKey ?? ""} · ${issue.epic} — opens in Jira`}
             >
@@ -81,7 +83,11 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
               <span className="epic-name">{issue.epic}</span>
             </button>
           ) : (
-            <span className="epic-chip" title={issue.epic}>
+            <span
+              className="epic-chip"
+              style={{ color: epicColor(issue.epicKey, issue.epicColor) }}
+              title={issue.epic}
+            >
               <I.Branch size={10} />
               <span className="epic-name">{issue.epic}</span>
             </span>

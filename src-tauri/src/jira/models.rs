@@ -78,6 +78,9 @@ pub struct Issue {
     pub epic: Option<String>,
     /// Epic issue key (e.g. PM-1200) for the browse link.
     pub epic_key: Option<String>,
+    /// Jira's epic palette key ("color_1"…"color_14"); None for team-managed
+    /// parents, where the frontend falls back to a hashed hue.
+    pub epic_color: Option<String>,
     pub reporter: Option<String>,
 }
 
@@ -212,7 +215,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
         .filter(|s| !s.is_empty());
 
     let priority_name = str_at(fields, &["priority", "name"]).unwrap_or("Medium");
-    let (epic_name, epic_key) = parse_epic(fields);
+    let (epic_name, epic_key, epic_color) = parse_epic(fields);
 
     Some(Issue {
         id,
@@ -230,6 +233,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
         description,
         epic: epic_name,
         epic_key,
+        epic_color,
         reporter: str_at(fields, &["reporter", "displayName"]).map(str::to_string),
     })
 }
@@ -237,8 +241,9 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
 /// Resolve the issue's epic. Company-managed projects expose an `epic` field;
 /// team-managed ones expose the epic as `parent` (only when the parent is itself
 /// an Epic — a sub-task's parent is a story, which we ignore). Returns
-/// `(name, key)`.
-fn parse_epic(fields: &Value) -> (Option<String>, Option<String>) {
+/// `(name, key, color)` — color is Jira's opaque palette key ("color_1"…
+/// "color_14"), only present on the `epic` field, never on `parent`.
+fn parse_epic(fields: &Value) -> (Option<String>, Option<String>, Option<String>) {
     if let Some(epic) = fields.get("epic").filter(|e| !e.is_null()) {
         let key = epic.get("key").and_then(Value::as_str).map(str::to_string);
         let name = epic
@@ -246,8 +251,13 @@ fn parse_epic(fields: &Value) -> (Option<String>, Option<String>) {
             .or_else(|| epic.get("summary"))
             .and_then(Value::as_str)
             .map(str::to_string);
+        let color = epic
+            .get("color")
+            .and_then(|c| c.get("key"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
         if key.is_some() || name.is_some() {
-            return (name, key);
+            return (name, key, color);
         }
     }
     if let Some(parent) = fields.get("parent").filter(|p| !p.is_null()) {
@@ -264,8 +274,8 @@ fn parse_epic(fields: &Value) -> (Option<String>, Option<String>) {
                 .and_then(|f| f.get("summary"))
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            return (name, key);
+            return (name, key, None);
         }
     }
-    (None, None)
+    (None, None, None)
 }

@@ -65,9 +65,14 @@
   max-width: 100%;
   font-size: 10.5px;
   font-weight: 500;
+  /* Per-epic colour arrives as an inline `color`; tint bg/border from it so
+     one value drives the whole chip. The plain declarations above each
+     color-mix are fallbacks for WebKit without color-mix support. */
   color: var(--c-review);
   background: var(--c-review-bg);
+  background: color-mix(in srgb, currentColor 12%, transparent);
   border: 1px solid oklch(0.72 0.16 290 / 0.3);
+  border-color: color-mix(in srgb, currentColor 32%, transparent);
   border-radius: 4px;
   padding: 1px 6px;
 }
@@ -84,8 +89,10 @@ button.epic-chip {
   cursor: pointer;
 }
 button.epic-chip:hover {
-  color: var(--fg-0);
+  /* Keep the epic's colour on hover (it carries meaning) — just firm up the chip. */
   border-color: oklch(0.72 0.16 290 / 0.55);
+  border-color: color-mix(in srgb, currentColor 60%, transparent);
+  background: color-mix(in srgb, currentColor 18%, transparent);
 }
 .card .title {
   margin-top: 8px;

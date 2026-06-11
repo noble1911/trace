@@ -62,6 +62,8 @@ export interface Issue {
   epic?: string | null;
   /** Epic issue key, for the browse link. */
   epicKey?: string | null;
+  /** Jira's epic palette key ("color_1"…"color_14"), when the API carries it. */
+  epicColor?: string | null;
   reporter?: string | null;
 }
 
