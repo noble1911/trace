@@ -12,17 +12,19 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
 
+  const [refreshTick, setRefreshTick] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
-    setSummary(null);
-    setSelected(null);
-    setFileDiff(null);
     setError(null);
     gitDiffSummary(workspaceId)
       .then((s) => {
         if (cancelled) return;
         setSummary(s);
-        setSelected(s.files[0]?.path ?? null);
+        // Keep the open file selected across refreshes; fall back to the first.
+        setSelected((prev) =>
+          prev && s.files.some((f) => f.path === prev) ? prev : (s.files[0]?.path ?? null)
+        );
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));
@@ -30,6 +32,13 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
     return () => {
       cancelled = true;
     };
+  }, [workspaceId, refreshTick]);
+
+  // Reset everything when switching workspaces (but not on a mere refresh).
+  useEffect(() => {
+    setSummary(null);
+    setSelected(null);
+    setFileDiff(null);
   }, [workspaceId]);
 
   useEffect(() => {
@@ -66,7 +75,12 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="tab-pane no-pad">
       <div className="files-pane">
-        <FileTree files={summary.files} selected={selected} onSelect={setSelected} />
+        <FileTree
+          files={summary.files}
+          selected={selected}
+          onSelect={setSelected}
+          onRefresh={() => setRefreshTick((t) => t + 1)}
+        />
         <div className="diff-pane">
           {fileDiff ? <DiffView fd={fileDiff} /> : loadingFile ? <LoadingDiff /> : null}
         </div>
@@ -79,12 +93,24 @@ interface FileTreeProps {
   files: { path: string; add: number; del: number }[];
   selected: string | null;
   onSelect: (path: string) => void;
+  onRefresh: () => void;
 }
 
-function FileTree({ files, selected, onSelect }: FileTreeProps) {
+function FileTree({ files, selected, onSelect, onRefresh }: FileTreeProps) {
   return (
     <div className="file-tree">
-      <div className="group">Changed ({files.length})</div>
+      <div className="group">
+        Changed ({files.length})
+        <button
+          type="button"
+          className="tree-refresh"
+          onClick={onRefresh}
+          title="Refresh changes"
+          aria-label="Refresh changes"
+        >
+          <I.Activity size={12} />
+        </button>
+      </div>
       {files.map((f) => (
         <FileNode
           key={f.path}
@@ -148,6 +174,18 @@ function DiffView({ fd }: { fd: FileDiff }) {
           <span style={{ color: "var(--c-danger)" }}>−{fd.del}</span>
         </span>
       </div>
+      {fd.hunks.length === 0 && (
+        <div
+          style={{
+            padding: 20,
+            color: "var(--fg-3)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+          }}
+        >
+          No text diff — binary or empty file.
+        </div>
+      )}
       {fd.hunks.map((h) => (
         <div key={h.header}>
           <div className="diff-hunk">{h.header}</div>

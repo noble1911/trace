@@ -1,7 +1,7 @@
 import { type MouseEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { agentCli, setAgentCli } from "@/domains/agent/defaults";
-import { useBoardStore } from "@/domains/board/store";
+import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import { NewSessionModal } from "./NewSessionModal";
 import { useSessionsStore } from "./store";
@@ -27,6 +27,7 @@ export function SessionsView() {
   const unarchive = useSessionsStore((s) => s.unarchive);
   const remove = useSessionsStore((s) => s.remove);
   const running = useBoardStore((s) => s.runningAgents);
+  const agentActivity = useBoardStore((s) => s.agentActivity);
   const [creating, setCreating] = useState(false);
   const [binOpen, setBinOpen] = useState(false);
 
@@ -86,7 +87,7 @@ export function SessionsView() {
                   <SessionCard
                     key={s.id}
                     session={s}
-                    running={running.has(s.id)}
+                    status={statusOf(running.has(s.id), agentActivity[s.id])}
                     onOpen={() => select(s.id)}
                     onArchive={() => void archive(s.id)}
                     onRename={(title) => void rename(s.id, title)}
@@ -141,13 +142,13 @@ export function SessionsView() {
 
 interface SessionCardProps {
   session: ScratchSession;
-  running: boolean;
+  status: SessionStatus;
   onOpen: () => void;
   onArchive: () => void;
   onRename: (title: string) => void;
 }
 
-function SessionCard({ session, running, onOpen, onArchive, onRename }: SessionCardProps) {
+function SessionCard({ session, status, onOpen, onArchive, onRename }: SessionCardProps) {
   const [renaming, setRenaming] = useState(false);
   const archive = (e: MouseEvent) => {
     e.stopPropagation();
@@ -170,7 +171,8 @@ function SessionCard({ session, running, onOpen, onArchive, onRename }: SessionC
     >
       <div className="session-card-head">
         <span className={`session-cli ${session.cli}`}>{session.cli}</span>
-        {running && <span className="session-live">live</span>}
+        {status === "working" && <span className="thinking">working</span>}
+        {status === "waiting" && <span className="waiting">needs you</span>}
         <button
           type="button"
           className="session-del"

@@ -75,6 +75,60 @@ fn base_ref(repo: &str) -> String {
     format!("origin/{}", git::get_default_branch(repo))
 }
 
+/// The commit to diff against: the merge-base of the workspace and the default
+/// branch — "what changed since this branch forked". Diffing `origin/main`
+/// directly (two-dot) would show upstream commits the worktree lacks as
+/// phantom deletions. Falls back to the branch ref if merge-base fails
+/// (e.g. unborn HEAD).
+fn diff_base(work_dir: &str, base: &str) -> String {
+    let out = Command::new("git")
+        .args(["merge-base", base, "HEAD"])
+        .current_dir(work_dir)
+        .output();
+    match out {
+        Ok(o) if o.status.success() => {
+            let sha = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if sha.is_empty() {
+                base.to_string()
+            } else {
+                sha
+            }
+        }
+        _ => base.to_string(),
+    }
+}
+
+/// Paths git doesn't track yet — exactly what an agent's brand-new files are
+/// until something commits them. `git diff` never reports these.
+fn untracked_files(work_dir: &str) -> Vec<String> {
+    Command::new("git")
+        .args(["ls-files", "--others", "--exclude-standard"])
+        .current_dir(work_dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| !l.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Added-line count for an untracked file (0 for binary/unreadable content),
+/// mirroring what numstat would say once the file is tracked.
+fn untracked_line_count(work_dir: &str, path: &str) -> u32 {
+    let full = std::path::Path::new(work_dir).join(path);
+    match std::fs::read(&full) {
+        Ok(bytes) if !bytes.contains(&0) => {
+            String::from_utf8_lossy(&bytes).lines().count() as u32
+        }
+        _ => 0,
+    }
+}
+
 /// File-list summary: every path that differs from the base, with line counts.
 /// Includes committed and uncommitted changes in the worktree.
 #[tauri::command]
@@ -83,8 +137,9 @@ pub fn git_diff_summary(
 ) -> Result<DiffSummary, String> {
     let (repo, worktree) = work_dir_for(&issue_key)?;
     let base = base_ref(&repo);
+    let against = diff_base(&worktree, &base);
     let out = Command::new("git")
-        .args(["diff", "--numstat", &base])
+        .args(["diff", "--numstat", &against])
         .current_dir(&worktree)
         .output()
         .map_err(|e| format!("git diff --numstat failed to start: {e}"))?;
@@ -112,6 +167,12 @@ pub fn git_diff_summary(
             del: del_s.parse().unwrap_or(0),
         });
     }
+    // New (untracked) files are the agent's most common output and `git diff`
+    // can't see them — list them as pure additions.
+    for path in untracked_files(&worktree) {
+        let add = untracked_line_count(&worktree, &path);
+        files.push(FileSummary { path, add, del: 0 });
+    }
     Ok(DiffSummary { base, files })
 }
 
@@ -122,13 +183,33 @@ pub fn git_diff_file(
     path: String,
 ) -> Result<FileDiff, String> {
     let (repo, worktree) = work_dir_for(&issue_key)?;
-    let base = base_ref(&repo);
-    let out = Command::new("git")
-        .args(["diff", "--no-color", &base, "--", &path])
+
+    // Untracked files have no base to diff against — synthesize the "all
+    // added" diff with --no-index, which exits 1 when differences exist.
+    let tracked = Command::new("git")
+        .args(["ls-files", "--error-unmatch", "--", &path])
         .current_dir(&worktree)
         .output()
-        .map_err(|e| format!("git diff failed to start: {e}"))?;
-    if !out.status.success() {
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let out = if tracked {
+        let base = base_ref(&repo);
+        let against = diff_base(&worktree, &base);
+        Command::new("git")
+            .args(["diff", "--no-color", &against, "--", &path])
+            .current_dir(&worktree)
+            .output()
+            .map_err(|e| format!("git diff failed to start: {e}"))?
+    } else {
+        Command::new("git")
+            .args(["diff", "--no-color", "--no-index", "--", "/dev/null", &path])
+            .current_dir(&worktree)
+            .output()
+            .map_err(|e| format!("git diff failed to start: {e}"))?
+    };
+    // --no-index reports differences via exit code 1, so only treat >1 (or a
+    // tracked-diff non-zero) with stderr content as failure.
+    if !out.status.success() && (tracked || out.status.code() != Some(1)) {
         return Err(format!(
             "git diff failed: {}",
             String::from_utf8_lossy(&out.stderr).trim()
@@ -167,10 +248,10 @@ fn parse_unified(path: &str, text: &str) -> FileDiff {
             continue; // pre-hunk metadata
         };
 
+        // No `+++`/`---` guards here: for a single-file diff that metadata only
+        // appears before the first `@@` (already skipped above), and guarding
+        // inside hunks drops real content lines that start with "++"/"--".
         if let Some(rest) = line.strip_prefix('+') {
-            if rest.starts_with("++") {
-                continue; // `+++ b/path` header line
-            }
             h.lines.push(DiffLine {
                 kind: "add".into(),
                 old_no: None,
@@ -180,9 +261,6 @@ fn parse_unified(path: &str, text: &str) -> FileDiff {
             new_no += 1;
             add += 1;
         } else if let Some(rest) = line.strip_prefix('-') {
-            if rest.starts_with("--") {
-                continue; // `--- a/path` header line
-            }
             h.lines.push(DiffLine {
                 kind: "del".into(),
                 old_no: Some(old_no),

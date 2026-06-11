@@ -60,6 +60,17 @@
   letter-spacing: 0.08em;
   color: var(--fg-4);
   padding: 10px 8px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tree-refresh {
+  color: var(--fg-4);
+  display: inline-flex;
+  padding: 2px;
+}
+.tree-refresh:hover {
+  color: var(--fg-1);
 }
 
 .diff-pane {
