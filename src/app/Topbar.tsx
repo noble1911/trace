@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { I } from "@/components/Icon";
 import { NAV_LABELS, type NavId } from "./nav";
+import { SearchPalette } from "./SearchPalette";
 
 interface TopbarProps {
   nav: NavId;
@@ -19,11 +19,7 @@ export function Topbar({ nav, project, extra }: TopbarProps) {
         <span className="sep">/</span>
         <span>{NAV_LABELS[nav]}</span>
       </div>
-      <div className="search">
-        <I.Search size={13} />
-        <input placeholder="Search issues, agents, files…" />
-        <kbd>⌘ /</kbd>
-      </div>
+      <SearchPalette />
       <div className="actions">{extra}</div>
     </header>
   );

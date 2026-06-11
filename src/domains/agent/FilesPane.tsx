@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { type DiffSummary, type FileDiff, gitDiffFile, gitDiffSummary } from "@/ipc/diff";
 
@@ -12,16 +12,15 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
 
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  useEffect(() => {
+  // Fetch (or re-fetch) the summary. Keeps the open file selected when it
+  // still exists; returns a cancel fn so the mount effect can abort on unmount.
+  const load = useCallback(() => {
     let cancelled = false;
     setError(null);
     gitDiffSummary(workspaceId)
       .then((s) => {
         if (cancelled) return;
         setSummary(s);
-        // Keep the open file selected across refreshes; fall back to the first.
         setSelected((prev) =>
           prev && s.files.some((f) => f.path === prev) ? prev : (s.files[0]?.path ?? null)
         );
@@ -32,14 +31,15 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, refreshTick]);
+  }, [workspaceId]);
 
-  // Reset everything when switching workspaces (but not on a mere refresh).
   useEffect(() => {
+    // Fresh workspace — reset before the first fetch.
     setSummary(null);
     setSelected(null);
     setFileDiff(null);
-  }, [workspaceId]);
+    return load();
+  }, [load]);
 
   useEffect(() => {
     if (!selected) {
@@ -79,7 +79,7 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
           files={summary.files}
           selected={selected}
           onSelect={setSelected}
-          onRefresh={() => setRefreshTick((t) => t + 1)}
+          onRefresh={() => void load()}
         />
         <div className="diff-pane">
           {fileDiff ? <DiffView fd={fileDiff} /> : loadingFile ? <LoadingDiff /> : null}
