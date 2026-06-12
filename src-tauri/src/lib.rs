@@ -45,6 +45,7 @@ pub fn run() {
             commands::agent::start_terminal,
             commands::agent::send_agent_input,
             commands::agent::resize_agent,
+            commands::agent::pty_snapshot,
             commands::agent::stop_agent,
             commands::agent::reset_agent_session,
             commands::pr::raise_pr,

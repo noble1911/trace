@@ -226,6 +226,7 @@ pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), Stri
         session.kill();
     }
     state.child_pids.lock().remove(&id);
+    state.output_history.lock().remove(&id);
     let _ = forget_session_id(&id);
     // Clean up any worktree/branch backing this workspace — the session is
     // gone for good, so its checkout is too.

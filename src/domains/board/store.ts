@@ -50,6 +50,12 @@ function persist(key: string, value: string) {
 /** Live state of an issue's agent. */
 export type SessionStatus = "idle" | "working" | "waiting";
 
+/** One PTY output chunk: base64 bytes + the backend's monotonic counter. */
+export interface OutputChunk {
+  seq: number;
+  data: string;
+}
+
 // A running agent flips from "working" to "waiting" after this much output
 // silence — Claude streams bytes while generating, so a quiet gap means it has
 // finished its turn and is waiting on the user.
@@ -126,12 +132,13 @@ interface BoardStore {
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
   /**
-   * Raw PTY output chunks (base64) captured per workspace_id since the app
-   * started listening. App-level capture keeps the stream flowing even when the
-   * terminal isn't mounted; the live terminal in `terminalRegistry` drains new
-   * chunks from here as they arrive.
+   * Raw PTY output chunks (base64 + backend seq) captured per workspace_id
+   * since the app started listening. App-level capture keeps the stream
+   * flowing even when the terminal isn't mounted; the live terminal in
+   * `terminalRegistry` drains new chunks from here as they arrive, using seq
+   * to avoid re-writing what a history snapshot already replayed.
    */
-  outputBuffers: Record<string, string[]>;
+  outputBuffers: Record<string, OutputChunk[]>;
 
   loadBoard: (boardId: number) => Promise<void>;
   refresh: () => Promise<void>;
@@ -141,7 +148,7 @@ interface BoardStore {
   setFilter: (filter: BoardFilter) => void;
   setAssigneeFilter: (accountId: string | null) => void;
   setAgentRunning: (key: string, running: boolean) => void;
-  appendOutput: (workspaceId: string, chunk: string) => void;
+  appendOutput: (workspaceId: string, data: string, seq: number) => void;
   clearOutput: (workspaceId: string) => void;
   /** Re-fetch PRs for one issue (after raise / merge). */
   refreshIssuePrs: (issueKey: string, issueId: string) => Promise<void>;
@@ -279,14 +286,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { runningAgents: next, agentActivity, ackedWaiting };
     });
   },
-  appendOutput(workspaceId, chunk) {
+  appendOutput(workspaceId, data, seq) {
     if (get().agentActivity[workspaceId] !== "working") {
       workingSince.set(workspaceId, Date.now());
     }
     set((s) => {
       const prev = s.outputBuffers[workspaceId] ?? [];
       const out: Partial<BoardStore> = {
-        outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, chunk] },
+        outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, { seq, data }] },
       };
       // Output means the agent is generating — mark it working and (re)arm the
       // timer that flips it to "waiting" once the stream goes quiet. Working

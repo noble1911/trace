@@ -164,6 +164,7 @@ jobs:
       - name: Package release assets
         env:
           HAS_SIGNING: ${{ steps.signing.outputs.has_signing }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG="$RELEASE_TAG"
@@ -202,16 +203,20 @@ jobs:
           ARCH="$(uname -m)"
           if [ "$ARCH" = "arm64" ]; then TARGET_ARCH="aarch64"; else TARGET_ARCH="x86_64"; fi
           TARGET="darwin-${TARGET_ARCH}"
+          # The real release notes ride in latest.json so the app can show
+          # users what changed before they install.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' \
+            > release-notes.txt || echo "Release $APP_VERSION" > release-notes.txt
           jq -n \
             --arg version "$APP_VERSION" \
-            --arg notes "Release $APP_VERSION" \
+            --rawfile notes release-notes.txt \
             --arg pub_date "$RELEASE_PUBLISHED_AT" \
             --arg target "$TARGET" \
             --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${UPDATER_FILE}" \
             --arg signature "$(cat "release-assets/${UPDATER_FILE}.sig")" \
             '{
               version: $version,
-              notes: $notes,
+              notes: ($notes | rtrimstr("\n")),
               pub_date: $pub_date,
               platforms: {
                 ($target): { url: $url, signature: $signature },

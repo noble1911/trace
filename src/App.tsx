@@ -71,7 +71,7 @@ export function App() {
       if (cancelled) fn();
       else unlistenRun = fn;
     });
-    void onPtyOutput((p) => appendOutput(p.workspaceId, p.data)).then((fn) => {
+    void onPtyOutput((p) => appendOutput(p.workspaceId, p.data, p.seq)).then((fn) => {
       if (cancelled) fn();
       else unlistenPty = fn;
     });

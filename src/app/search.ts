@@ -1,5 +1,5 @@
 import { dedupePrs } from "@/domains/board/prDedupe";
-import { useBoardStore } from "@/domains/board/store";
+import { type OutputChunk, useBoardStore } from "@/domains/board/store";
 import type { PullRequest } from "@/domains/jira/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 
@@ -45,7 +45,7 @@ function stripAnsi(s: string): string {
 // runs, so we only decode chunks added since the last search.
 const chatCache = new Map<string, { count: number; text: string }>();
 
-function chatText(workspaceId: string, chunks: string[]): string {
+function chatText(workspaceId: string, chunks: OutputChunk[]): string {
   const cached = chatCache.get(workspaceId);
   let from = 0;
   let text = "";
@@ -55,7 +55,7 @@ function chatText(workspaceId: string, chunks: string[]): string {
   }
   for (let i = from; i < chunks.length; i++) {
     try {
-      text += stripAnsi(decodeChunk(chunks[i]));
+      text += stripAnsi(decodeChunk(chunks[i].data));
     } catch {
       // Skip an undecodable chunk rather than losing the whole buffer.
     }

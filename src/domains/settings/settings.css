@@ -215,3 +215,29 @@ button.ig-status.connected:hover {
   color: var(--c-review);
   background: var(--c-review-bg);
 }
+
+/* "What's new" panel shown when an update is available */
+.update-notes {
+  margin-top: 14px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.update-notes-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin-bottom: 8px;
+}
+.update-notes pre {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

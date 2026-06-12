@@ -1,12 +1,32 @@
 //! Shared application state. Held by Tauri via `.manage()` and accessed from
 //! commands and the PTY pump thread.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use parking_lot::{Mutex, RwLock};
 
 use crate::claude::pty::PtySession;
 use crate::jira::JiraConnection;
+
+/// Rolling raw-output history for one workspace's PTY. The renderer's copy of
+/// the byte stream dies with every page reload (dev hot-reload, Cmd+R); this
+/// backend copy lets a fresh terminal replay the scrollback. Chunks carry a
+/// monotonic `seq` that also rides on each `pty-output` event, so the frontend
+/// can replay a snapshot and resume from exactly the next live chunk.
+pub struct OutputHistory {
+    pub seq: u64,
+    /// (seq, base64 chunk), oldest first. Evicted from the front past the cap.
+    pub chunks: VecDeque<(u64, String)>,
+    /// Sum of encoded chunk lengths, for the eviction budget.
+    pub bytes: usize,
+    /// PTY dimensions the history was produced at — replay at the same size
+    /// is deterministic; replay at another width garbles TUI redraws.
+    pub cols: u16,
+    pub rows: u16,
+}
+
+/// Per-workspace history budget (~2 MiB of encoded bytes ≈ 1.5 MiB raw).
+pub const OUTPUT_HISTORY_CAP: usize = 2 * 1024 * 1024;
 
 #[derive(Default)]
 pub struct AppState {
@@ -17,6 +37,9 @@ pub struct AppState {
     pub pty_sessions: Mutex<HashMap<String, PtySession>>,
     /// Child PIDs for running agents (for SIGINT/stop), keyed by issue key.
     pub child_pids: Mutex<HashMap<String, u32>>,
+    /// Rolling PTY output per workspace (see `OutputHistory`). Reset on spawn,
+    /// kept after exit so a reload can still show the final transcript.
+    pub output_history: Mutex<HashMap<String, OutputHistory>>,
     /// Workspace ids with a start in flight. Spawning involves slow work (worktree
     /// creation), so two quick start requests could otherwise both pass the
     /// "already running?" check and spawn duplicate agents into one workspace —

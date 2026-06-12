@@ -292,11 +292,46 @@ pub fn resize_agent(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
+    let (cols, rows) = (cols.max(20), rows.max(4));
+    // Track the new dimensions on the output history — a snapshot replay must
+    // happen at the size the bytes were painted for.
+    if let Some(h) = state.output_history.lock().get_mut(&issue_key) {
+        h.cols = cols;
+        h.rows = rows;
+    }
     let sessions = state.pty_sessions.lock();
     match sessions.get(&issue_key) {
-        Some(session) => session.resize(cols.max(20), rows.max(4)),
+        Some(session) => session.resize(cols, rows),
         None => Ok(()),
     }
+}
+
+/// Everything needed to rebuild a terminal after a renderer reload: the
+/// rolling output history plus the PTY size it was painted at. `None` when
+/// the workspace never produced output (or its history was torn down).
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PtySnapshot {
+    pub chunks: Vec<String>,
+    /// Highest seq included — live chunks at or below this are already here.
+    pub seq: u64,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+#[tauri::command]
+pub fn pty_snapshot(state: State<'_, AppState>, workspace_id: String) -> Option<PtySnapshot> {
+    let histories = state.output_history.lock();
+    let h = histories.get(&workspace_id)?;
+    if h.chunks.is_empty() {
+        return None;
+    }
+    Some(PtySnapshot {
+        chunks: h.chunks.iter().map(|(_, c)| c.clone()).collect(),
+        seq: h.seq,
+        cols: h.cols,
+        rows: h.rows,
+    })
 }
 
 /// Stop an agent: take it out of state and kill the child (its EOF triggers the

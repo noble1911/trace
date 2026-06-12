@@ -39,6 +39,20 @@ export function resizeAgent(issueKey: string, cols: number, rows: number): Promi
   return invoke("resize_agent", { issueKey, cols, rows });
 }
 
+/** A workspace's rolling output history + the PTY size it was painted at. */
+export interface PtySnapshot {
+  chunks: string[];
+  /** Highest seq included — live chunks at or below this are already here. */
+  seq: number;
+  cols: number;
+  rows: number;
+}
+
+/** The backend's output history for replaying a freshly-created terminal. */
+export function ptySnapshot(workspaceId: string): Promise<PtySnapshot | null> {
+  return invoke("pty_snapshot", { workspaceId });
+}
+
 export function stopAgent(issueKey: string): Promise<void> {
   return invoke("stop_agent", { issueKey });
 }

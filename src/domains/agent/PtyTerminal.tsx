@@ -39,6 +39,12 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     };
     reportSize();
 
+    // A re-attached terminal keeps its buffer but the renderer doesn't repaint
+    // after re-parenting, and the same-size guard above (deliberately) sends no
+    // SIGWINCH to make the TUI redraw — so without this, the pane sits blank
+    // (just the cursor) until the next output byte. Repaint from the buffer.
+    entry.term.refresh(0, entry.term.rows - 1);
+
     // The ResizeObserver fires in bursts — the detail entrance, removing the
     // start-overlay, and xterm's own fit→relayout feedback can ramp the size
     // across dozens of frames. Sending each to the PTY is a SIGWINCH storm that

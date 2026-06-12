@@ -72,9 +72,10 @@ export function UpdateSettings() {
       </SettingRow>
       {error && <span style={{ fontSize: 12.5, color: "var(--c-danger)" }}>{error}</span>}
       {phase === "available" && update?.notes && (
-        <span className="hint" style={{ marginTop: 8, display: "block" }}>
-          {update.notes}
-        </span>
+        <div className="update-notes">
+          <div className="update-notes-title">What's new in v{update.version}</div>
+          <pre>{update.notes}</pre>
+        </div>
       )}
     </section>
   );

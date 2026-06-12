@@ -6,6 +6,8 @@ export interface PtyOutput {
   workspaceId: string;
   /** Base64-encoded raw PTY bytes. */
   data: string;
+  /** Monotonic chunk counter matching the backend output history. */
+  seq: number;
 }
 
 export interface AgentRunState {

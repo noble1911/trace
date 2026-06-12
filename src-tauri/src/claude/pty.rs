@@ -61,6 +61,10 @@ struct PtyOutput {
     workspace_id: String,
     /// Base64-encoded raw PTY bytes (preserves ANSI + multibyte splits).
     data: String,
+    /// Monotonic chunk counter, matching the backend output history — lets a
+    /// freshly-created terminal replay a snapshot then skip already-replayed
+    /// live chunks.
+    seq: u64,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -154,7 +158,7 @@ pub fn spawn_agent_pty(
     }
     cmd.env("TERM", "xterm-256color");
 
-    run_in_pty(app, workspace_id, pair, cmd)
+    run_in_pty(app, workspace_id, pair, cmd, cols, rows)
 }
 
 /// Spawn an interactive login shell inside a PTY rooted at `cwd` — the "Terminal"
@@ -174,7 +178,7 @@ pub fn spawn_shell_pty(
     let mut cmd = CommandBuilder::new(default_shell());
     cmd.cwd(&cwd);
     cmd.env("TERM", "xterm-256color");
-    run_in_pty(app, workspace_id, pair, cmd)
+    run_in_pty(app, workspace_id, pair, cmd, cols, rows)
 }
 
 /// The user's interactive shell, platform-aware.
@@ -197,6 +201,8 @@ fn run_in_pty(
     workspace_id: String,
     pair: PtyPair,
     cmd: CommandBuilder,
+    cols: u16,
+    rows: u16,
 ) -> Result<(PtySession, Option<u32>), String> {
     let child = pair
         .slave
@@ -215,6 +221,21 @@ fn run_in_pty(
         .take_writer()
         .map_err(|e| format!("Failed to take PTY writer: {e}"))?;
 
+    // Fresh history for this run — the new process repaints from scratch, so
+    // the previous run's bytes are no longer a valid replay.
+    if let Some(state) = app.try_state::<AppState>() {
+        state.output_history.lock().insert(
+            workspace_id.clone(),
+            crate::state::OutputHistory {
+                seq: 0,
+                chunks: std::collections::VecDeque::new(),
+                bytes: 0,
+                cols,
+                rows,
+            },
+        );
+    }
+
     let reader_app = app.clone();
     let reader_ws = workspace_id.clone();
     std::thread::spawn(move || {
@@ -224,11 +245,35 @@ fn run_in_pty(
                 Ok(0) => break, // EOF — the process exited
                 Ok(n) => {
                     let encoded = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
+                    // Record into the rolling history first, so any snapshot
+                    // taken after this emit is a superset of what the event
+                    // stream delivered (the seq handoff depends on it).
+                    let seq = match reader_app.try_state::<AppState>() {
+                        Some(state) => {
+                            let mut histories = state.output_history.lock();
+                            let Some(h) = histories.get_mut(&reader_ws) else {
+                                break; // torn down (e.g. session deleted)
+                            };
+                            h.seq += 1;
+                            h.bytes += encoded.len();
+                            h.chunks.push_back((h.seq, encoded.clone()));
+                            while h.bytes > crate::state::OUTPUT_HISTORY_CAP {
+                                if let Some((_, dropped)) = h.chunks.pop_front() {
+                                    h.bytes -= dropped.len();
+                                } else {
+                                    break;
+                                }
+                            }
+                            h.seq
+                        }
+                        None => 0,
+                    };
                     let _ = reader_app.emit(
                         "pty-output",
                         PtyOutput {
                             workspace_id: reader_ws.clone(),
                             data: encoded,
+                            seq,
                         },
                     );
                 }

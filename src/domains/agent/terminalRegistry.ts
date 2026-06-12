@@ -2,8 +2,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import { useBoardStore } from "@/domains/board/store";
-import { resizeAgent, sendAgentInput } from "@/ipc/agent";
+import { type OutputChunk, useBoardStore } from "@/domains/board/store";
+import { ptySnapshot, resizeAgent, sendAgentInput } from "@/ipc/agent";
 import { termFontFamily, termFontSize, termLineHeight } from "./terminalPrefs";
 
 /**
@@ -45,6 +45,11 @@ interface TerminalEntry {
   opened: boolean;
   /** How many buffered chunks we've already written (monotonic, no double-write). */
   lastSeen: number;
+  /**
+   * High-water mark from a history replay: live chunks with seq at or below
+   * this are already on screen (the snapshot contained them) and are skipped.
+   */
+  skipSeq: number;
   /**
    * Whether this terminal has ever rendered output. A terminal with scrollback is
    * kept alive across navigation even after the agent stops, so its history is
@@ -116,6 +121,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     container,
     opened: false,
     lastSeen: 0,
+    skipSeq: 0,
     hasOutput: false,
     lastSent: null,
     unsub: () => {},
@@ -130,10 +136,14 @@ export function getTerminal(issueKey: string): TerminalEntry {
   // stale history and PtyTerminal's mount-time resize makes the TUI repaint the
   // current screen cleanly. Scrollback across navigation is preserved a
   // different way — the terminal is kept alive (detached), not recreated.
-  const pump = (chunks: string[]) => {
+  const pump = (chunks: OutputChunk[]) => {
     while (entry.lastSeen < chunks.length) {
-      term.write(decodeBase64(chunks[entry.lastSeen]));
+      const chunk = chunks[entry.lastSeen];
       entry.lastSeen++;
+      // Skip what a history replay already painted (seq handoff) — an event
+      // can arrive after the snapshot that already contained its bytes.
+      if (chunk.seq <= entry.skipSeq) continue;
+      term.write(decodeBase64(chunk.data));
       entry.hasOutput = true;
     }
   };
@@ -141,6 +151,29 @@ export function getTerminal(issueKey: string): TerminalEntry {
   entry.unsub = useBoardStore.subscribe((s) => pump(s.outputBuffers[issueKey] ?? []));
 
   registry.set(issueKey, entry);
+
+  // A brand-new terminal for a workspace with prior output (renderer reload
+  // killed the old one): replay the backend's rolling history. Replay is only
+  // safe at the size the bytes were painted for, so size first, write, then
+  // re-fit to the actual pane (xterm reflows the buffer on resize).
+  void ptySnapshot(issueKey)
+    .then((snap) => {
+      if (!snap || snap.chunks.length === 0) return;
+      // Live bytes already hit this terminal — replaying underneath them
+      // would garble; fall back to live-only (the TUI repaints on fit).
+      if (entry.hasOutput) return;
+      entry.term.resize(snap.cols, snap.rows);
+      for (const chunk of snap.chunks) {
+        entry.term.write(decodeBase64(chunk));
+      }
+      entry.skipSeq = snap.seq;
+      entry.hasOutput = true;
+      const r = fitAndDiff(issueKey);
+      if (r?.changed) void resizeAgent(issueKey, r.cols, r.rows);
+      entry.term.refresh(0, entry.term.rows - 1);
+    })
+    .catch(() => {});
+
   return entry;
 }
 
@@ -192,6 +225,9 @@ export function resetTerminal(issueKey: string): void {
   if (!entry) return;
   entry.term.reset();
   entry.lastSeen = 0;
+  // A fresh spawn resets the backend's seq counter too — a stale high-water
+  // mark would silently swallow the new session's first chunks.
+  entry.skipSeq = 0;
   entry.hasOutput = false;
 }
 
