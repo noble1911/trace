@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
-import { notifyOnWaiting } from "@/domains/agent/defaults";
+import { autoStartOnMove, notifyOnWaiting } from "@/domains/agent/defaults";
 import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
@@ -147,6 +147,11 @@ interface BoardStore {
   closeIssue: () => void;
   setFilter: (filter: BoardFilter) => void;
   setAssigneeFilter: (accountId: string | null) => void;
+  /** Start an agent on an issue with the templated kickoff brief. */
+  kickoff: (key: string) => void;
+  /** Issue awaiting a repo pick before its kickoff can proceed. */
+  repoPickFor: string | null;
+  closeRepoPick: () => void;
   setAgentRunning: (key: string, running: boolean) => void;
   appendOutput: (workspaceId: string, data: string, seq: number) => void;
   clearOutput: (workspaceId: string) => void;
@@ -216,16 +221,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       await get().refresh();
       toast.success(`Moved ${key} to ${status.name}`);
       activity.log({ kind: "transition", issueKey: key, title: `→ ${status.name}` });
-      // Landing in the board's first in-progress column starts the work:
-      // spawn the agent automatically. Fire-and-forget — worktree creation
-      // takes seconds and the card move shouldn't wait on it. (Dynamic import:
-      // launch.ts imports this store, so a static import would be a cycle.)
-      if (isStartOfWork(data.columns, status.id) && !get().runningAgents.has(key)) {
-        void import("@/domains/agent/launch").then(({ launchIssueAgent }) =>
-          launchIssueAgent(key)
-            .then(() => toast.success(`Started agent on ${key}`))
-            .catch((err) => toast.error(`Agent didn't start: ${formatMoveError(err)}`))
-        );
+      // Landing in the board's first in-progress column can start the work
+      // automatically — opt-in via Settings (spawning agents costs tokens).
+      if (
+        autoStartOnMove() &&
+        isStartOfWork(data.columns, status.id) &&
+        !get().runningAgents.has(key)
+      ) {
+        get().kickoff(key);
       }
     } catch (err) {
       // Roll the card back and surface *why* — Jira workflows don't permit every
@@ -239,6 +242,30 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     }
   },
 
+  repoPickFor: null,
+  closeRepoPick() {
+    set({ repoPickFor: null });
+  },
+  kickoff(key) {
+    const issue = get().data?.issues.find((i) => i.key === key);
+    if (!issue || get().runningAgents.has(key)) return;
+    // Fire-and-forget — worktree creation takes seconds and the board
+    // shouldn't block on it. (Dynamic import: launch.ts imports this store,
+    // so a static import would be a cycle.)
+    void import("@/domains/agent/launch").then(({ launchIssueAgent, kickoffPrompt }) =>
+      launchIssueAgent(key, { prompt: kickoffPrompt(issue) })
+        .then(() => toast.success(`Started agent on ${key}`))
+        .catch((err) => {
+          // Unassigned issue in a multi-repo setup: ask right here on the
+          // board instead of dead-ending — picking retries the kickoff.
+          if (String(err).includes("No repository assigned")) {
+            set({ repoPickFor: key });
+          } else {
+            toast.error(`Agent didn't start: ${formatMoveError(err)}`);
+          }
+        })
+    );
+  },
   openIssue(key) {
     set({ selectedIssueKey: key });
   },

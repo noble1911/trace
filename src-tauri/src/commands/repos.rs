@@ -24,6 +24,49 @@ struct ReposConfig {
     /// keyed by absolute cwd.
     #[serde(default)]
     dir_overrides: HashMap<String, String>,
+    /// User-defined ticket→repo mappings, edited in Settings. A ticket whose
+    /// key contains `pattern` (case-insensitive) resolves to `repo`; first
+    /// match wins. Checked after explicit assignments.
+    #[serde(default)]
+    mappings: Vec<RepoMapping>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoMapping {
+    pub pattern: String,
+    pub repo: String,
+}
+
+/// First mapping whose pattern the workspace id contains (case-insensitive).
+fn match_mapping<'a>(mappings: &'a [RepoMapping], workspace_id: &str) -> Option<&'a str> {
+    let id_upper = workspace_id.to_uppercase();
+    mappings
+        .iter()
+        .find(|m| !m.pattern.is_empty() && id_upper.contains(&m.pattern.to_uppercase()))
+        .map(|m| m.repo.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{match_mapping, RepoMapping};
+
+    fn m(pattern: &str, repo: &str) -> RepoMapping {
+        RepoMapping { pattern: pattern.into(), repo: repo.into() }
+    }
+
+    #[test]
+    fn mapping_is_contains_case_insensitive_first_wins() {
+        let mappings = vec![m("TRACE", "/repos/trace"), m("TR", "/repos/other")];
+        assert_eq!(match_mapping(&mappings, "TRACE-12"), Some("/repos/trace"));
+        // Contains, not prefix; and case-insensitive both ways.
+        assert_eq!(match_mapping(&[m("ace", "/r")], "TRACE-12"), Some("/r"));
+        // First match wins over a later, equally-valid one.
+        assert_eq!(match_mapping(&mappings, "TR-9"), Some("/repos/other"));
+        // Empty patterns never match; no match → None.
+        assert_eq!(match_mapping(&[m("", "/r")], "TRACE-12"), None);
+        assert_eq!(match_mapping(&mappings, "OTHER-1"), None);
+    }
 }
 
 fn config_file() -> PathBuf {
@@ -83,12 +126,18 @@ pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
     if let Some(repo) = cfg.assignments.get(workspace_id) {
         return Ok(repo.clone());
     }
+    // User-defined ticket→repo mapping (Settings → Repositories).
+    if let Some(repo) = match_mapping(&cfg.mappings, workspace_id)
+        .filter(|r| cfg.repos.iter().any(|known| known == r))
+    {
+        return Ok(repo.to_string());
+    }
     // With exactly one configured repo there's no ambiguity — auto-assign so
     // board-drag auto-start works without opening the card to pick.
     if cfg.repos.len() == 1 {
         return Ok(cfg.repos[0].clone());
     }
-    Err("No repository assigned yet — open the card and pick one to start.".to_string())
+    Err("No repository assigned yet — pick one to start.".to_string())
 }
 
 /// The worktree directory NAME for a workspace: an adopted dir if linked,
@@ -171,4 +220,27 @@ pub fn set_issue_repo(issue_key: String, path: String) -> Result<(), String> {
     }
     cfg.assignments.insert(issue_key, path);
     save(&cfg)
+}
+
+#[tauri::command]
+pub fn list_repo_mappings() -> Vec<RepoMapping> {
+    load().mappings
+}
+
+/// Replace the mapping list (the Settings editor owns ordering/content).
+/// Sanitizes: trims patterns, drops empties and mappings to unknown repos.
+#[tauri::command]
+pub fn set_repo_mappings(mappings: Vec<RepoMapping>) -> Result<Vec<RepoMapping>, String> {
+    let mut cfg = load();
+    cfg.mappings = mappings
+        .into_iter()
+        .map(|mut m| {
+            m.pattern = m.pattern.trim().to_string();
+            m
+        })
+        .filter(|m| !m.pattern.is_empty() && cfg.repos.contains(&m.repo))
+        .collect();
+    let saved = cfg.mappings.clone();
+    save(&cfg)?;
+    Ok(saved)
 }

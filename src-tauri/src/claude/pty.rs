@@ -95,6 +95,12 @@ pub fn spawn_agent_pty(
     // Extra CLI flags the user configured (e.g. --dangerously-skip-permissions),
     // appended verbatim after the managed flags.
     extra_args: Vec<String>,
+    // Kickoff prompt passed as the CLI's positional argument — the TUI starts
+    // with it already submitted. Far more robust than typing into the PTY
+    // post-boot (no race with startup, and trust dialogs don't swallow it).
+    // Skipped when resuming a Claude conversation: re-greeting an existing
+    // session with the ticket brief would be noise.
+    initial_prompt: Option<String>,
     env_overrides: HashMap<String, String>,
     cols: u16,
     rows: u16,
@@ -134,7 +140,7 @@ pub fn spawn_agent_pty(
             // Codex manages its own session state and uses different model flag
             // conventions across versions — invoke it bare for now and let it
             // pick up the user's defaults.
-            let _ = (claude_session_id, new_session_id, model);
+            let _ = (&claude_session_id, &new_session_id, &model);
         }
         other => {
             return Err(format!("Unknown agent CLI: {other}"));
@@ -143,6 +149,14 @@ pub fn spawn_agent_pty(
     // User-provided flags last, so they can override or extend the managed ones.
     for arg in &extra_args {
         cmd.arg(arg);
+    }
+    // The positional prompt goes at the very end. Fresh conversations only —
+    // a resumed Claude session already has its context.
+    if let Some(prompt) = initial_prompt.as_deref() {
+        let resuming = cli == "claude" && claude_session_id.is_some();
+        if !resuming && !prompt.trim().is_empty() {
+            cmd.arg(prompt);
+        }
     }
 
     // Start from a clean env, apply the effective env, skip model-override

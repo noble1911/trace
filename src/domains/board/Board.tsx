@@ -5,6 +5,7 @@ import { AssigneeFilter } from "./AssigneeFilter";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
 import { FilterChip } from "./FilterChip";
+import { RepoPickModal } from "./RepoPickModal";
 import { type BoardFilter, useBoardStore } from "./store";
 
 function applyFilter(
@@ -43,6 +44,7 @@ export function Board() {
   const setAssigneeFilter = useBoardStore((s) => s.setAssigneeFilter);
   const openIssue = useBoardStore((s) => s.openIssue);
   const moveIssue = useBoardStore((s) => s.moveIssue);
+  const repoPickFor = useBoardStore((s) => s.repoPickFor);
   const currentUserId = useJiraStore((s) => s.user?.accountId ?? null);
 
   const draggingRef = useRef<string | null>(null);
@@ -127,6 +129,8 @@ export function Board() {
           />
         ))}
       </div>
+
+      {repoPickFor && <RepoPickModal issueKey={repoPickFor} />}
     </div>
   );
 }

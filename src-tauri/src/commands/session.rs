@@ -358,5 +358,5 @@ pub fn start_session(
         repo
     };
 
-    spawn_in(app, &state, id, cwd, session.cli, None, extra_args.unwrap_or_default(), cols, rows)
+    spawn_in(app, &state, id, cwd, session.cli, None, extra_args.unwrap_or_default(), None, cols, rows)
 }

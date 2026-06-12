@@ -28,8 +28,14 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
   const status = useBoardStore((s) =>
     statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
   );
+  const kickoff = useBoardStore((s) => s.kickoff);
   const site = useJiraStore((s) => s.session?.site ?? null);
   const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
+
+  const onKickoff = (e: MouseEvent) => {
+    e.stopPropagation();
+    kickoff(issue.key);
+  };
 
   const open = () => onOpen(issue.key);
   const onCardKey = (e: { key: string }) => {
@@ -65,6 +71,17 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
         <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
           {status === "working" && <span className="thinking">working</span>}
           {status === "waiting" && <span className="waiting">waiting</span>}
+          {status === "idle" && (
+            <button
+              type="button"
+              className="card-go"
+              onClick={onKickoff}
+              title={`Start an agent on ${issue.key} with the ticket brief`}
+              aria-label={`Start agent on ${issue.key}`}
+            >
+              <I.Sparkles size={13} />
+            </button>
+          )}
           <AgentAvatar assignee={issue.assignee} />
         </span>
       </div>

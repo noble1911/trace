@@ -55,6 +55,39 @@ export function agentArgs(): string[] {
   return raw ? raw.split(/\s+/) : [];
 }
 
+const KICKOFF_KEY = "trace.kickoffPrompt";
+
+/** Default brief sent when an agent is started straight from the board. */
+export const DEFAULT_KICKOFF_PROMPT =
+  "Work on Jira ticket {key}: {summary}\n\nTicket description:\n{description}\n\n" +
+  "Please implement this ticket. Ask if anything is ambiguous.";
+
+/** The kickoff template as typed ("" = default), for the Settings input. */
+export function kickoffPromptRaw(): string {
+  return read(KICKOFF_KEY);
+}
+
+/** The effective kickoff template ({key}/{summary}/{description} placeholders). */
+export function kickoffPromptTemplate(): string {
+  return read(KICKOFF_KEY).trim() || DEFAULT_KICKOFF_PROMPT;
+}
+
+export function setKickoffPrompt(next: string) {
+  write(KICKOFF_KEY, next.trim());
+}
+
+const AUTO_START_KEY = "trace.autoStartOnMove";
+
+/** Whether dragging a card to In Progress auto-starts its agent. Default off
+ * — automation that spawns agents (and spends tokens) should be opted into. */
+export function autoStartOnMove(): boolean {
+  return read(AUTO_START_KEY) === "1";
+}
+
+export function setAutoStartOnMove(on: boolean) {
+  write(AUTO_START_KEY, on ? "1" : "");
+}
+
 /** Whether a working→waiting flip fires a native notification. Default on. */
 export function notifyOnWaiting(): boolean {
   return read(NOTIFY_WAITING_KEY) !== "0";

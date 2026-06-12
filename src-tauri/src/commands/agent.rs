@@ -162,6 +162,7 @@ pub(crate) fn spawn_in(
     cli: String,
     model: Option<String>,
     extra_args: Vec<String>,
+    initial_prompt: Option<String>,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
@@ -178,6 +179,7 @@ pub(crate) fn spawn_in(
         new_id_arg,
         model,
         extra_args,
+        initial_prompt,
         HashMap::new(),
         cols.max(20),
         rows.max(4),
@@ -214,6 +216,7 @@ pub fn start_agent(
     model: Option<String>,
     cli: Option<String>,
     extra_args: Option<Vec<String>>,
+    initial_prompt: Option<String>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
@@ -239,7 +242,18 @@ pub fn start_agent(
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
     let cli = cli.unwrap_or_else(|| "claude".to_string());
-    spawn_in(app, &state, issue_key, worktree, cli, model, extra_args.unwrap_or_default(), cols, rows)
+    spawn_in(
+        app,
+        &state,
+        issue_key,
+        worktree,
+        cli,
+        model,
+        extra_args.unwrap_or_default(),
+        initial_prompt,
+        cols,
+        rows,
+    )
 }
 
 /// Start a plain shell in the issue's worktree — the "Terminal" tab, separate

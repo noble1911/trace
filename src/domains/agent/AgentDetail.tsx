@@ -120,7 +120,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       // The terminal is already mounted (behind the StartPrompt overlay) and
       // fitted, so launch spawns the PTY at its exact size — no spawn-time
       // SIGWINCH double-painting the banner.
-      await launchIssueAgent(issue.key, cli);
+      await launchIssueAgent(issue.key, { cli });
     } catch (err) {
       setError(String(err));
     } finally {

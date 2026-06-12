@@ -289,3 +289,25 @@ button.epic-chip:hover {
     0 0 32px -6px oklch(0.78 0.15 70 / 0.4);
 }
 
+
+/* Kickoff button — start an agent with the ticket brief, from the card */
+.card-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: var(--c-accent);
+  opacity: 0;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease;
+}
+.card:hover .card-go,
+.card-go:focus-visible {
+  opacity: 1;
+}
+.card-go:hover {
+  background: var(--c-review-bg);
+}

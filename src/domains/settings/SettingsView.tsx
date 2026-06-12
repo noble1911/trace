@@ -1,26 +1,27 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
-import { I } from "@/components/Icon";
+import { useState } from "react";
 import { Switch } from "@/components/Switch";
 import {
   agentArgsRaw,
   agentCli,
   agentModelRaw,
+  autoStartOnMove,
+  DEFAULT_KICKOFF_PROMPT,
+  kickoffPromptRaw,
   notifyOnWaiting,
   setAgentArgs,
   setAgentCli,
   setAgentModel,
+  setAutoStartOnMove,
+  setKickoffPrompt,
   setNotifyOnWaiting,
 } from "@/domains/agent/defaults";
 import { useJiraStore } from "@/domains/jira/store";
 import type { AgentCli } from "@/ipc/agent";
-import { addRepo, listRepos, removeRepo } from "@/ipc/repos";
+import { RepoSettings } from "./RepoSettings";
 import { SettingRow } from "./SettingRow";
 import { TerminalSettings } from "./TerminalSettings";
 import { UpdateSettings } from "./UpdateSettings";
 import { WorktreeSettings } from "./WorktreeSettings";
-
-const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
 type SettingsTab = "general" | "terminal" | "worktrees" | "updates";
 const TABS: { id: SettingsTab; label: string }[] = [
@@ -36,12 +37,12 @@ export function SettingsView() {
   const user = useJiraStore((s) => s.user);
   const disconnect = useJiraStore((s) => s.disconnect);
 
-  const [repos, setRepos] = useState<string[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
   const [cli, setCli] = useState<AgentCli>(agentCli);
   const [model, setModel] = useState(agentModelRaw);
   const [args, setArgs] = useState(agentArgsRaw);
   const [notifyWaiting, setNotifyWaiting] = useState(notifyOnWaiting);
+  const [kickoff, setKickoff] = useState(kickoffPromptRaw);
+  const [autoStart, setAutoStart] = useState(autoStartOnMove);
   const [tab, setTab] = useState<SettingsTab>("general");
 
   const chooseCli = (next: AgentCli) => {
@@ -60,33 +61,13 @@ export function SettingsView() {
     setNotifyWaiting(next);
     setNotifyOnWaiting(next);
   };
-
-  useEffect(() => {
-    void listRepos().then(setRepos);
-  }, []);
-
-  const addFolder = async () => {
-    setMessage(null);
-    const picked = await open({
-      directory: true,
-      multiple: false,
-      title: "Choose a git repository",
-    });
-    if (typeof picked !== "string") return;
-    try {
-      setRepos(await addRepo(picked));
-    } catch (err) {
-      setMessage(String(err));
-    }
+  const chooseKickoff = (next: string) => {
+    setKickoff(next);
+    setKickoffPrompt(next);
   };
-
-  const remove = async (path: string) => {
-    setMessage(null);
-    try {
-      setRepos(await removeRepo(path));
-    } catch (err) {
-      setMessage(String(err));
-    }
+  const chooseAutoStart = (next: boolean) => {
+    setAutoStart(next);
+    setAutoStartOnMove(next);
   };
 
   return (
@@ -127,45 +108,7 @@ export function SettingsView() {
         )}
         {tab === "general" && (
           <div className="settings-wrap">
-            <section className="setting-group">
-              <h2>Repositories</h2>
-              <div className="desc">
-                The git repos your tickets live in. Each ticket is assigned one when you start work
-                on it; agents run in isolated worktrees under that repo.
-              </div>
-              {repos.length > 0 && (
-                <div className="repo-list">
-                  {repos.map((path) => (
-                    <div key={path} className="repo-row">
-                      <I.Code size={14} />
-                      <span className="repo-name">{basename(path)}</span>
-                      <span className="repo-path">{path}</span>
-                      <button
-                        type="button"
-                        className="repo-remove"
-                        onClick={() => void remove(path)}
-                        aria-label={`Remove ${basename(path)}`}
-                      >
-                        <I.X size={13} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
-                <button type="button" className="btn" onClick={addFolder}>
-                  <I.Plus size={13} /> Add repository
-                </button>
-                {message && (
-                  <span style={{ fontSize: 12.5, color: "var(--c-danger)" }}>{message}</span>
-                )}
-              </div>
-              {repos.length === 0 && (
-                <span className="hint" style={{ marginTop: 8, display: "block" }}>
-                  Add the folder of a local git repository (not a GitHub URL).
-                </span>
-              )}
-            </section>
+            <RepoSettings />
 
             <section className="setting-group">
               <h2>Agent defaults</h2>
@@ -201,6 +144,31 @@ export function SettingsView() {
                   onChange={(e) => chooseArgs(e.target.value)}
                 />
               </SettingRow>
+              <SettingRow
+                label="Auto-start on move"
+                hint="Dragging a card to In Progress starts its agent with the kickoff prompt."
+              >
+                <Switch
+                  on={autoStart}
+                  onChange={chooseAutoStart}
+                  label="Auto-start agents on move to In Progress"
+                />
+              </SettingRow>
+              <div className="setting-block">
+                <div className="label">Kickoff prompt</div>
+                <div className="hint">
+                  Sent to the agent when you start it from the board (the ✦ button on a card, or —
+                  with auto-start on — dragging to In&nbsp;Progress). Placeholders: {"{key}"},{" "}
+                  {"{summary}"}, {"{description}"}. Blank uses the default.
+                </div>
+                <textarea
+                  aria-label="Kickoff prompt"
+                  rows={4}
+                  placeholder={DEFAULT_KICKOFF_PROMPT}
+                  value={kickoff}
+                  onChange={(e) => chooseKickoff(e.target.value)}
+                />
+              </div>
             </section>
 
             <section className="setting-group">

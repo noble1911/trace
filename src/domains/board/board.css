@@ -217,3 +217,41 @@
   text-align: center;
 }
 
+
+/* Repo picker (kickoff couldn't infer the repo) */
+.repo-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.repo-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  color: var(--fg-3);
+  font-size: 12.5px;
+}
+.repo-pick-row:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-3);
+}
+.repo-pick-row .name {
+  font-weight: 500;
+  color: var(--fg-0);
+}
+.repo-pick-row .path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
