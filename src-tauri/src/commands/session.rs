@@ -34,6 +34,11 @@ pub struct ScratchSession {
     /// Section id within the tab; `None` = the tab's unsectioned area.
     #[serde(default)]
     pub section: Option<String>,
+    /// Whether this session runs in its own worktree. New sessions do (which
+    /// also makes them linkable to a ticket); sessions from before this field
+    /// keep the repo root — their Claude conversations are keyed to that cwd.
+    #[serde(default)]
+    pub worktree: bool,
 }
 
 /// How long an archived session lingers before it's auto-purged (14 days).
@@ -107,6 +112,7 @@ pub fn create_session(title: String, cli: String) -> Result<ScratchSession, Stri
         archived_at: None,
         tab: None,
         section: None,
+        worktree: true,
     };
     let mut list = load();
     list.push(session.clone());
@@ -138,6 +144,76 @@ pub fn rename_session(id: String, title: String) -> Result<ScratchSession, Strin
 /// Whether a workspace id belongs to an exploratory session (vs a Jira issue).
 pub(crate) fn is_session(id: &str) -> bool {
     load().iter().any(|s| s.id == id)
+}
+
+/// Bind an exploratory session's workspace to a Jira issue. Nothing moves on
+/// disk — the issue *adopts* the session's worktree (a Claude conversation is
+/// keyed by its absolute cwd, so relocating it would orphan the history), the
+/// conversation id transfers to the issue key, the branch is renamed to the
+/// issue convention so PRs work, and the session is consumed.
+#[tauri::command]
+pub fn link_session_to_issue(
+    state: State<'_, AppState>,
+    id: String,
+    issue_key: String,
+) -> Result<(), String> {
+    let mut list = load();
+    let Some(pos) = list.iter().position(|s| s.id == id) else {
+        return Err("That session no longer exists.".to_string());
+    };
+    if !list[pos].worktree {
+        return Err(
+            "This session predates worktree sessions and shares the repo root — it can't be \
+             bound to a ticket."
+                .to_string(),
+        );
+    }
+    let repo = crate::commands::repos::default_repo()
+        .ok_or("Add a repository in Settings first.")?;
+    let dirname = crate::commands::repos::workspace_dirname(&id);
+    let dir = format!("{repo}/.worktrees/{dirname}");
+    if !std::path::Path::new(&dir).exists() {
+        return Err("Start this session once before linking — it has no worktree yet.".to_string());
+    }
+    // Refuse if the issue already has its own checkout — merging two working
+    // trees isn't something we can do safely.
+    let issue_dir = crate::commands::repos::workspace_dir(&repo, &issue_key);
+    if issue_dir != dir && std::path::Path::new(&issue_dir).exists() {
+        return Err(format!(
+            "{issue_key} already has a worktree — remove it first (Settings → Worktrees)."
+        ));
+    }
+
+    // Stop the session's PTYs; the conversation resumes under the issue key.
+    for key in [id.clone(), format!("term:{id}")] {
+        let live = state.pty_sessions.lock().remove(&key);
+        if let Some(mut s) = live {
+            s.kill();
+        }
+        state.child_pids.lock().remove(&key);
+        state.output_history.lock().remove(&key);
+    }
+
+    // Rename the branch to the issue convention (renames don't touch the cwd).
+    let old_branch = format!("workspace/{}", crate::helpers::slugify(&id));
+    let new_branch = format!("workspace/{}", crate::helpers::slugify(&issue_key));
+    let out = std::process::Command::new("git")
+        .args(["branch", "-m", &old_branch, &new_branch])
+        .current_dir(&repo)
+        .output()
+        .map_err(|e| format!("git branch rename failed to start: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "Couldn't rename the session branch: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+
+    crate::commands::repos::adopt_workspace_dir(&issue_key, &dirname, &repo)?;
+    crate::commands::agent::move_session_id(&id, &issue_key)?;
+
+    list.remove(pos);
+    save(&list)
 }
 
 /// File a session under a tab and/or section (`None` = default/unsectioned).
@@ -269,5 +345,18 @@ pub fn start_session(
         return Err(format!("Repository is {busy} — finish that git operation first."));
     }
 
-    spawn_in(app, &state, id, repo, session.cli, None, extra_args.unwrap_or_default(), cols, rows)
+    // Worktree sessions get the same isolation as issues (and become linkable
+    // to a ticket later); legacy sessions stay in the repo root where their
+    // Claude conversations live.
+    let cwd = if session.worktree {
+        let worktree = crate::commands::repos::workspace_dir(&repo, &id);
+        let branch = format!("workspace/{}", crate::helpers::slugify(&id));
+        let default_branch = git::get_default_branch(&repo);
+        git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
+        worktree
+    } else {
+        repo
+    };
+
+    spawn_in(app, &state, id, cwd, session.cli, None, extra_args.unwrap_or_default(), cols, rows)
 }

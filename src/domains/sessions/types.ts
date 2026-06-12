@@ -13,6 +13,8 @@ export interface ScratchSession {
   tab?: string | null;
   /** Section id within the tab; null/undefined = unsectioned. */
   section?: string | null;
+  /** Runs in its own worktree (linkable to a ticket). Legacy sessions don't. */
+  worktree?: boolean;
 }
 
 /** A top-level view on the Sessions page (e.g. one per repo). */

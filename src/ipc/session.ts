@@ -29,6 +29,11 @@ export function deleteSession(id: string): Promise<void> {
   return invoke("delete_session", { id });
 }
 
+/** Bind a session's workspace to a Jira issue; the session is consumed. */
+export function linkSessionToIssue(id: string, issueKey: string): Promise<void> {
+  return invoke("link_session_to_issue", { id, issueKey });
+}
+
 /** Tabs + sections, in display order. */
 export function listSessionGroups(): Promise<SessionGroups> {
   return invoke("list_session_groups");

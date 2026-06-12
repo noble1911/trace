@@ -79,13 +79,14 @@ fn is_dirty(worktree: &str) -> bool {
     git_out(worktree, &["status", "--porcelain"]).is_none_or(|s| !s.trim().is_empty())
 }
 
-/// Workspace slugs with a live PTY (board agents + their `term:` shells).
+/// Worktree dir names with a live PTY (board agents + their `term:` shells).
+/// Resolved through the dirname helper so adopted dirs match correctly.
 fn running_slugs(state: &AppState) -> Vec<String> {
     state
         .pty_sessions
         .lock()
         .keys()
-        .map(|k| slugify(k.strip_prefix("term:").unwrap_or(k)))
+        .map(|k| crate::commands::repos::workspace_dirname(k.strip_prefix("term:").unwrap_or(k)))
         .collect()
 }
 
@@ -93,12 +94,13 @@ fn running_slugs(state: &AppState) -> Vec<String> {
 /// lives. Forced and best-effort — callers are deleting the workspace
 /// itself, so leftover changes there are disposable.
 pub(crate) fn remove_for_workspace(workspace_id: &str) {
+    let dirname = crate::commands::repos::workspace_dirname(workspace_id);
     let slug = slugify(workspace_id);
-    if slug.is_empty() {
+    if dirname.is_empty() {
         return;
     }
     for repo in crate::commands::repos::all_repos() {
-        let path = format!("{repo}/.worktrees/{slug}");
+        let path = format!("{repo}/.worktrees/{dirname}");
         if !std::path::Path::new(&path).exists() {
             continue;
         }

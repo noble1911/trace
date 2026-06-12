@@ -7,7 +7,6 @@ use std::process::Command;
 use serde::Serialize;
 
 use crate::git;
-use crate::helpers::slugify;
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +61,7 @@ fn work_dir_for(workspace_id: &str) -> Result<(String, String), String> {
         .ok()
         .or_else(crate::commands::repos::default_repo)
         .ok_or_else(|| "Choose a repository folder in Settings first.".to_string())?;
-    let worktree = format!("{repo}/.worktrees/{}", slugify(workspace_id));
+    let worktree = crate::commands::repos::workspace_dir(&repo, workspace_id);
     if std::path::Path::new(&worktree).exists() {
         Ok((repo, worktree))
     } else {

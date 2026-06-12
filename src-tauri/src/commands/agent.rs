@@ -84,6 +84,18 @@ fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
     save_sessions(&map)
 }
 
+/// Transfer a saved Claude conversation id to a new workspace key (used when
+/// an exploratory session is linked to an issue — same conversation, new owner).
+pub(crate) fn move_session_id(from: &str, to: &str) -> Result<(), String> {
+    let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let mut map = load_sessions();
+    if let Some(claude_id) = map.remove(from) {
+        map.insert(to.to_string(), claude_id);
+        save_sessions(&map)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn forget_session_id(issue_key: &str) -> Result<(), String> {
     let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let mut map = load_sessions();
@@ -219,9 +231,10 @@ pub fn start_agent(
         return Err(format!("Repository is {busy} — finish that git operation first."));
     }
 
-    let slug = slugify(&issue_key);
-    let worktree = format!("{repo}/.worktrees/{slug}");
-    let branch = format!("workspace/{slug}");
+    // Path through the dirname helper: a linked issue adopted its session's
+    // worktree, in which case it already exists and create_worktree no-ops.
+    let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
+    let branch = format!("workspace/{}", slugify(&issue_key));
     let default_branch = git::get_default_branch(&repo);
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
 
@@ -248,21 +261,27 @@ pub fn start_terminal(
         return Ok(());
     };
 
-    // Exploratory sessions run in the repo root with no worktree — their
-    // shell opens there too. Only issues get (or create) a worktree.
+    // The shell opens wherever the workspace's agent runs: a session's
+    // worktree when it has one, the repo root for legacy root sessions, or
+    // the issue's worktree (created on demand).
     let cwd = if crate::commands::session::is_session(&issue_key) {
-        crate::commands::repos::default_repo()
-            .ok_or("Add a repository in Settings before opening a terminal.")?
+        let repo = crate::commands::repos::default_repo()
+            .ok_or("Add a repository in Settings before opening a terminal.")?;
+        let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
+        if std::path::Path::new(&worktree).exists() {
+            worktree
+        } else {
+            repo
+        }
     } else {
         let repo = crate::commands::repos::repo_for(&issue_key)?;
-        let slug = slugify(&issue_key);
-        let worktree = format!("{repo}/.worktrees/{slug}");
+        let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
         if !std::path::Path::new(&worktree).exists() {
             let busy = git::git_busy_check(&repo);
             if busy.starts_with("busy") {
                 return Err(format!("Repository is {busy} — finish that git operation first."));
             }
-            let branch = format!("workspace/{slug}");
+            let branch = format!("workspace/{}", slugify(&issue_key));
             let default_branch = git::get_default_branch(&repo);
             git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
         }

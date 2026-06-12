@@ -9,7 +9,6 @@ use std::time::Instant;
 
 use serde::Serialize;
 
-use crate::helpers::slugify;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,7 +77,7 @@ pub async fn run_tests(issue_key: String) -> Result<TestRun, String> {
 
 /// The blocking work — detect the toolchain and run its test command.
 fn run_blocking(repo: &str, issue_key: &str) -> Result<TestRun, String> {
-    let worktree = format!("{repo}/.worktrees/{}", slugify(issue_key));
+    let worktree = crate::commands::repos::workspace_dir(&repo, issue_key);
     if !Path::new(&worktree).exists() {
         return Err(format!("No worktree for {issue_key} — start a session on this issue first."));
     }

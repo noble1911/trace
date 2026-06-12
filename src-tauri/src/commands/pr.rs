@@ -152,7 +152,7 @@ pub fn pr_details(issue_key: String, pr_url: String) -> Result<PrDetails, String
 pub fn raise_pr(issue_key: String, title: String, body: String) -> Result<RaisedPr, String> {
     let repo = crate::commands::repos::repo_for(&issue_key)?;
     let slug = slugify(&issue_key);
-    let worktree = format!("{repo}/.worktrees/{slug}");
+    let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
     let branch = format!("workspace/{slug}");
 
     if !std::path::Path::new(&worktree).exists() {

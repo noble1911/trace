@@ -62,6 +62,7 @@ pub fn run() {
             commands::session::delete_session,
             commands::session::start_session,
             commands::session::set_session_group,
+            commands::session::link_session_to_issue,
             commands::groups::list_session_groups,
             commands::groups::save_session_groups,
             commands::tests::run_tests,

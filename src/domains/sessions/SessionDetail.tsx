@@ -5,10 +5,11 @@ import { agentArgs } from "@/domains/agent/defaults";
 import { FilesPane } from "@/domains/agent/FilesPane";
 import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
-import { fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
+import { disposeTerminal, fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { resetAgentSession, stopAgent } from "@/ipc/agent";
 import { startSession } from "@/ipc/session";
+import { LinkTicketModal } from "./LinkTicketModal";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -28,13 +29,35 @@ export function SessionDetail({
   const [tab, setTab] = useState<TabId>("chat");
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
+  const [linking, setLinking] = useState(false);
   const rename = useSessionsStore((s) => s.rename);
+  const linkToIssue = useSessionsStore((s) => s.linkToIssue);
   const running = useBoardStore((s) => s.runningAgents.has(session.id));
   const waiting = useBoardStore((s) => s.agentActivity[session.id] === "waiting");
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
+  const openIssue = useBoardStore((s) => s.openIssue);
   const startingRef = useRef(false);
+
+  const onPickIssue = (issueKey: string) => {
+    setLinking(false);
+    linkToIssue(session.id, issueKey)
+      .then(() => {
+        // The PTYs were killed backend-side; drop the renderer's terminals and
+        // buffers so the issue card rebuilds cleanly under its own key.
+        setAgentRunning(session.id, false);
+        setAgentRunning(`term:${session.id}`, false);
+        disposeTerminal(session.id);
+        disposeTerminal(`term:${session.id}`);
+        clearOutput(session.id);
+        clearOutput(`term:${session.id}`);
+        toast.success(`Session linked to ${issueKey}`);
+        onBack();
+        openIssue(issueKey);
+      })
+      .catch((err) => toast.error(String(err)));
+  };
 
   // Viewing a waiting session acknowledges it — see AgentDetail.
   useEffect(() => {
@@ -106,6 +129,16 @@ export function SessionDetail({
         </div>
         <div className="right">
           {running && <span className="thinking">working</span>}
+          {session.worktree && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setLinking(true)}
+              title="Bind this session's worktree, branch, and conversation to a Jira ticket"
+            >
+              <I.Ticket size={13} /> Link to ticket
+            </button>
+          )}
           {running ? (
             <button type="button" className="btn" onClick={stop}>
               <I.X size={13} /> Stop session
@@ -184,6 +217,7 @@ export function SessionDetail({
           )}
           {tab === "files" && <FilesPane workspaceId={session.id} />}
           {tab === "terminal" && <TerminalPane issueKey={session.id} />}
+          {linking && <LinkTicketModal onClose={() => setLinking(false)} onPick={onPickIssue} />}
         </div>
       </div>
     </div>

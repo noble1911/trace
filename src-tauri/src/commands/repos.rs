@@ -17,6 +17,13 @@ struct ReposConfig {
     /// workspace id (issue key or session id) → repo path.
     #[serde(default)]
     assignments: HashMap<String, String>,
+    /// workspace id → adopted worktree dir name. By convention a workspace
+    /// lives in `.worktrees/<slugified-id>`; linking an exploratory session
+    /// to an issue makes the issue adopt the session's existing directory
+    /// instead — moving it would orphan the Claude conversation, which is
+    /// keyed by absolute cwd.
+    #[serde(default)]
+    dir_overrides: HashMap<String, String>,
 }
 
 fn config_file() -> PathBuf {
@@ -82,6 +89,36 @@ pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
         return Ok(cfg.repos[0].clone());
     }
     Err("No repository assigned yet — open the card and pick one to start.".to_string())
+}
+
+/// The worktree directory NAME for a workspace: an adopted dir if linked,
+/// else the conventional slugified id.
+pub(crate) fn workspace_dirname(workspace_id: &str) -> String {
+    load()
+        .dir_overrides
+        .get(workspace_id)
+        .cloned()
+        .unwrap_or_else(|| crate::helpers::slugify(workspace_id))
+}
+
+/// Full worktree path for a workspace under `repo`. Every command that
+/// touches a workspace's checkout derives the path through here.
+pub(crate) fn workspace_dir(repo: &str, workspace_id: &str) -> String {
+    format!("{repo}/.worktrees/{}", workspace_dirname(workspace_id))
+}
+
+/// Record an issue adopting a session's worktree dir (+ the repo assignment).
+pub(crate) fn adopt_workspace_dir(
+    issue_key: &str,
+    dirname: &str,
+    repo: &str,
+) -> Result<(), String> {
+    let mut cfg = load();
+    cfg.dir_overrides
+        .insert(issue_key.to_string(), dirname.to_string());
+    cfg.assignments
+        .insert(issue_key.to_string(), repo.to_string());
+    save(&cfg)
 }
 
 /// All configured repos, in the order the user added them.

@@ -5,6 +5,7 @@ import {
   archiveSession,
   createSession,
   deleteSession,
+  linkSessionToIssue,
   listSessionGroups,
   listSessions,
   renameSession,
@@ -33,6 +34,8 @@ interface SessionsStore {
   saveGroups: (next: SessionGroups) => Promise<void>;
   /** File a session under a tab/section (optimistic). */
   assign: (id: string, tab: string | null, section: string | null) => Promise<void>;
+  /** Bind a session to a Jira issue — the session is consumed by the ticket. */
+  linkToIssue: (id: string, issueKey: string) => Promise<void>;
   select: (id: string) => void;
   close: () => void;
 }
@@ -95,6 +98,14 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     }));
     const updated = await setSessionGroup(id, tab, section);
     set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? updated : x)) }));
+  },
+  async linkToIssue(id, issueKey) {
+    await linkSessionToIssue(id, issueKey);
+    set((s) => ({
+      sessions: s.sessions.filter((x) => x.id !== id),
+      selectedId: s.selectedId === id ? null : s.selectedId,
+    }));
+    activity.log({ kind: "session-created", issueKey, title: `session linked to ${issueKey}` });
   },
   select(id) {
     set({ selectedId: id });
