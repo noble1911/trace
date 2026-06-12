@@ -94,6 +94,22 @@ export function getTerminal(issueKey: string): TerminalEntry {
   // with the terminal — loadAddon ties the addon's lifetime to it.
   term.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri)));
 
+  // Shift+Enter inserts a newline instead of submitting. A terminal can't
+  // natively tell Shift+Enter from Enter (both are \r), so we do what Claude
+  // Code's /terminal-setup installs in VS Code: send backslash+CR — Claude's
+  // line-continuation idiom, and conveniently also the shell's. (ESC CR /
+  // meta+enter was tried first but current Claude builds submit on it.)
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Inject once on keydown, but swallow EVERY phase: WebKit also fires a
+      // keypress for Enter, and xterm would emit its own \r from it — which
+      // submitted the line right after our newline (the "double press" feel).
+      if (e.type === "keydown") void sendAgentInput(issueKey, "\\\r");
+      return false;
+    }
+    return true;
+  });
+
   const entry: TerminalEntry = {
     term,
     fit,
