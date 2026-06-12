@@ -4,6 +4,7 @@ import { I } from "@/components/Icon";
 import { agentArgs } from "@/domains/agent/defaults";
 import { FilesPane } from "@/domains/agent/FilesPane";
 import { PtyTerminal } from "@/domains/agent/PtyTerminal";
+import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { resetAgentSession, stopAgent } from "@/ipc/agent";
@@ -12,7 +13,7 @@ import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
-type TabId = "chat" | "files";
+type TabId = "chat" | "files" | "terminal";
 
 // Full-screen detail for one exploratory session. Reuses the agent detail shell
 // (`.detail`), the live terminal, and the Files/Diff pane — all keyed by the
@@ -138,6 +139,13 @@ export function SessionDetail({
             >
               <I.Code size={13} /> Files
             </button>
+            <button
+              type="button"
+              className={`detail-tab${tab === "terminal" ? " active" : ""}`}
+              onClick={() => setTab("terminal")}
+            >
+              <I.Terminal size={13} /> Terminal
+            </button>
           </div>
 
           {tab === "chat" && (
@@ -175,6 +183,7 @@ export function SessionDetail({
             </div>
           )}
           {tab === "files" && <FilesPane workspaceId={session.id} />}
+          {tab === "terminal" && <TerminalPane issueKey={session.id} />}
         </div>
       </div>
     </div>

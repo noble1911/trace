@@ -51,10 +51,11 @@ export function TerminalPane({ issueKey }: { issueKey: string }) {
             <span className="ic">
               <I.Terminal size={28} />
             </span>
-            <div className="title">Open a shell in this worktree</div>
+            <div className="title">Open a shell in this workspace</div>
             <div className="hint">
-              A plain terminal rooted at the issue's worktree — separate from the Claude session in
-              Chat. Run git, build, or test commands here.
+              A plain terminal rooted where this workspace's agent runs (an issue's worktree, or
+              the repo root for exploratory sessions) — separate from the agent in Chat. Run git,
+              build, or test commands here.
             </div>
             {error && <div style={{ color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>}
             <button type="button" className="btn primary" style={{ marginTop: 6 }} onClick={start}>

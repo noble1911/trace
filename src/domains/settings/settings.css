@@ -232,12 +232,3 @@ button.ig-status.connected:hover {
   color: var(--fg-0);
   margin-bottom: 8px;
 }
-.update-notes pre {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--fg-2);
-  white-space: pre-wrap;
-  word-break: break-word;
-}

@@ -248,20 +248,28 @@ pub fn start_terminal(
         return Ok(());
     };
 
-    let repo = crate::commands::repos::repo_for(&issue_key)?;
-    let slug = slugify(&issue_key);
-    let worktree = format!("{repo}/.worktrees/{slug}");
-    if !std::path::Path::new(&worktree).exists() {
-        let busy = git::git_busy_check(&repo);
-        if busy.starts_with("busy") {
-            return Err(format!("Repository is {busy} — finish that git operation first."));
+    // Exploratory sessions run in the repo root with no worktree — their
+    // shell opens there too. Only issues get (or create) a worktree.
+    let cwd = if crate::commands::session::is_session(&issue_key) {
+        crate::commands::repos::default_repo()
+            .ok_or("Add a repository in Settings before opening a terminal.")?
+    } else {
+        let repo = crate::commands::repos::repo_for(&issue_key)?;
+        let slug = slugify(&issue_key);
+        let worktree = format!("{repo}/.worktrees/{slug}");
+        if !std::path::Path::new(&worktree).exists() {
+            let busy = git::git_busy_check(&repo);
+            if busy.starts_with("busy") {
+                return Err(format!("Repository is {busy} — finish that git operation first."));
+            }
+            let branch = format!("workspace/{slug}");
+            let default_branch = git::get_default_branch(&repo);
+            git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
         }
-        let branch = format!("workspace/{slug}");
-        let default_branch = git::get_default_branch(&repo);
-        git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
-    }
+        worktree
+    };
 
-    let (session, pid) = spawn_shell_pty(app, term_id.clone(), worktree, cols.max(20), rows.max(4))?;
+    let (session, pid) = spawn_shell_pty(app, term_id.clone(), cwd, cols.max(20), rows.max(4))?;
     state.pty_sessions.lock().insert(term_id.clone(), session);
     if let Some(pid) = pid {
         state.child_pids.lock().insert(term_id, pid);

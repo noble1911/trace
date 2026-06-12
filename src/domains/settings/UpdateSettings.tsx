@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { I } from "@/components/Icon";
+import { Markdown } from "@/components/Markdown";
 import { appVersion, checkAppUpdate, installAppUpdate, type UpdateInfo } from "@/ipc/update";
 import { SettingRow } from "./SettingRow";
 
@@ -74,7 +75,7 @@ export function UpdateSettings() {
       {phase === "available" && update?.notes && (
         <div className="update-notes">
           <div className="update-notes-title">What's new in v{update.version}</div>
-          <pre>{update.notes}</pre>
+          <Markdown text={update.notes} />
         </div>
       )}
     </section>

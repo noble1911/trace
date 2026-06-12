@@ -135,6 +135,11 @@ pub fn rename_session(id: String, title: String) -> Result<ScratchSession, Strin
     Ok(renamed)
 }
 
+/// Whether a workspace id belongs to an exploratory session (vs a Jira issue).
+pub(crate) fn is_session(id: &str) -> bool {
+    load().iter().any(|s| s.id == id)
+}
+
 /// File a session under a tab and/or section (`None` = default/unsectioned).
 #[tauri::command]
 pub fn set_session_group(
