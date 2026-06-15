@@ -16,7 +16,7 @@ import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
 import { onAgentRunState, onPtyOutput } from "@/ipc/events";
-import { focusWindow, onNotificationClick, setDockBadge } from "@/ipc/notify";
+import { consumeNotificationClick, setDockBadge } from "@/ipc/notify";
 import { checkAppUpdate } from "@/ipc/update";
 import { toast } from "./app/toast";
 
@@ -82,20 +82,6 @@ export function App() {
     };
   }, [setAgentRunning, appendOutput]);
 
-  // Clicking a waiting-agent notification jumps straight to that workspace's
-  // detail (an issue card or a session), not just the app. Registered once.
-  useEffect(() => {
-    onNotificationClick((workspaceId) => {
-      focusWindow();
-      const isIssue = useBoardStore.getState().data?.issues.some((i) => i.key === workspaceId);
-      if (isIssue) {
-        useBoardStore.getState().openIssue(workspaceId);
-      } else {
-        useSessionsStore.getState().select(workspaceId);
-      }
-    });
-  }, []);
-
   // Load the board whenever the selected board changes.
   useEffect(() => {
     if (session && selectedBoardId != null) void loadBoard(selectedBoardId);
@@ -117,16 +103,24 @@ export function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // PR statuses change outside the app (agents run gh; merges happen in the
-  // browser) — re-check them when the window regains focus, at most once a
-  // minute. Catches both state changes and brand-new PRs.
   const refreshAllPrs = useBoardStore((s) => s.refreshAllPrs);
   useEffect(() => {
-    let last = 0;
+    let lastPrRefresh = 0;
     const onFocus = () => {
-      if (Date.now() - last < 60_000) return;
-      last = Date.now();
-      refreshAllPrs();
+      // A focus right after a waiting notification ≈ the user clicked it:
+      // jump straight to that workspace's detail (issue card or session).
+      const target = consumeNotificationClick();
+      if (target) {
+        const isIssue = useBoardStore.getState().data?.issues.some((i) => i.key === target);
+        if (isIssue) useBoardStore.getState().openIssue(target);
+        else useSessionsStore.getState().select(target);
+      }
+      // PR statuses change outside the app (agents run gh; merges happen in
+      // the browser) — re-check on focus, at most once a minute.
+      if (Date.now() - lastPrRefresh >= 60_000) {
+        lastPrRefresh = Date.now();
+        refreshAllPrs();
+      }
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
