@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { activity } from "@/domains/activity/store";
+import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { sendAgentInput } from "@/ipc/agent";
 import { commentOnIssue, transitionJiraIssue } from "@/ipc/jira";
@@ -29,7 +30,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "start_agent",
     description:
-      "Start a Claude coding agent on a ticket — creates its worktree and launches the session with the kickoff brief. Use to begin work on the next ticket.",
+      "Start a Claude coding agent on a ticket — creates its worktree, moves the ticket to the board's In Progress column (unless it's already in progress), and launches the session with the kickoff brief. Use to begin work on the next ticket; you do NOT need a separate move_issue for the In Progress transition.",
     input_schema: {
       type: "object",
       properties: {
@@ -96,6 +97,17 @@ function clip(s: string, n = 140): string {
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 }
 
+/** Confirm-card text for start_agent — names the In Progress move when one applies. */
+function startAgentSummary(key: string): string {
+  const data = useBoardStore.getState().data;
+  const issue = data?.issues.find((i) => i.key === key);
+  if (data && issue && issue.statusCategory !== "indeterminate") {
+    const target = startOfWorkStatus(data.columns);
+    if (target) return `Start a coding agent on ${key} and move it to ${target.name}`;
+  }
+  return `Start a coding agent on ${key}`;
+}
+
 /** A short, human-readable description of a pending action for the confirm card. */
 export function actionSummary(name: string, input: unknown): string {
   const key = field(input, "issue_key").toUpperCase();
@@ -103,7 +115,7 @@ export function actionSummary(name: string, input: unknown): string {
     case "move_issue":
       return `Move ${key} → ${clip(field(input, "target_status"), 40)}`;
     case "start_agent":
-      return `Start a coding agent on ${key}`;
+      return startAgentSummary(key);
     case "send_to_agent":
       return `Send to ${key}'s agent: "${clip(field(input, "message"))}"`;
     case "comment_on_issue":
@@ -172,10 +184,31 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
   }
 
   if (name === "start_agent") {
+    const data = board.data;
+    if (!data) return "No board is loaded.";
+    const issue = data.issues.find((i) => i.key === key);
+    if (!issue) return `No ticket ${key} on the board.`;
     if (board.runningAgents.has(key)) return `An agent is already running on ${key}.`;
-    if (!board.data?.issues.some((i) => i.key === key)) return `No ticket ${key} on the board.`;
+
+    // Move to In Progress first (mirrors dragging a card there to begin work),
+    // unless it's already in an in-progress column.
+    let moved = "";
+    if (issue.statusCategory !== "indeterminate") {
+      const target = startOfWorkStatus(data.columns);
+      if (target) {
+        try {
+          await transitionJiraIssue(key, [target.id]);
+          activity.log({ kind: "transition", issueKey: key, title: `→ ${target.name}` });
+          moved = ` and moved it to ${target.name}`;
+        } catch (e) {
+          // A transition failure shouldn't block the agent — surface it and go on.
+          moved = ` (couldn't move it: ${e instanceof Error ? e.message : String(e)})`;
+        }
+      }
+    }
     board.kickoff(key);
-    return `Starting an agent on ${key}.`;
+    await board.refresh();
+    return `Starting an agent on ${key}${moved}.`;
   }
 
   if (name === "send_to_agent") {

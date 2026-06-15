@@ -1,4 +1,4 @@
-import type { BoardColumn, Issue } from "@/domains/jira/types";
+import type { BoardColumn, ColumnStatus, Issue } from "@/domains/jira/types";
 
 // First column reads neutral, last reads "done" green, middle cycles amber/violet —
 // generalizes the design's 4-column palette to whatever columns the board has.
@@ -23,4 +23,14 @@ export function groupIssuesByColumn(columns: BoardColumn[], issues: Issue[]): Is
 export function isStartOfWork(columns: BoardColumn[], statusId: string): boolean {
   const first = columns.find((c) => c.statuses.some((s) => s.category === "indeterminate"));
   return !!first?.statuses.some((s) => s.id === statusId && s.category === "indeterminate");
+}
+
+/**
+ * The status to move an issue to when work begins — the first in-progress
+ * column's first in-progress status, or `null` if the board has no such column.
+ * The inverse of {@link isStartOfWork}: the concrete target rather than a test.
+ */
+export function startOfWorkStatus(columns: BoardColumn[]): ColumnStatus | null {
+  const col = columns.find((c) => c.statuses.some((s) => s.category === "indeterminate"));
+  return col?.statuses.find((s) => s.category === "indeterminate") ?? null;
 }
