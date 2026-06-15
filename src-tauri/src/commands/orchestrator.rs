@@ -66,6 +66,18 @@ pub async fn orchestrator_cli(
     // A neutral cwd (home) so it doesn't absorb a project's CLAUDE.md / context.
     cmd.current_dir(dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")));
     cmd.arg("--print");
+    // Lean it out so it answers fast instead of behaving like the full coding
+    // agent: `default` permission mode (NOT the user's "plan" default, which makes
+    // the model burn seconds reasoning about whether it may reply), and an empty
+    // strict MCP config (skip connecting the user's MCP servers — pure startup
+    // cost we don't need). Cut a ~9s turn to ~3s in testing.
+    cmd.args([
+        "--permission-mode",
+        "default",
+        "--strict-mcp-config",
+        "--mcp-config",
+        "{\"mcpServers\":{}}",
+    ]);
     // Strip Claude Code's coding tools. Without this `-p` behaves as the full
     // agent — it enters plan mode and spends minutes "planning" a ticket instead
     // of answering. Tool-free, it's a text responder that only emits our blocks.
