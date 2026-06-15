@@ -78,6 +78,12 @@ export function buildBoardContext(): string {
   ];
   if (stats.flags.length) lines.push(`FLAGS: ${stats.flags.join("; ")}`);
   lines.push("", `COLUMNS: ${stats.columns.map((c) => `${c.name} (${c.count})`).join(" · ")}`);
+  const doneCol = data.columns.find((c) => c.statuses.some((s) => s.category === "done"));
+  if (doneCol) {
+    lines.push(
+      `COMPLETION COLUMN: "${doneCol.name}" — move a ticket here once its work is finished (e.g. its PR is merged).`
+    );
+  }
   lines.push("", "TICKETS:");
   for (const issue of scopedIssues) {
     const agent = statusOf(board.runningAgents.has(issue.key), board.agentActivity[issue.key]);
