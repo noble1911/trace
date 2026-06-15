@@ -7,6 +7,7 @@ import { type ChatMessage, useChatStore } from "./chatStore";
 
 const QUICK = [
   "Summarize the sprint",
+  "Chart the sprint progress",
   "What should I play next?",
   "What's blocked right now?",
   "Which agents are waiting on me?",
