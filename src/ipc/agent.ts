@@ -15,7 +15,8 @@ export function startAgent(
   model?: string,
   cli?: AgentCli,
   extraArgs?: string[],
-  initialPrompt?: string
+  initialPrompt?: string,
+  matchText?: string
 ): Promise<void> {
   return invoke("start_agent", {
     issueKey,
@@ -25,6 +26,7 @@ export function startAgent(
     cli: cli ?? "claude",
     extraArgs: extraArgs ?? null,
     initialPrompt: initialPrompt ?? null,
+    matchText: matchText ?? null,
   });
 }
 

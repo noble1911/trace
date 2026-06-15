@@ -217,6 +217,9 @@ pub fn start_agent(
     cli: Option<String>,
     extra_args: Option<Vec<String>>,
     initial_prompt: Option<String>,
+    // The ticket's summary + labels, so repo mappings can match a tag like "[BE]"
+    // that lives in the title rather than the key.
+    match_text: Option<String>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
@@ -227,7 +230,10 @@ pub fn start_agent(
         return Ok(());
     };
 
-    let repo = crate::commands::repos::repo_for(&issue_key)?;
+    let repo =
+        crate::commands::repos::repo_for_matching(&issue_key, match_text.as_deref().unwrap_or(""))?;
+    // Pin it so diff/PR/tests (which only know the key) resolve the same repo.
+    crate::commands::repos::assign_repo(&issue_key, &repo)?;
 
     let busy = git::git_busy_check(&repo);
     if busy.starts_with("busy") {

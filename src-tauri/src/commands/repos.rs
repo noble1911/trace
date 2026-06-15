@@ -67,6 +67,18 @@ mod tests {
         assert_eq!(match_mapping(&[m("", "/r")], "TRACE-12"), None);
         assert_eq!(match_mapping(&mappings, "OTHER-1"), None);
     }
+
+    #[test]
+    fn mapping_matches_a_summary_tag_not_just_the_key() {
+        // "[BE]" lives in the title, not the key — `repo_for_matching` searches
+        // "<key> <summary> <labels>", so it matches; key-only would miss it.
+        let mappings = vec![m("[BE]", "/repos/be")];
+        assert_eq!(
+            match_mapping(&mappings, "PM-1954 [BE] Remove echo scaffolding"),
+            Some("/repos/be")
+        );
+        assert_eq!(match_mapping(&mappings, "PM-1954"), None);
+    }
 }
 
 fn config_file() -> PathBuf {
@@ -122,12 +134,25 @@ fn validate_repo(path: &str) -> Result<(), String> {
 
 /// The repo a workspace is assigned to. Errors (prompting assignment) if none.
 pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
+    resolve_repo(workspace_id, workspace_id)
+}
+
+/// Like `repo_for`, but also matches mappings against `match_text` (the ticket
+/// summary + labels) — tags like "[BE]" usually live in the title, not the key.
+/// Used at start; `start_agent` then pins the result so the summary-less callers
+/// (diff, PR, tests) resolve the same checkout via the saved assignment.
+pub(crate) fn repo_for_matching(workspace_id: &str, match_text: &str) -> Result<String, String> {
+    let haystack = format!("{workspace_id} {match_text}");
+    resolve_repo(workspace_id, &haystack)
+}
+
+fn resolve_repo(workspace_id: &str, mapping_haystack: &str) -> Result<String, String> {
     let cfg = load();
     if let Some(repo) = cfg.assignments.get(workspace_id) {
         return Ok(repo.clone());
     }
     // User-defined ticket→repo mapping (Settings → Repositories).
-    if let Some(repo) = match_mapping(&cfg.mappings, workspace_id)
+    if let Some(repo) = match_mapping(&cfg.mappings, mapping_haystack)
         .filter(|r| cfg.repos.iter().any(|known| known == r))
     {
         return Ok(repo.to_string());
@@ -138,6 +163,15 @@ pub(crate) fn repo_for(workspace_id: &str) -> Result<String, String> {
         return Ok(cfg.repos[0].clone());
     }
     Err("No repository assigned yet — pick one to start.".to_string())
+}
+
+/// Pin a workspace to a repo so later commands (diff, PR, tests) resolve the
+/// same checkout without re-running (summary-dependent) mapping resolution.
+pub(crate) fn assign_repo(workspace_id: &str, repo: &str) -> Result<(), String> {
+    let mut cfg = load();
+    cfg.assignments
+        .insert(workspace_id.to_string(), repo.to_string());
+    save(&cfg)
 }
 
 /// The worktree directory NAME for a workspace: an adopted dir if linked,
