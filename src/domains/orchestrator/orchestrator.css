@@ -20,6 +20,18 @@
 .orch-fab:hover {
   border-color: var(--border-strong);
 }
+.orch-fab-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+.orch-fab-label {
+  font-weight: 500;
+}
 .orch-fab .glow,
 .orch-panel .head .glow {
   width: 22px;
@@ -35,11 +47,18 @@
 }
 .orch-fab-badge {
   font-size: 10.5px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: var(--c-prog-bg);
   color: var(--c-prog);
   font-family: var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.orch-fab-badge:hover {
+  background: var(--c-prog);
+  color: var(--bg-1);
 }
 .orch-fab kbd {
   font-family: var(--font-mono);
