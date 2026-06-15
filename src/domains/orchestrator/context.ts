@@ -1,8 +1,9 @@
 import { useActivityStore } from "@/domains/activity/store";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
+import { useJiraStore } from "@/domains/jira/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { computeBoardStats } from "./stats";
+import { computeBoardStats, filterByAssignee } from "./stats";
 import { useOrchestratorStore } from "./store";
 
 // The compact board snapshot handed to the orchestrator LLM each turn. It mirrors
@@ -30,6 +31,12 @@ function ticketLine(issue: Issue, agent: SessionStatus, prs: PullRequest[] | und
   return `${head}${epic}${agentTag}${issuePrTag(prs)}\n  ${oneLine(issue.summary, 100)}`;
 }
 
+/** Resolve the board's effective assignee filter (undefined → the current user). */
+function effectiveAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
+  const currentUserId = useJiraStore.getState().user?.accountId ?? null;
+  return board.assigneeFilter === undefined ? currentUserId : board.assigneeFilter;
+}
+
 /** Build the current board state as text for the orchestrator's system prompt. */
 export function buildBoardContext(): string {
   const board = useBoardStore.getState();
@@ -37,18 +44,34 @@ export function buildBoardContext(): string {
   const data = board.data;
   if (!data) return "No board is loaded.";
 
-  const stats = computeBoardStats({
-    board: data,
-    runningAgents: board.runningAgents,
-    agentActivity: board.agentActivity,
-    ackedWaiting: board.ackedWaiting,
-    pullRequests: board.pullRequests,
-    activity: events,
-    now: Date.now(),
-  });
+  // Scope to the same assignee the board is filtered by, so the assistant only
+  // reasons about (and recommends) tickets the user is actually looking at.
+  const assignee = effectiveAssignee(board);
+  const input = filterByAssignee(
+    {
+      board: data,
+      runningAgents: board.runningAgents,
+      agentActivity: board.agentActivity,
+      ackedWaiting: board.ackedWaiting,
+      pullRequests: board.pullRequests,
+      activity: events,
+      now: Date.now(),
+    },
+    assignee
+  );
+  const scopedIssues = input.board?.issues ?? data.issues;
+  const stats = computeBoardStats(input);
+
+  const scopeName =
+    assignee === null
+      ? "all assignees"
+      : (scopedIssues.find((i) => i.assignee?.accountId === assignee)?.assignee?.displayName ??
+        useJiraStore.getState().user?.displayName ??
+        "the selected assignee");
 
   const lines: string[] = [
     `SPRINT: ${data.sprintName ?? "—"} · board "${data.boardName}"`,
+    `SCOPE: filtered to ${scopeName} — these are the only tickets in play; never recommend or act on tickets not listed below.`,
     `STATS: ${stats.total} tickets · ${stats.done} done (${stats.pctDone}%) · ${stats.inProgress} in progress · ${stats.todo} to do · ${stats.unassigned} unassigned`,
     `AGENTS: ${stats.agents.running} running (${stats.agents.working} working, ${stats.agents.waiting} waiting)`,
     `PRS: ${stats.prs.open} open · ${stats.prs.draft} draft · ${stats.prs.merged} merged · ${stats.prs.closed} closed`,
@@ -56,12 +79,12 @@ export function buildBoardContext(): string {
   if (stats.flags.length) lines.push(`FLAGS: ${stats.flags.join("; ")}`);
   lines.push("", `COLUMNS: ${stats.columns.map((c) => `${c.name} (${c.count})`).join(" · ")}`);
   lines.push("", "TICKETS:");
-  for (const issue of data.issues) {
+  for (const issue of scopedIssues) {
     const agent = statusOf(board.runningAgents.has(issue.key), board.agentActivity[issue.key]);
     lines.push(ticketLine(issue, agent, board.pullRequests[issue.key]));
   }
 
-  const recent = events.slice(0, 12);
+  const recent = input.activity.slice(0, 12);
   if (recent.length) {
     lines.push("", "RECENT ACTIVITY (newest first):");
     for (const e of recent) {
