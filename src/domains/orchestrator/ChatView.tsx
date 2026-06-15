@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
 import { Markdown } from "@/components/Markdown";
+import { ChartBlock } from "./Chart";
+import { splitChartBlocks } from "./chartData";
 import { type ChatMessage, useChatStore } from "./chatStore";
 
 const QUICK = [
@@ -120,13 +122,34 @@ function Message({ msg, streaming }: { msg: ChatMessage; streaming: boolean }) {
     <div className={`msg ${msg.role}`}>
       <div className="who">{msg.role === "user" ? "You" : "Orchestrator"}</div>
       <div className="body">
-        {/* Assistant replies are markdown; the user's own text stays verbatim. */}
-        {msg.role === "assistant" ? msg.text && <Markdown text={msg.text} /> : msg.text}
+        {/* Assistant replies are markdown + inline charts; the user's text stays verbatim. */}
+        {msg.role === "assistant" ? <AssistantBody text={msg.text} /> : msg.text}
         {msg.tool && (
           <span className="orch-tool">↳ reading {TOOL_LABEL[msg.tool] ?? msg.tool}…</span>
         )}
         {thinking && <span className="orch-typing">thinking…</span>}
       </div>
     </div>
+  );
+}
+
+// Render an assistant reply: markdown runs with any ```chart spec blocks drawn
+// inline (the chart's data is computed deterministically — see chartData.ts).
+function AssistantBody({ text }: { text: string }) {
+  if (!text) return null;
+  return (
+    <>
+      {splitChartBlocks(text).map((p, i) =>
+        p.type === "chart" ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
+          <ChartBlock key={i} raw={p.raw} />
+        ) : (
+          p.text.trim() && (
+            // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
+            <Markdown key={i} text={p.text} />
+          )
+        )
+      )}
+    </>
   );
 }

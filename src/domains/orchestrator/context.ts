@@ -3,7 +3,7 @@ import { dedupePrs } from "@/domains/board/prDedupe";
 import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
 import { useJiraStore } from "@/domains/jira/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { computeBoardStats, filterByAssignee } from "./stats";
+import { computeBoardStats, filterByAssignee, type StatsInput } from "./stats";
 import { useOrchestratorStore } from "./store";
 
 // The compact board snapshot handed to the orchestrator LLM each turn. It mirrors
@@ -37,17 +37,17 @@ function effectiveAssignee(board: ReturnType<typeof useBoardStore.getState>): st
   return board.assigneeFilter === undefined ? currentUserId : board.assigneeFilter;
 }
 
-/** Build the current board state as text for the orchestrator's system prompt. */
-export function buildBoardContext(): string {
+/**
+ * The current board as a stats input, scoped to the board's assignee filter.
+ * The single source both the text snapshot and the chat charts read from, so
+ * their numbers always agree. `null` when no board is loaded.
+ */
+export function scopedStatsInput(): StatsInput | null {
   const board = useBoardStore.getState();
-  const events = useActivityStore.getState().events;
   const data = board.data;
-  if (!data) return "No board is loaded.";
-
-  // Scope to the same assignee the board is filtered by, so the assistant only
-  // reasons about (and recommends) tickets the user is actually looking at.
-  const assignee = effectiveAssignee(board);
-  const input = filterByAssignee(
+  if (!data) return null;
+  const events = useActivityStore.getState().events;
+  return filterByAssignee(
     {
       board: data,
       runningAgents: board.runningAgents,
@@ -57,8 +57,18 @@ export function buildBoardContext(): string {
       activity: events,
       now: Date.now(),
     },
-    assignee
+    effectiveAssignee(board)
   );
+}
+
+/** Build the current board state as text for the orchestrator's system prompt. */
+export function buildBoardContext(): string {
+  const board = useBoardStore.getState();
+  const data = board.data;
+  const input = scopedStatsInput();
+  if (!data || !input) return "No board is loaded.";
+
+  const assignee = effectiveAssignee(board);
   const scopedIssues = input.board?.issues ?? data.issues;
   const stats = computeBoardStats(input);
 

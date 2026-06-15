@@ -19,6 +19,7 @@ import "@/domains/settings/settings.css";
 import "@/domains/activity/activity.css";
 import "@/domains/orchestrator/orchestrator.css";
 import "@/domains/orchestrator/chat.css";
+import "@/domains/orchestrator/charts.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

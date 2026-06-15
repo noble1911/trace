@@ -1,0 +1,140 @@
+/* Inline chat charts — pure CSS (conic-gradient ring, div bars), design tokens. */
+
+.chart {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+}
+.chart-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-4);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.chart-err {
+  margin: 8px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--fg-4);
+}
+
+/* Donut — a conic-gradient ring with a punched-out center label. */
+.chart-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.chart-donut {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--c-done) calc(var(--pct) * 1%), var(--bg-3) 0);
+  display: grid;
+  place-items: center;
+}
+.chart-donut-hole {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.chart-donut-legend {
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+/* Horizontal bars */
+.chart-hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chart-hbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.chart-hbar-label {
+  width: 84px;
+  flex-shrink: 0;
+  color: var(--fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-hbar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.chart-hbar-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+}
+.chart-hbar-val {
+  width: 22px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+/* Vertical bars (throughput) */
+.chart-vbars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 96px;
+}
+.chart-vbar {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.chart-vbar-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+}
+.chart-vbar-track {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.chart-vbar-fill {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+}
+.chart-vbar-label {
+  max-width: 100%;
+  font-size: 9.5px;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
