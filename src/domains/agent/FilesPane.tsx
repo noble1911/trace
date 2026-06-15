@@ -1,6 +1,15 @@
 import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
-import { type DiffSummary, type FileDiff, gitDiffFile, gitDiffSummary } from "@/ipc/diff";
+import { Markdown } from "@/components/Markdown";
+import {
+  type DiffSummary,
+  type FileDiff,
+  gitDiffFile,
+  gitDiffSummary,
+  readWorkspaceFile,
+} from "@/ipc/diff";
+
+const isMarkdown = (path: string) => /\.(md|markdown|mdx)$/i.test(path);
 
 // "Files" tab — git diff for a workspace (a board agent's worktree, or an
 // exploratory session's repo root) vs origin/<default-branch>. Summary loads
@@ -82,7 +91,11 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
           onRefresh={() => void load()}
         />
         <div className="diff-pane">
-          {fileDiff ? <DiffView fd={fileDiff} /> : loadingFile ? <LoadingDiff /> : null}
+          {fileDiff ? (
+            <FileView fd={fileDiff} workspaceId={workspaceId} />
+          ) : loadingFile ? (
+            <LoadingDiff />
+          ) : null}
         </div>
       </div>
     </div>
@@ -164,7 +177,37 @@ function FileNode({ file, active, onSelect }: FileNodeProps) {
   );
 }
 
-function DiffView({ fd }: { fd: FileDiff }) {
+// One file's right pane: the unified diff, plus a Diff/Preview toggle for
+// markdown that renders the file's current content.
+function FileView({ fd, workspaceId }: { fd: FileDiff; workspaceId: string }) {
+  const markdown = isMarkdown(fd.path);
+  const [preview, setPreview] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // A different file (or a non-md one) starts on the diff.
+  useEffect(() => {
+    setPreview(false);
+  }, [fd.path]);
+
+  // Load the file's content only when previewing it.
+  useEffect(() => {
+    if (!preview) return;
+    let cancelled = false;
+    setContent(null);
+    setPreviewError(null);
+    readWorkspaceFile(workspaceId, fd.path)
+      .then((c) => {
+        if (!cancelled) setContent(c);
+      })
+      .catch((e) => {
+        if (!cancelled) setPreviewError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preview, workspaceId, fd.path]);
+
   return (
     <>
       <div className="diff-head">
@@ -173,19 +216,48 @@ function DiffView({ fd }: { fd: FileDiff }) {
           <span style={{ color: "var(--c-done)" }}>+{fd.add}</span>{" "}
           <span style={{ color: "var(--c-danger)" }}>−{fd.del}</span>
         </span>
+        {markdown && (
+          <span className="view-toggle">
+            <button
+              type="button"
+              className={preview ? "" : "active"}
+              onClick={() => setPreview(false)}
+            >
+              Diff
+            </button>
+            <button
+              type="button"
+              className={preview ? "active" : ""}
+              onClick={() => setPreview(true)}
+            >
+              Preview
+            </button>
+          </span>
+        )}
       </div>
-      {fd.hunks.length === 0 && (
-        <div
-          style={{
-            padding: 20,
-            color: "var(--fg-3)",
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
-          }}
-        >
-          No text diff — binary or empty file.
-        </div>
+      {preview ? (
+        previewError ? (
+          <div className="diff-note">{previewError}</div>
+        ) : content !== null ? (
+          <div className="md-doc">
+            <Markdown text={content} />
+          </div>
+        ) : (
+          <div className="diff-note">Loading…</div>
+        )
+      ) : (
+        <DiffBody fd={fd} />
       )}
+    </>
+  );
+}
+
+function DiffBody({ fd }: { fd: FileDiff }) {
+  if (fd.hunks.length === 0) {
+    return <div className="diff-note">No text diff — binary or empty file.</div>;
+  }
+  return (
+    <>
       {fd.hunks.map((h) => (
         <div key={h.header}>
           <div className="diff-hunk">{h.header}</div>

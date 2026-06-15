@@ -74,6 +74,33 @@ fn base_ref(repo: &str) -> String {
     format!("origin/{}", git::get_default_branch(repo))
 }
 
+/// Read a worktree file's current content (working-tree version, including
+/// uncommitted edits) for the Files tab's markdown preview. Rejects path
+/// traversal, oversized files, and binaries so a stray click can't wedge the
+/// renderer.
+#[tauri::command]
+pub fn read_workspace_file(issue_key: String, path: String) -> Result<String, String> {
+    const MAX_BYTES: usize = 1024 * 1024; // 1 MiB — generous for any document
+    let (_repo, worktree) = work_dir_for(&issue_key)?;
+    // The path comes from the diff summary (relative, inside the worktree), but
+    // guard anyway — never let an absolute or `..`-bearing path escape.
+    let rel = std::path::Path::new(&path);
+    if rel.is_absolute()
+        || rel.components().any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err("Invalid file path.".to_string());
+    }
+    let full = std::path::Path::new(&worktree).join(rel);
+    let bytes = std::fs::read(&full).map_err(|e| format!("Couldn't read {path}: {e}"))?;
+    if bytes.len() > MAX_BYTES {
+        return Err("File is too large to preview.".to_string());
+    }
+    if bytes.contains(&0) {
+        return Err("Not a text file.".to_string());
+    }
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// The commit to diff against: the merge-base of the workspace and the default
 /// branch — "what changed since this branch forked". Diffing `origin/main`
 /// directly (two-dot) would show upstream commits the worktree lacks as

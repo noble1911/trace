@@ -39,3 +39,8 @@ export function gitDiffSummary(issueKey: string): Promise<DiffSummary> {
 export function gitDiffFile(issueKey: string, path: string): Promise<FileDiff> {
   return invoke("git_diff_file", { issueKey, path });
 }
+
+/** A worktree file's current text content (for the markdown preview). */
+export function readWorkspaceFile(issueKey: string, path: string): Promise<string> {
+  return invoke("read_workspace_file", { issueKey, path });
+}
