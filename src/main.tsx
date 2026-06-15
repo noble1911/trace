@@ -14,6 +14,7 @@ import "@/domains/agent/files.css";
 import "@/domains/agent/panes.css";
 import "@/domains/prs/prs.css";
 import "@/domains/sessions/sessions.css";
+import "@/domains/sessions/recents.css";
 import "@/domains/settings/settings.css";
 import "@/domains/activity/activity.css";
 import "@/domains/orchestrator/orchestrator.css";

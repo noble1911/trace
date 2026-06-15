@@ -38,6 +38,8 @@ interface SessionsStore {
   linkToIssue: (id: string, issueKey: string) => Promise<void>;
   select: (id: string) => void;
   close: () => void;
+  /** Session ids most-recently opened, newest first (capped, persisted). */
+  recent: string[];
 }
 
 function patch(
@@ -48,18 +50,51 @@ function patch(
   return sessions.map((s) => (s.id === id ? { ...s, archivedAt } : s));
 }
 
+// Recently-opened sessions, persisted to localStorage (client-only state, like
+// the board filter) so the Sessions view's Recents sidebar survives restarts.
+const RECENT_KEY = "trace.recentSessions";
+const RECENT_CAP = 10;
+
+function loadRecent(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(recent: string[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  } catch {
+    // best-effort persistence
+  }
+}
+
+/** Move id to the front (most-recent-first), dedupe, cap. */
+function pushRecent(prev: string[], id: string): string[] {
+  return [id, ...prev.filter((x) => x !== id)].slice(0, RECENT_CAP);
+}
+
 export const useSessionsStore = create<SessionsStore>((set) => ({
   sessions: [],
   groups: { tabs: [], sections: [] },
   selectedId: null,
   loaded: false,
+  recent: loadRecent(),
   async load() {
     const [sessions, groups] = await Promise.all([listSessions(), listSessionGroups()]);
     set({ sessions, groups, loaded: true });
   },
   async create(title, cli) {
     const session = await createSession(title, cli);
-    set((s) => ({ sessions: [session, ...s.sessions], selectedId: session.id }));
+    set((s) => {
+      const recent = pushRecent(s.recent, session.id);
+      saveRecent(recent);
+      return { sessions: [session, ...s.sessions], selectedId: session.id, recent };
+    });
     activity.log({ kind: "session-created", title: `created session “${session.title}”` });
     return session;
   },
@@ -80,10 +115,15 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
   },
   async remove(id) {
     await deleteSession(id);
-    set((s) => ({
-      sessions: s.sessions.filter((x) => x.id !== id),
-      selectedId: s.selectedId === id ? null : s.selectedId,
-    }));
+    set((s) => {
+      const recent = s.recent.filter((x) => x !== id);
+      saveRecent(recent);
+      return {
+        sessions: s.sessions.filter((x) => x.id !== id),
+        selectedId: s.selectedId === id ? null : s.selectedId,
+        recent,
+      };
+    });
   },
   async saveGroups(next) {
     set({ groups: next });
@@ -101,14 +141,23 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
   },
   async linkToIssue(id, issueKey) {
     await linkSessionToIssue(id, issueKey);
-    set((s) => ({
-      sessions: s.sessions.filter((x) => x.id !== id),
-      selectedId: s.selectedId === id ? null : s.selectedId,
-    }));
+    set((s) => {
+      const recent = s.recent.filter((x) => x !== id);
+      saveRecent(recent);
+      return {
+        sessions: s.sessions.filter((x) => x.id !== id),
+        selectedId: s.selectedId === id ? null : s.selectedId,
+        recent,
+      };
+    });
     activity.log({ kind: "session-created", issueKey, title: `session linked to ${issueKey}` });
   },
   select(id) {
-    set({ selectedId: id });
+    set((s) => {
+      const recent = pushRecent(s.recent, id);
+      saveRecent(recent);
+      return { selectedId: id, recent };
+    });
   },
   close() {
     set({ selectedId: null });
