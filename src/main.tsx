@@ -16,6 +16,7 @@ import "@/domains/prs/prs.css";
 import "@/domains/sessions/sessions.css";
 import "@/domains/settings/settings.css";
 import "@/domains/activity/activity.css";
+import "@/domains/orchestrator/orchestrator.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -10,6 +10,9 @@ import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
 import { JiraLogin } from "@/domains/jira/components/JiraLogin";
 import { useJiraStore } from "@/domains/jira/store";
+import { OrchestratorFab } from "@/domains/orchestrator/Fab";
+import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
+import { useOrchestratorStore } from "@/domains/orchestrator/store";
 import { PrsView } from "@/domains/prs/PrsView";
 import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
@@ -135,6 +138,20 @@ export function App() {
     setDockBadge(waitingCount);
   }, [waitingCount]);
 
+  // ⌘J toggles the orchestrator panel — registered here so it works whether the
+  // FAB or the panel is the mounted one (⌘K/⌘/ already open search).
+  const toggleOrchestrator = useOrchestratorStore((s) => s.toggle);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        toggleOrchestrator();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleOrchestrator]);
+
   if (!initialized) {
     return (
       <div className="empty-state">
@@ -205,6 +222,8 @@ export function App() {
 
       {openIssue && <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />}
       {openSession && <SessionDetail session={openSession} onBack={closeSession} />}
+      <OrchestratorFab />
+      <OrchestratorPanel />
       <Toaster />
     </>
   );
