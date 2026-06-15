@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
+import { Markdown } from "@/components/Markdown";
 import { type ChatMessage, useChatStore } from "./chatStore";
 
 const QUICK = [
@@ -119,7 +120,8 @@ function Message({ msg, streaming }: { msg: ChatMessage; streaming: boolean }) {
     <div className={`msg ${msg.role}`}>
       <div className="who">{msg.role === "user" ? "You" : "Orchestrator"}</div>
       <div className="body">
-        {msg.text}
+        {/* Assistant replies are markdown; the user's own text stays verbatim. */}
+        {msg.role === "assistant" ? msg.text && <Markdown text={msg.text} /> : msg.text}
         {msg.tool && (
           <span className="orch-tool">↳ reading {TOOL_LABEL[msg.tool] ?? msg.tool}…</span>
         )}

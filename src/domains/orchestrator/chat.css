@@ -67,11 +67,19 @@
   font-size: 13px;
   line-height: 1.55;
   color: var(--fg-1);
-  white-space: pre-wrap;
   word-break: break-word;
 }
+/* The user's own text is verbatim (preserve its line breaks); assistant text
+   is markdown and brings its own block layout. */
 .msg.user .body {
   color: var(--fg-0);
+  white-space: pre-wrap;
+}
+/* Match the chat's brightness/size — the shared `.md` scope is a touch dimmer
+   and smaller, tuned for the Files preview. */
+.msg .md {
+  color: var(--fg-1);
+  font-size: 13px;
 }
 .orch-tool,
 .orch-typing {
