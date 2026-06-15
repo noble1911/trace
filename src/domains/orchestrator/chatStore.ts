@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
+import { runOrchestratorCli } from "./cli";
 import { buildBoardContext } from "./context";
+import { useOrchestratorStore } from "./store";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
 // within-turn tool round-trips happen inside runOrchestratorTurn and aren't
@@ -51,10 +53,13 @@ function systemPrompt(): string {
   return `${SYSTEM_PREAMBLE}\n\nCURRENT BOARD STATE:\n${buildBoardContext()}`;
 }
 
-// The open confirm-card's resolver and the in-flight turn's abort handle live
-// module-side (not in store state) — transient hooks, not serializable UI state.
+// Transient hooks for the in-flight turn, module-side (not serializable UI
+// state). `sendGen` is bumped by each send and by reset(); a turn only touches
+// the store while its generation is current, so a superseded turn — including a
+// CLI reply that can't be aborted mid-flight — never patches a stale message.
 let confirmResolver: ((ok: boolean) => void) | null = null;
 let abortController: AbortController | null = null;
+let sendGen = 0;
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
@@ -66,10 +71,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const trimmed = text.trim();
     if (!trimmed || get().busy) return;
 
-    const key = await getAnthropicKey();
-    if (!key) {
-      set({ error: "Add your Anthropic API key in Settings → Assistant to use the orchestrator." });
-      return;
+    const backend = useOrchestratorStore.getState().backend;
+    // The SDK path needs an API key; the CLI path uses the logged-in Claude CLI.
+    let key: string | null = null;
+    if (backend === "sdk") {
+      key = await getAnthropicKey();
+      if (!key) {
+        set({
+          error:
+            "Add your Anthropic API key in Settings → Assistant, or switch to Claude CLI mode.",
+        });
+        return;
+      }
     }
 
     // History to send = prior visible turns + this user message (NOT the empty
@@ -77,46 +90,52 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const history: ChatTurn[] = get().messages.map((m) => ({ role: m.role, text: m.text }));
     history.push({ role: "user", text: trimmed });
 
+    const myGen = ++sendGen;
     set((s) => ({
       messages: [...s.messages, { role: "user", text: trimmed }, { role: "assistant", text: "" }],
       busy: true,
       error: null,
     }));
     const idx = get().messages.length - 1; // the assistant placeholder
-    const patch = (fn: (m: ChatMessage) => ChatMessage) =>
-      set((s) => ({ messages: s.messages.map((m, i) => (i === idx ? fn(m) : m)) }));
+    const live = () => myGen === sendGen;
+    const patch = (fn: (m: ChatMessage) => ChatMessage) => {
+      if (live()) set((s) => ({ messages: s.messages.map((m, i) => (i === idx ? fn(m) : m)) }));
+    };
 
-    const ac = new AbortController();
-    abortController = ac;
+    let ac: AbortController | null = null;
     try {
-      await runOrchestratorTurn({
-        apiKey: key,
-        system: systemPrompt(),
-        history,
-        signal: ac.signal,
-        onTextDelta: (delta) => patch((m) => ({ ...m, text: m.text + delta, tool: undefined })),
-        onToolUse: (name) => patch((m) => ({ ...m, tool: name })),
-        // Surface a confirm-card and park the turn until the user answers.
-        confirmTool: (req: ConfirmRequest) =>
-          new Promise<boolean>((resolve) => {
-            confirmResolver = resolve;
-            set({ pendingConfirm: { name: req.name, summary: req.summary } });
-          }),
-      });
-      patch((m) => ({ ...m, tool: undefined }));
-    } catch (e) {
-      // An aborted turn (reset/clear) leaves no message to patch — skip it.
-      // Any other mid-conversation failure surfaces in the assistant bubble;
-      // `error` is reserved for pre-send problems (e.g. no key) so the banner
-      // and the bubble never show the same failure twice.
-      if (!ac.signal.aborted) {
-        const msg = e instanceof Error ? e.message : String(e);
-        patch((m) => ({ ...m, text: m.text || `⚠️ ${msg}`, tool: undefined }));
+      if (backend === "cli") {
+        // Read-only one-shot through the Claude CLI — no streaming, no tools.
+        const reply = await runOrchestratorCli(history);
+        patch((m) => ({ ...m, text: reply, tool: undefined }));
+      } else if (key) {
+        ac = new AbortController();
+        abortController = ac;
+        await runOrchestratorTurn({
+          apiKey: key,
+          system: systemPrompt(),
+          history,
+          signal: ac.signal,
+          onTextDelta: (delta) => patch((m) => ({ ...m, text: m.text + delta, tool: undefined })),
+          onToolUse: (name) => patch((m) => ({ ...m, tool: name })),
+          // Surface a confirm-card and park the turn until the user answers.
+          confirmTool: (req: ConfirmRequest) =>
+            new Promise<boolean>((resolve) => {
+              confirmResolver = resolve;
+              set({ pendingConfirm: { name: req.name, summary: req.summary } });
+            }),
+        });
+        patch((m) => ({ ...m, tool: undefined }));
       }
+    } catch (e) {
+      // patch() is generation-guarded, so a superseded turn shows nothing. `error`
+      // stays reserved for pre-send problems (e.g. no key) so the banner and the
+      // assistant bubble never report the same failure twice.
+      const msg = e instanceof Error ? e.message : String(e);
+      patch((m) => ({ ...m, text: m.text || `⚠️ ${msg}`, tool: undefined }));
     } finally {
-      if (abortController === ac) abortController = null;
-      // Don't stomp state a concurrent reset() already cleared.
-      if (!ac.signal.aborted) set({ busy: false, pendingConfirm: null });
+      if (ac && abortController === ac) abortController = null;
+      if (live()) set({ busy: false, pendingConfirm: null });
       confirmResolver = null;
     }
   },
@@ -129,8 +148,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   reset() {
-    // Stop the in-flight turn outright (so it can't keep streaming/spending),
-    // decline any open confirm to unwind its promise, and clear the UI.
+    // Supersede any in-flight turn (its callbacks go no-op), stop an SDK stream
+    // from spending, unwind an open confirm, and clear the UI.
+    sendGen++;
     abortController?.abort();
     abortController = null;
     confirmResolver?.(false);

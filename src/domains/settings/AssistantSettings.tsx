@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
+import { type OrchBackend, useOrchestratorStore } from "@/domains/orchestrator/store";
 import { getAnthropicKey, setAnthropicKey } from "@/ipc/orchestrator";
+import { SettingRow } from "./SettingRow";
 
-// The Anthropic API key for the Orchestrator (⌘J). Stored 0600 on the Rust
-// side; we only load whether one is set — the value is never echoed back into
-// the field, so a saved key shows as a masked placeholder.
+// Orchestrator (⌘J) backend: the Anthropic SDK (your API key, full chat +
+// actions) or the Claude CLI in print mode (logged-in CLI, read-only). The key
+// is stored 0600 on the Rust side and never echoed back — a saved key shows as
+// a masked placeholder.
 export function AssistantSettings() {
+  const backend = useOrchestratorStore((s) => s.backend);
+  const setBackend = useOrchestratorStore((s) => s.setBackend);
   const [saved, setSaved] = useState(false);
   const [value, setValue] = useState("");
   const [justSaved, setJustSaved] = useState(false);
@@ -33,44 +38,65 @@ export function AssistantSettings() {
     <section className="setting-group">
       <h2>Assistant</h2>
       <div className="desc">
-        The Orchestrator (⌘J) calls Claude with your own Anthropic API key. It's written 0600 on
-        disk and used only for the assistant's requests.
+        The Orchestrator (⌘J) talks to Claude either through the Anthropic API (your key) or your
+        logged-in Claude CLI.
       </div>
-      <div className="setting-block">
-        <div className="label">Anthropic API key</div>
+      <SettingRow
+        label="Backend"
+        hint="SDK gives full chat + actions; CLI (-p) is read-only but needs no API key."
+      >
+        <select
+          aria-label="Assistant backend"
+          value={backend}
+          onChange={(e) => setBackend(e.target.value as OrchBackend)}
+        >
+          <option value="sdk">Anthropic API key (SDK)</option>
+          <option value="cli">Claude CLI (-p mode)</option>
+        </select>
+      </SettingRow>
+      {backend === "cli" && (
         <div className="hint">
-          {saved
-            ? "A key is saved. Enter a new one to replace it."
-            : "Required to use the Orchestrator chat."}
+          Uses your logged-in Claude CLI — no API key needed. Read-only: chat and insights only;
+          taking actions (moving tickets, starting agents) requires the API-key mode.
         </div>
-        <div className="key-row">
-          <input
-            type="password"
-            className="key-input"
-            aria-label="Anthropic API key"
-            placeholder={saved ? "•••••••••••••••• (saved)" : "sk-ant-…"}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setJustSaved(false);
-            }}
-          />
-          <button
-            type="button"
-            className="key-btn"
-            disabled={!value.trim()}
-            onClick={() => void save(value)}
-          >
-            Save
-          </button>
+      )}
+      {backend === "sdk" && (
+        <div className="setting-block">
+          <div className="label">Anthropic API key</div>
+          <div className="hint">
+            {saved
+              ? "A key is saved. Enter a new one to replace it."
+              : "Required to use the Orchestrator chat."}
+          </div>
+          <div className="key-row">
+            <input
+              type="password"
+              className="key-input"
+              aria-label="Anthropic API key"
+              placeholder={saved ? "•••••••••••••••• (saved)" : "sk-ant-…"}
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setJustSaved(false);
+              }}
+            />
+            <button
+              type="button"
+              className="key-btn"
+              disabled={!value.trim()}
+              onClick={() => void save(value)}
+            >
+              Save
+            </button>
+          </div>
+          {saved && (
+            <button type="button" className="key-remove" onClick={() => void save("")}>
+              Remove key
+            </button>
+          )}
+          {justSaved && <span className="key-status">Saved ✓</span>}
         </div>
-        {saved && (
-          <button type="button" className="key-remove" onClick={() => void save("")}>
-            Remove key
-          </button>
-        )}
-        {justSaved && <span className="key-status">Saved ✓</span>}
-      </div>
+      )}
     </section>
   );
 }
