@@ -206,6 +206,24 @@
   padding: 16px 20px;
   max-width: 820px;
 }
+
+/* Rendered SVG preview — a light "card" so diagrams drawn for a white
+   background (PlantUML's default skin, etc.) stay legible on the dark UI. */
+.svg-preview {
+  padding: 20px;
+}
+.svg-canvas {
+  display: inline-block;
+  padding: 16px;
+  background: var(--c-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.svg-canvas img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
 .diff-note {
   padding: 20px;
   color: var(--fg-3);

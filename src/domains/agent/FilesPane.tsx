@@ -9,7 +9,18 @@ import {
   readWorkspaceFile,
 } from "@/ipc/diff";
 
-const isMarkdown = (path: string) => /\.(md|markdown|mdx)$/i.test(path);
+// Files we can render visually in the Preview pane (vs. the raw text diff).
+type PreviewKind = "md" | "svg";
+const previewKind = (path: string): PreviewKind | null => {
+  if (/\.(md|markdown|mdx)$/i.test(path)) return "md";
+  if (/\.svg$/i.test(path)) return "svg";
+  return null;
+};
+
+// SVG via an <img> data URI, NOT inline HTML: loading an SVG through <img>
+// makes the browser disable scripts and external fetches inside it, so a
+// stray agent-authored <script>/href can't run or exfiltrate.
+const svgDataUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 // "Files" tab — git diff for a workspace (a board agent's worktree, or an
 // exploratory session's repo root) vs origin/<default-branch>. Summary loads
@@ -92,7 +103,9 @@ export function FilesPane({ workspaceId }: { workspaceId: string }) {
         />
         <div className="diff-pane">
           {fileDiff ? (
-            <FileView fd={fileDiff} workspaceId={workspaceId} />
+            // Key by path so switching files remounts FileView — its preview
+            // toggle resets to the diff without a reset effect.
+            <FileView key={fileDiff.path} fd={fileDiff} workspaceId={workspaceId} />
           ) : loadingFile ? (
             <LoadingDiff />
           ) : null}
@@ -177,18 +190,14 @@ function FileNode({ file, active, onSelect }: FileNodeProps) {
   );
 }
 
-// One file's right pane: the unified diff, plus a Diff/Preview toggle for
-// markdown that renders the file's current content.
+// One file's right pane: the unified diff, plus a Diff/Preview toggle that
+// renders markdown or SVG files. Remounted per file (keyed by path), so state
+// starts fresh — preview defaults to the diff.
 function FileView({ fd, workspaceId }: { fd: FileDiff; workspaceId: string }) {
-  const markdown = isMarkdown(fd.path);
+  const kind = previewKind(fd.path);
   const [preview, setPreview] = useState(false);
   const [content, setContent] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-
-  // A different file (or a non-md one) starts on the diff.
-  useEffect(() => {
-    setPreview(false);
-  }, [fd.path]);
 
   // Load the file's content only when previewing it.
   useEffect(() => {
@@ -216,7 +225,7 @@ function FileView({ fd, workspaceId }: { fd: FileDiff; workspaceId: string }) {
           <span style={{ color: "var(--c-done)" }}>+{fd.add}</span>{" "}
           <span style={{ color: "var(--c-danger)" }}>−{fd.del}</span>
         </span>
-        {markdown && (
+        {kind && (
           <span className="view-toggle">
             <button
               type="button"
@@ -239,9 +248,17 @@ function FileView({ fd, workspaceId }: { fd: FileDiff; workspaceId: string }) {
         previewError ? (
           <div className="diff-note">{previewError}</div>
         ) : content !== null ? (
-          <div className="md-doc">
-            <Markdown text={content} />
-          </div>
+          kind === "svg" ? (
+            <div className="svg-preview">
+              <div className="svg-canvas">
+                <img src={svgDataUri(content)} alt={fd.path} />
+              </div>
+            </div>
+          ) : (
+            <div className="md-doc">
+              <Markdown text={content} />
+            </div>
+          )
         ) : (
           <div className="diff-note">Loading…</div>
         )

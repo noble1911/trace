@@ -18,6 +18,10 @@
   --fg-3: #707070;
   --fg-4: #525252;
 
+  /* Light canvas for rendering documents/diagrams authored for a white
+     background (e.g. SVGs with black strokes) legibly against the dark UI. */
+  --c-canvas: #ffffff;
+
   /* Status hues — oklch, all chroma ~0.13, lightness ~0.72 */
   --c-todo: oklch(0.72 0.01 250); /* neutral */
   --c-todo-bg: oklch(0.72 0.01 250 / 0.1);
