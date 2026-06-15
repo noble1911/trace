@@ -22,6 +22,8 @@ export function ChatView() {
   const busy = useChatStore((s) => s.busy);
   const error = useChatStore((s) => s.error);
   const send = useChatStore((s) => s.send);
+  const pendingConfirm = useChatStore((s) => s.pendingConfirm);
+  const resolveConfirm = useChatStore((s) => s.resolveConfirm);
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +72,23 @@ export function ChatView() {
       </div>
 
       {error && messages.length === 0 && <div className="orch-chat-error">{error}</div>}
+
+      {pendingConfirm && (
+        <div className="orch-confirm">
+          <div className="orch-confirm-head">
+            <I.Bolt size={12} /> Confirm action
+          </div>
+          <div className="orch-confirm-body">{pendingConfirm.summary}</div>
+          <div className="orch-confirm-actions">
+            <button type="button" className="oc-cancel" onClick={() => resolveConfirm(false)}>
+              Cancel
+            </button>
+            <button type="button" className="oc-go" onClick={() => resolveConfirm(true)}>
+              Confirm
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="orch-input-row">
         <textarea

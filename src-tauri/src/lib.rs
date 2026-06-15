@@ -35,6 +35,7 @@ pub fn run() {
             commands::jira::get_jira_board,
             commands::jira::get_issue_pull_requests,
             commands::jira::transition_jira_issue,
+            commands::jira::comment_on_issue,
             commands::repos::list_repos,
             commands::repos::add_repo,
             commands::repos::remove_repo,

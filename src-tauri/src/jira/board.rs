@@ -283,3 +283,26 @@ pub async fn transition_to_status(
     client::post(conn, &path, json!({ "transition": { "id": chosen.id } })).await?;
     Ok(())
 }
+
+/// Post a plain-text comment to an issue, wrapping it in a minimal ADF document
+/// (one paragraph per line). Used by the orchestrator's comment action.
+pub async fn add_comment(conn: &JiraConnection, key: &str, text: &str) -> Result<(), String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Err("Comment body is empty.".to_string());
+    }
+    let paragraphs: Vec<Value> = trimmed
+        .lines()
+        .map(|line| {
+            if line.is_empty() {
+                json!({ "type": "paragraph", "content": [] })
+            } else {
+                json!({ "type": "paragraph", "content": [{ "type": "text", "text": line }] })
+            }
+        })
+        .collect();
+    let body = json!({ "body": { "type": "doc", "version": 1, "content": paragraphs } });
+    let path = format!("/rest/api/3/issue/{key}/comment");
+    client::post(conn, &path, body).await?;
+    Ok(())
+}

@@ -103,3 +103,13 @@ pub async fn transition_jira_issue(
     let conn = current_conn(&state)?;
     board::transition_to_status(&conn, &issue_key, &target_status_ids).await
 }
+
+#[tauri::command]
+pub async fn comment_on_issue(
+    state: State<'_, AppState>,
+    issue_key: String,
+    body: String,
+) -> Result<(), String> {
+    let conn = current_conn(&state)?;
+    board::add_comment(&conn, &issue_key, &body).await
+}

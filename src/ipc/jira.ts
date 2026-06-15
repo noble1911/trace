@@ -38,6 +38,11 @@ export function transitionJiraIssue(issueKey: string, targetStatusIds: string[])
   return invoke("transition_jira_issue", { issueKey, targetStatusIds });
 }
 
+/** Post a plain-text comment to an issue (wrapped in ADF on the Rust side). */
+export function commentOnIssue(issueKey: string, body: string): Promise<void> {
+  return invoke("comment_on_issue", { issueKey, body });
+}
+
 /** `fresh` busts Jira's dev-status cache (re-syncs from GitHub) — use for
  * targeted single-issue refreshes, not bulk fan-outs. */
 export function getIssuePullRequests(issueId: string, fresh = false): Promise<PullRequest[]> {

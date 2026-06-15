@@ -1,5 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { actionSummary, runWriteTool, WRITE_TOOL_NAMES, WRITE_TOOLS } from "./mutations";
 import { READ_TOOLS, runReadTool } from "./tools";
+
+const TOOLS = [...READ_TOOLS, ...WRITE_TOOLS];
+
+/** A pending mutating action awaiting the user's approval. */
+export interface ConfirmRequest {
+  name: string;
+  input: unknown;
+  summary: string;
+}
 
 // The orchestrator's call into Claude. We run the agentic loop *manually*
 // (rather than the SDK's auto tool-runner) so Phase 3 can drop a human
@@ -29,6 +39,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   onTextDelta: (delta: string) => void;
   onToolUse?: (name: string) => void;
+  /** Gate a mutating tool: resolve true to run it, false to decline. */
+  confirmTool: (req: ConfirmRequest) => Promise<boolean>;
 }
 
 /**
@@ -51,7 +63,7 @@ export async function runOrchestratorTurn(opts: RunOptions): Promise<string> {
         max_tokens: MAX_TOKENS,
         thinking: { type: "adaptive" },
         system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
-        tools: READ_TOOLS,
+        tools: TOOLS,
         messages,
       },
       { signal: opts.signal }
@@ -72,16 +84,34 @@ export async function runOrchestratorTurn(opts: RunOptions): Promise<string> {
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const block of message.content) {
       if (block.type !== "tool_use") continue;
-      opts.onToolUse?.(block.name);
-      let content: string;
-      try {
-        content = await runReadTool(block.name, block.input);
-      } catch (e) {
-        content = `Error running ${block.name}: ${e instanceof Error ? e.message : String(e)}`;
-      }
+      const content = await runToolBlock(block, opts);
       results.push({ type: "tool_result", tool_use_id: block.id, content });
     }
     messages.push({ role: "user", content: results });
   }
   return finalText;
+}
+
+/**
+ * Run one tool_use block. Mutating tools pass through the confirm-gate first —
+ * a decline feeds a "user declined" result back so the model can respond rather
+ * than the action silently failing.
+ */
+async function runToolBlock(block: Anthropic.ToolUseBlock, opts: RunOptions): Promise<string> {
+  try {
+    if (WRITE_TOOL_NAMES.has(block.name)) {
+      const ok = await opts.confirmTool({
+        name: block.name,
+        input: block.input,
+        summary: actionSummary(block.name, block.input),
+      });
+      if (!ok) return "The user declined this action.";
+      opts.onToolUse?.(block.name);
+      return await runWriteTool(block.name, block.input);
+    }
+    opts.onToolUse?.(block.name);
+    return await runReadTool(block.name, block.input);
+  } catch (e) {
+    return `Error running ${block.name}: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }

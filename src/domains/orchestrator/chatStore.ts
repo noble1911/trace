@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { getAnthropicKey } from "@/ipc/orchestrator";
-import { type ChatTurn, runOrchestratorTurn } from "./agent";
+import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { buildBoardContext } from "./context";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
@@ -14,7 +14,8 @@ You help the user run the board: summarize sprint status, recommend what to play
 
 Ground rules:
 - Every NUMBER in CURRENT BOARD STATE is computed deterministically — trust it; never recount or estimate counts yourself.
-- You are READ-ONLY right now. You can read ticket details and agent transcripts via tools, but you cannot move tickets, start agents, or comment yet — if asked to act, say what you would do and that actions are coming soon.
+- You can read (ticket details, agent transcripts) and act (move a ticket, start an agent, send input to an agent, comment on a ticket). Every action pops a confirmation card the user must approve before it runs — so propose and take actions freely; the user is the gate. Don't ask "shall I?" in prose and then wait — just call the tool; the card is the ask.
+- You do NOT raise or merge pull requests — the coding agents do that themselves. If a ticket looks ready, say so and offer to move it, but never try to raise or merge a PR.
 - Be concise and concrete. Reference tickets by key, lead with the recommendation, and keep answers skimmable.
 - When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done.`;
 
@@ -25,11 +26,21 @@ export interface ChatMessage {
   tool?: string;
 }
 
+/** A mutating action awaiting the user's approval, shown as a confirm card. */
+export interface PendingConfirm {
+  name: string;
+  summary: string;
+}
+
 interface ChatStore {
   messages: ChatMessage[];
   busy: boolean;
   error: string | null;
+  /** Set while the assistant is blocked on a confirm-card. */
+  pendingConfirm: PendingConfirm | null;
   send: (text: string) => Promise<void>;
+  /** Resolve the open confirm-card — true runs the action, false declines it. */
+  resolveConfirm: (ok: boolean) => void;
   reset: () => void;
 }
 
@@ -37,10 +48,16 @@ function systemPrompt(): string {
   return `${SYSTEM_PREAMBLE}\n\nCURRENT BOARD STATE:\n${buildBoardContext()}`;
 }
 
+// The open confirm-card's resolver and the in-flight turn's abort handle live
+// module-side (not in store state) — transient hooks, not serializable UI state.
+let confirmResolver: ((ok: boolean) => void) | null = null;
+let abortController: AbortController | null = null;
+
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   busy: false,
   error: null,
+  pendingConfirm: null,
 
   async send(text) {
     const trimmed = text.trim();
@@ -66,27 +83,55 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const patch = (fn: (m: ChatMessage) => ChatMessage) =>
       set((s) => ({ messages: s.messages.map((m, i) => (i === idx ? fn(m) : m)) }));
 
+    const ac = new AbortController();
+    abortController = ac;
     try {
       await runOrchestratorTurn({
         apiKey: key,
         system: systemPrompt(),
         history,
+        signal: ac.signal,
         onTextDelta: (delta) => patch((m) => ({ ...m, text: m.text + delta, tool: undefined })),
         onToolUse: (name) => patch((m) => ({ ...m, tool: name })),
+        // Surface a confirm-card and park the turn until the user answers.
+        confirmTool: (req: ConfirmRequest) =>
+          new Promise<boolean>((resolve) => {
+            confirmResolver = resolve;
+            set({ pendingConfirm: { name: req.name, summary: req.summary } });
+          }),
       });
       patch((m) => ({ ...m, tool: undefined }));
     } catch (e) {
-      // A mid-conversation failure surfaces in the assistant bubble; `error` is
-      // reserved for pre-send problems (e.g. no key) so the banner and the
-      // bubble never show the same failure twice.
-      const msg = e instanceof Error ? e.message : String(e);
-      patch((m) => ({ ...m, text: m.text || `⚠️ ${msg}`, tool: undefined }));
+      // An aborted turn (reset/clear) leaves no message to patch — skip it.
+      // Any other mid-conversation failure surfaces in the assistant bubble;
+      // `error` is reserved for pre-send problems (e.g. no key) so the banner
+      // and the bubble never show the same failure twice.
+      if (!ac.signal.aborted) {
+        const msg = e instanceof Error ? e.message : String(e);
+        patch((m) => ({ ...m, text: m.text || `⚠️ ${msg}`, tool: undefined }));
+      }
     } finally {
-      set({ busy: false });
+      if (abortController === ac) abortController = null;
+      // Don't stomp state a concurrent reset() already cleared.
+      if (!ac.signal.aborted) set({ busy: false, pendingConfirm: null });
+      confirmResolver = null;
     }
   },
 
+  resolveConfirm(ok) {
+    const resolve = confirmResolver;
+    confirmResolver = null;
+    set({ pendingConfirm: null });
+    resolve?.(ok);
+  },
+
   reset() {
-    set({ messages: [], error: null });
+    // Stop the in-flight turn outright (so it can't keep streaming/spending),
+    // decline any open confirm to unwind its promise, and clear the UI.
+    abortController?.abort();
+    abortController = null;
+    confirmResolver?.(false);
+    confirmResolver = null;
+    set({ messages: [], busy: false, error: null, pendingConfirm: null });
   },
 }));
