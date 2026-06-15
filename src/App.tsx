@@ -16,7 +16,7 @@ import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
 import { onAgentRunState, onPtyOutput } from "@/ipc/events";
-import { setDockBadge } from "@/ipc/notify";
+import { focusWindow, onNotificationClick, setDockBadge } from "@/ipc/notify";
 import { checkAppUpdate } from "@/ipc/update";
 import { toast } from "./app/toast";
 
@@ -81,6 +81,20 @@ export function App() {
       unlistenPty?.();
     };
   }, [setAgentRunning, appendOutput]);
+
+  // Clicking a waiting-agent notification jumps straight to that workspace's
+  // detail (an issue card or a session), not just the app. Registered once.
+  useEffect(() => {
+    onNotificationClick((workspaceId) => {
+      focusWindow();
+      const isIssue = useBoardStore.getState().data?.issues.some((i) => i.key === workspaceId);
+      if (isIssue) {
+        useBoardStore.getState().openIssue(workspaceId);
+      } else {
+        useSessionsStore.getState().select(workspaceId);
+      }
+    });
+  }, []);
 
   // Load the board whenever the selected board changes.
   useEffect(() => {

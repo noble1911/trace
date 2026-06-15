@@ -84,7 +84,11 @@ function maybeNotifyWaiting(workspaceId: string) {
     (selectedIssueKey === workspaceId || sessions.selectedId === workspaceId);
   if (watching) return;
   const title = sessions.sessions.find((s) => s.id === workspaceId)?.title ?? workspaceId;
-  void notify(`${title} is waiting`, "The agent finished its turn and needs your input.");
+  void notify(
+    `${title} is waiting`,
+    "The agent finished its turn and needs your input.",
+    workspaceId
+  );
 }
 
 /** An agent finishing its turn may have just raised or merged a PR via gh —
