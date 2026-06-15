@@ -195,3 +195,41 @@
 .oc-go:hover {
   filter: brightness(1.08);
 }
+
+/* Inline action card — a confirm-gated action the assistant requested via an
+   ```action block (the CLI/-p equivalent of the SDK's confirm-card). */
+.orch-action {
+  margin: 8px 0;
+  padding: 9px 11px;
+  border: 1px solid var(--c-prog-border);
+  background: var(--c-prog-bg);
+  border-radius: var(--radius-sm);
+}
+.orch-action-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--fg-0);
+  word-break: break-word;
+}
+.orch-action-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 9px;
+}
+.orch-action-foot button {
+  padding: 4px 11px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+.orch-action-result {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.orch-action-result.muted {
+  color: var(--fg-4);
+}

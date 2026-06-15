@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
 import { Markdown } from "@/components/Markdown";
+import { ActionCard } from "./ActionCard";
 import { ChartBlock } from "./Chart";
-import { splitChartBlocks } from "./chartData";
 import { type ChatMessage, useChatStore } from "./chatStore";
+import { splitBlocks } from "./messageBlocks";
 
 const QUICK = [
   "Summarize the sprint",
@@ -134,23 +135,20 @@ function Message({ msg, streaming }: { msg: ChatMessage; streaming: boolean }) {
   );
 }
 
-// Render an assistant reply: markdown runs with any ```chart spec blocks drawn
-// inline (the chart's data is computed deterministically — see chartData.ts).
+// Render an assistant reply: markdown runs, with ```chart blocks drawn inline
+// (deterministic data) and ```action blocks as confirm-gated action cards.
 function AssistantBody({ text }: { text: string }) {
   if (!text) return null;
   return (
     <>
-      {splitChartBlocks(text).map((p, i) =>
-        p.type === "chart" ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
-          <ChartBlock key={i} raw={p.raw} />
-        ) : (
-          p.text.trim() && (
-            // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
-            <Markdown key={i} text={p.text} />
-          )
-        )
-      )}
+      {splitBlocks(text).map((p, i) => {
+        // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
+        if (p.type === "chart") return <ChartBlock key={i} raw={p.raw} />;
+        // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
+        if (p.type === "action") return <ActionCard key={i} raw={p.raw} />;
+        // biome-ignore lint/suspicious/noArrayIndexKey: parts are positional and stable per render
+        return p.text.trim() ? <Markdown key={i} text={p.text} /> : null;
+      })}
     </>
   );
 }

@@ -96,19 +96,3 @@ export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
 
   return { error: `Unknown chart "${kind}". Try: progress, columns, assignees, throughput.` };
 }
-
-export type MessagePart = { type: "md"; text: string } | { type: "chart"; raw: string };
-
-/** Split assistant text into markdown runs and ```chart fenced spec blocks. */
-export function splitChartBlocks(text: string): MessagePart[] {
-  const parts: MessagePart[] = [];
-  let last = 0;
-  for (const m of text.matchAll(/```chart\s*\n([\s\S]*?)```/g)) {
-    const idx = m.index ?? 0;
-    if (idx > last) parts.push({ type: "md", text: text.slice(last, idx) });
-    parts.push({ type: "chart", raw: (m[1] ?? "").trim() });
-    last = idx + m[0].length;
-  }
-  if (last < text.length) parts.push({ type: "md", text: text.slice(last) });
-  return parts;
-}

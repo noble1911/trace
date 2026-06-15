@@ -43,7 +43,7 @@ export function AssistantSettings() {
       </div>
       <SettingRow
         label="Backend"
-        hint="SDK gives full chat + actions; CLI (-p) is read-only but needs no API key."
+        hint="SDK uses your API key; CLI (-p) uses the logged-in Claude CLI — both chat and act."
       >
         <select
           aria-label="Assistant backend"
@@ -56,8 +56,9 @@ export function AssistantSettings() {
       </SettingRow>
       {backend === "cli" && (
         <div className="hint">
-          Uses your logged-in Claude CLI — no API key needed. Read-only: chat and insights only;
-          taking actions (moving tickets, starting agents) requires the API-key mode.
+          Uses your logged-in Claude CLI — no API key needed. Chats and takes actions (each behind a
+          confirm card); it answers one-shot from the board snapshot rather than the SDK's
+          multi-step tool loop.
         </div>
       )}
       {backend === "sdk" && (
