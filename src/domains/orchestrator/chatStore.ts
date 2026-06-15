@@ -3,7 +3,7 @@ import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { runOrchestratorCli } from "./cli";
 import { buildBoardContext } from "./context";
-import { useOrchestratorStore } from "./store";
+import { speedModels, useOrchestratorStore } from "./store";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
 // within-turn tool round-trips happen inside runOrchestratorTurn and aren't
@@ -72,7 +72,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const trimmed = text.trim();
     if (!trimmed || get().busy) return;
 
-    const backend = useOrchestratorStore.getState().backend;
+    const { backend, speed } = useOrchestratorStore.getState();
+    const models = speedModels(speed);
     // The SDK path needs an API key; the CLI path uses the logged-in Claude CLI.
     let key: string | null = null;
     if (backend === "sdk") {
@@ -106,14 +107,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     let ac: AbortController | null = null;
     try {
       if (backend === "cli") {
-        // Read-only one-shot through the Claude CLI — no streaming, no tools.
-        const reply = await runOrchestratorCli(history);
+        // One-shot through the Claude CLI — no streaming, actions via blocks.
+        const reply = await runOrchestratorCli(history, models.cli);
         patch((m) => ({ ...m, text: reply, tool: undefined }));
       } else if (key) {
         ac = new AbortController();
         abortController = ac;
         await runOrchestratorTurn({
           apiKey: key,
+          model: models.sdk,
+          extendedThinking: models.thinking,
           system: systemPrompt(),
           history,
           signal: ac.signal,

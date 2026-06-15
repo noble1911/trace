@@ -19,9 +19,8 @@ export interface ConfirmRequest {
 // sends `anthropic-dangerous-direct-browser-access: true` so the API serves the
 // CORS preflight. The key is the user's own, read from the 0600 Rust store.
 
-const MODEL = "claude-opus-4-8";
-// A board answer is short; this is a generous ceiling (incl. adaptive thinking),
-// not a target — streaming means no timeout risk if a turn does run long.
+// A board answer is short; this is a generous ceiling (incl. any thinking), not
+// a target — streaming means no timeout risk if a turn does run long.
 const MAX_TOKENS = 16_000;
 // Backstop against a model that loops on tools forever.
 const MAX_TOOL_ROUNDS = 8;
@@ -33,6 +32,10 @@ export interface ChatTurn {
 
 export interface RunOptions {
   apiKey: string;
+  /** API model id, e.g. "claude-opus-4-8" or "claude-sonnet-4-6". */
+  model: string;
+  /** Adaptive thinking on (thorough) vs off (fast). */
+  extendedThinking: boolean;
   system: string;
   /** Prior turns plus the new user message, oldest first. */
   history: ChatTurn[];
@@ -59,9 +62,9 @@ export async function runOrchestratorTurn(opts: RunOptions): Promise<string> {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const stream = client.messages.stream(
       {
-        model: MODEL,
+        model: opts.model,
         max_tokens: MAX_TOKENS,
-        thinking: { type: "adaptive" },
+        thinking: opts.extendedThinking ? { type: "adaptive" } : undefined,
         system: [{ type: "text", text: opts.system, cache_control: { type: "ephemeral" } }],
         tools: TOOLS,
         messages,

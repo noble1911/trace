@@ -66,6 +66,28 @@ pub async fn orchestrator_cli(
     // A neutral cwd (home) so it doesn't absorb a project's CLAUDE.md / context.
     cmd.current_dir(dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")));
     cmd.arg("--print");
+    // Strip Claude Code's coding tools. Without this `-p` behaves as the full
+    // agent — it enters plan mode and spends minutes "planning" a ticket instead
+    // of answering. Tool-free, it's a text responder that only emits our blocks.
+    cmd.args([
+        "--disallowedTools",
+        "Bash",
+        "Edit",
+        "Write",
+        "Read",
+        "Glob",
+        "Grep",
+        "WebFetch",
+        "WebSearch",
+        "Task",
+        "TodoWrite",
+        "NotebookEdit",
+        "NotebookRead",
+        "MultiEdit",
+        "ExitPlanMode",
+        "KillShell",
+        "BashOutput",
+    ]);
     if let Some(model) = model.as_deref().filter(|m| !m.is_empty()) {
         cmd.args(["--model", model]);
     }

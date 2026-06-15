@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { type OrchBackend, useOrchestratorStore } from "@/domains/orchestrator/store";
+import {
+  type OrchBackend,
+  type OrchSpeed,
+  useOrchestratorStore,
+} from "@/domains/orchestrator/store";
 import { getAnthropicKey, setAnthropicKey } from "@/ipc/orchestrator";
 import { SettingRow } from "./SettingRow";
 
@@ -10,6 +14,8 @@ import { SettingRow } from "./SettingRow";
 export function AssistantSettings() {
   const backend = useOrchestratorStore((s) => s.backend);
   const setBackend = useOrchestratorStore((s) => s.setBackend);
+  const speed = useOrchestratorStore((s) => s.speed);
+  const setSpeed = useOrchestratorStore((s) => s.setSpeed);
   const [saved, setSaved] = useState(false);
   const [value, setValue] = useState("");
   const [justSaved, setJustSaved] = useState(false);
@@ -61,6 +67,19 @@ export function AssistantSettings() {
           multi-step tool loop.
         </div>
       )}
+      <SettingRow
+        label="Speed"
+        hint="Fast (Sonnet, no extended thinking) is snappy; Thorough (Opus + thinking) reasons harder."
+      >
+        <select
+          aria-label="Assistant speed"
+          value={speed}
+          onChange={(e) => setSpeed(e.target.value as OrchSpeed)}
+        >
+          <option value="fast">Fast (Sonnet)</option>
+          <option value="thorough">Thorough (Opus)</option>
+        </select>
+      </SettingRow>
       {backend === "sdk" && (
         <div className="setting-block">
           <div className="label">Anthropic API key</div>
