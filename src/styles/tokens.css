@@ -27,6 +27,7 @@
   --c-todo-bg: oklch(0.72 0.01 250 / 0.1);
   --c-prog: oklch(0.78 0.15 70); /* amber */
   --c-prog-bg: oklch(0.78 0.15 70 / 0.12);
+  --c-prog-border: oklch(0.78 0.15 70 / 0.3);
   --c-review: oklch(0.72 0.16 290); /* violet */
   --c-review-bg: oklch(0.72 0.16 290 / 0.14);
   --c-done: oklch(0.74 0.14 155); /* green */

@@ -73,6 +73,8 @@ pub fn run() {
             commands::update::install_app_update,
             commands::worktrees::list_worktrees,
             commands::worktrees::remove_worktree,
+            commands::orchestrator::get_anthropic_key,
+            commands::orchestrator::set_anthropic_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

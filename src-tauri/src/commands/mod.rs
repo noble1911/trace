@@ -6,6 +6,7 @@ pub mod diff;
 pub mod editor;
 pub mod groups;
 pub mod jira;
+pub mod orchestrator;
 pub mod pr;
 pub mod repos;
 pub mod session;

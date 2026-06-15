@@ -1,3 +1,4 @@
+import { decodePtyChunk, stripAnsi } from "@/domains/agent/transcript";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { type OutputChunk, useBoardStore } from "@/domains/board/store";
 import type { PullRequest } from "@/domains/jira/types";
@@ -25,22 +26,6 @@ const PER_GROUP = 5;
 /** Searchable tail kept per workspace — old scrollback past this is dropped. */
 const MAX_CHAT_TEXT = 200_000;
 
-function decodeChunk(b64: string): string {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
-}
-
-// CSI sequences, OSC sequences (incl. hyperlinks), and stray control chars —
-// the screen-painting noise between the words.
-// biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal escape sequences is this regex's entire job
-const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f]/g;
-
-function stripAnsi(s: string): string {
-  return s.replace(ANSI_RE, "");
-}
-
 // Decoded chat text per workspace. Buffers are append-only while the app
 // runs, so we only decode chunks added since the last search.
 const chatCache = new Map<string, { count: number; text: string }>();
@@ -55,7 +40,7 @@ function chatText(workspaceId: string, chunks: OutputChunk[]): string {
   }
   for (let i = from; i < chunks.length; i++) {
     try {
-      text += stripAnsi(decodeChunk(chunks[i].data));
+      text += stripAnsi(decodePtyChunk(chunks[i].data));
     } catch {
       // Skip an undecodable chunk rather than losing the whole buffer.
     }

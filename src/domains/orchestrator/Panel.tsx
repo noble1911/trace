@@ -1,4 +1,5 @@
 import { I } from "@/components/Icon";
+import { ChatView } from "./ChatView";
 import { StatsView } from "./StatsView";
 import { type OrchTab, useOrchestratorStore } from "./store";
 
@@ -45,19 +46,7 @@ export function OrchestratorPanel() {
         ))}
       </div>
 
-      <div className="orch-body">{tab === "stats" ? <StatsView /> : <ChatPlaceholder />}</div>
-    </div>
-  );
-}
-
-function ChatPlaceholder() {
-  return (
-    <div className="orch-empty orch-chat-soon">
-      <I.Sparkles size={24} />
-      <div className="t">The assistant is coming soon</div>
-      <div className="h">
-        It'll read the board, suggest what to play next, and act on your say-so.
-      </div>
+      <div className="orch-body">{tab === "stats" ? <StatsView /> : <ChatView />}</div>
     </div>
   );
 }

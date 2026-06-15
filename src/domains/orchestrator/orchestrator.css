@@ -172,7 +172,7 @@
   font-size: 12px;
   color: var(--c-prog);
   background: var(--c-prog-bg);
-  border: 1px solid oklch(0.78 0.15 70 / 0.3);
+  border: 1px solid var(--c-prog-border);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
 }
@@ -247,4 +247,139 @@
   font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--fg-3);
+}
+
+/* Chat view */
+.orch-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.orch-msgs {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.orch-chat-intro {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-4);
+  text-align: center;
+}
+.orch-chat-intro .t {
+  color: var(--fg-1);
+  font-size: 13px;
+  font-weight: 500;
+}
+.orch-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.orch-quick button {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  color: var(--fg-1);
+  background: var(--bg-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.orch-quick button:hover {
+  border-color: var(--border-strong);
+  color: var(--fg-0);
+}
+.orch-quick button:disabled {
+  opacity: 0.5;
+}
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.msg .who {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-4);
+  font-weight: 600;
+}
+.msg .body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg.user .body {
+  color: var(--fg-0);
+}
+.orch-tool,
+.orch-typing {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--fg-4);
+}
+.orch-chat-error {
+  margin: 0 14px 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--c-review);
+  background: var(--c-review-bg);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+}
+.orch-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-faint);
+  align-items: flex-end;
+}
+.orch-input {
+  flex: 1;
+  resize: none;
+  max-height: 120px;
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--fg-0);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+.orch-input:focus {
+  border-color: var(--border-strong);
+  outline: none;
+}
+.orch-input::placeholder {
+  color: var(--fg-4);
+}
+.orch-send {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--c-prog);
+  color: var(--bg-1);
+}
+.orch-send:disabled {
+  opacity: 0.4;
+}
+.orch-send:not(:disabled):hover {
+  filter: brightness(1.08);
 }

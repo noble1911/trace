@@ -17,6 +17,7 @@ import {
 } from "@/domains/agent/defaults";
 import { useJiraStore } from "@/domains/jira/store";
 import type { AgentCli } from "@/ipc/agent";
+import { AssistantSettings } from "./AssistantSettings";
 import { RepoSettings } from "./RepoSettings";
 import { SettingRow } from "./SettingRow";
 import { TerminalSettings } from "./TerminalSettings";
@@ -185,6 +186,8 @@ export function SettingsView() {
                 />
               </SettingRow>
             </section>
+
+            <AssistantSettings />
 
             <section className="setting-group">
               <h2>Integrations</h2>
