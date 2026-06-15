@@ -191,6 +191,15 @@
 .orch-goal-input::placeholder {
   color: var(--fg-4);
 }
+.orch-scope {
+  font-size: 11.5px;
+  color: var(--fg-4);
+  margin-top: -6px;
+}
+.orch-scope .who {
+  color: var(--fg-2);
+  font-weight: 500;
+}
 .orch-flags {
   display: flex;
   flex-direction: column;

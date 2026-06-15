@@ -119,3 +119,26 @@ export function computeBoardStats(input: StatsInput): BoardStats {
     flags,
   };
 }
+
+/**
+ * Narrow a stats input to a single assignee so the panel mirrors the board's
+ * assignee filter. `null` (everyone) is an identity pass-through. Filtering at
+ * the input boundary keeps every downstream metric — columns, agents, PRs,
+ * throughput — consistently scoped to that person's tickets.
+ */
+export function filterByAssignee(input: StatsInput, assignee: string | null): StatsInput {
+  if (assignee === null || !input.board) return input;
+  const issues = input.board.issues.filter((i) => i.assignee?.accountId === assignee);
+  const keys = new Set(issues.map((i) => i.key));
+  const pullRequests: Record<string, PullRequest[]> = {};
+  for (const [k, prs] of Object.entries(input.pullRequests)) {
+    if (keys.has(k)) pullRequests[k] = prs;
+  }
+  return {
+    ...input,
+    board: { ...input.board, issues },
+    runningAgents: new Set([...input.runningAgents].filter((k) => keys.has(k))),
+    pullRequests,
+    activity: input.activity.filter((e) => e.issueKey != null && keys.has(e.issueKey)),
+  };
+}

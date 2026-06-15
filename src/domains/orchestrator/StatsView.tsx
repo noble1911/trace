@@ -2,38 +2,58 @@ import { useMemo } from "react";
 import { useActivityStore } from "@/domains/activity/store";
 import { columnColor } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
-import { type BoardStats, computeBoardStats } from "./stats";
+import { useJiraStore } from "@/domains/jira/store";
+import { type BoardStats, computeBoardStats, filterByAssignee } from "./stats";
 import { useOrchestratorStore } from "./store";
 
 // The deterministic board overview — no AI. Reads the board store and renders
-// the metrics from stats.ts.
+// the metrics from stats.ts, scoped to the board's current assignee filter.
 export function StatsView() {
   const board = useBoardStore((s) => s.data);
   const runningAgents = useBoardStore((s) => s.runningAgents);
   const agentActivity = useBoardStore((s) => s.agentActivity);
   const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
   const pullRequests = useBoardStore((s) => s.pullRequests);
+  const assigneeFilter = useBoardStore((s) => s.assigneeFilter);
   const activity = useActivityStore((s) => s.events);
+  const currentUser = useJiraStore((s) => s.user);
   const sprintGoal = useOrchestratorStore((s) => s.sprintGoal);
   const setSprintGoal = useOrchestratorStore((s) => s.setSprintGoal);
 
+  // Mirror the board: until the user picks, the filter defaults to themselves.
+  const effectiveAssignee =
+    assigneeFilter === undefined ? (currentUser?.accountId ?? null) : assigneeFilter;
+
   const stats = useMemo<BoardStats>(
     () =>
-      computeBoardStats({
-        board,
-        runningAgents,
-        agentActivity,
-        ackedWaiting,
-        pullRequests,
-        activity,
-        now: Date.now(),
-      }),
-    [board, runningAgents, agentActivity, ackedWaiting, pullRequests, activity]
+      computeBoardStats(
+        filterByAssignee(
+          {
+            board,
+            runningAgents,
+            agentActivity,
+            ackedWaiting,
+            pullRequests,
+            activity,
+            now: Date.now(),
+          },
+          effectiveAssignee
+        )
+      ),
+    [board, runningAgents, agentActivity, ackedWaiting, pullRequests, activity, effectiveAssignee]
   );
 
   if (!board) {
     return <div className="orch-empty">Load a board to see stats.</div>;
   }
+
+  const scopeName =
+    effectiveAssignee === null
+      ? "Everyone"
+      : effectiveAssignee === currentUser?.accountId
+        ? currentUser.displayName
+        : (board.issues.find((i) => i.assignee?.accountId === effectiveAssignee)?.assignee
+            ?.displayName ?? "Selected assignee");
 
   return (
     <div className="orch-stats">
@@ -48,6 +68,10 @@ export function StatsView() {
           placeholder="What does a good sprint look like?"
           onChange={(e) => setSprintGoal(e.target.value)}
         />
+      </div>
+
+      <div className="orch-scope">
+        Showing <span className="who">{scopeName}</span>
       </div>
 
       {stats.flags.length > 0 && (
