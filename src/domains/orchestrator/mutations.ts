@@ -30,7 +30,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "start_agent",
     description:
-      "Start a Claude coding agent on a ticket — creates its worktree, moves the ticket to the board's In Progress column (unless it's already in progress), and launches the session with the kickoff brief. Use to begin work on the next ticket; you do NOT need a separate move_issue for the In Progress transition.",
+      "The complete 'begin work' action for a ticket: creates its worktree, moves the ticket to the board's In Progress column (unless already in progress), and launches the session with the user's configured kickoff brief (the ticket's key, summary and description) already submitted to the agent. The agent starts working immediately. Do NOT also call move_issue for the In Progress transition, and do NOT call send_to_agent afterward to tell it to start — the kickoff brief already does that; a follow-up message would just type an unsent duplicate over it.",
     input_schema: {
       type: "object",
       properties: {
@@ -42,7 +42,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "send_to_agent",
     description:
-      "Send a line of input to the running agent on a ticket, as if typed into its terminal and followed by Enter. Use to nudge or unblock a waiting agent.",
+      "Send a line of input to an agent that is ALREADY running, as if typed into its terminal and followed by Enter. Use only to answer a question or nudge a blocked/waiting agent mid-task — NOT to start work on a freshly started agent (start_agent already delivers and submits the kickoff brief).",
     input_schema: {
       type: "object",
       properties: {
@@ -208,7 +208,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
     }
     board.kickoff(key);
     await board.refresh();
-    return `Starting an agent on ${key}${moved}.`;
+    return `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working — no follow-up message is needed.`;
   }
 
   if (name === "send_to_agent") {
