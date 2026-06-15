@@ -16,7 +16,6 @@ import {
   withoutTab,
 } from "./groupOps";
 import { NewSessionModal } from "./NewSessionModal";
-import { RecentSessions } from "./RecentSessions";
 import { SectionGroup } from "./SectionGroup";
 import { SessionCard } from "./SessionCard";
 import { SessionTabs } from "./SessionTabs";
@@ -39,6 +38,7 @@ export function SessionsView() {
   const assign = useSessionsStore((s) => s.assign);
   const running = useBoardStore((s) => s.runningAgents);
   const agentActivity = useBoardStore((s) => s.agentActivity);
+  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
   const [creating, setCreating] = useState(false);
   const [binOpen, setBinOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -106,6 +106,7 @@ export function SessionsView() {
           key={s.id}
           session={s}
           status={statusOf(running.has(s.id), agentActivity[s.id])}
+          acked={ackedWaiting.has(s.id)}
           onOpen={() => select(s.id)}
           onArchive={() => void archive(s.id)}
           onRename={(title) => void rename(s.id, title)}
@@ -117,120 +118,117 @@ export function SessionsView() {
   const nothingAnywhere = active.length === 0 && archived.length === 0 && groups.tabs.length === 0;
 
   return (
-    <div className="sessions-layout">
-      <RecentSessions />
-      <div className="page">
-        <div className="page-head">
-          <div>
-            <h1>Sessions</h1>
-            <div className="desc">Exploratory agents not tied to a Jira ticket.</div>
-          </div>
-          <div className="right">
-            <button type="button" className="btn primary" onClick={() => setCreating(true)}>
-              <I.Plus size={14} /> New session
-            </button>
-          </div>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1>Sessions</h1>
+          <div className="desc">Exploratory agents not tied to a Jira ticket.</div>
         </div>
-        <SessionTabs
-          tabs={groups.tabs}
-          countOf={(tab) => active.filter((s) => tabOf(s) === tab).length}
-          active={activeTab}
-          onSelect={setActiveTab}
-          onAdd={addTab}
-          onRename={(id, name) => void saveGroups(renameTabIn(groups, id, name))}
-          onDelete={deleteTab}
-          onReorder={(dragId, targetId) =>
-            void saveGroups({ ...groups, tabs: moveBefore(groups.tabs, dragId, targetId) })
-          }
-          onDropSession={(sessionId, tab) => void assign(sessionId, tab, null)}
-        />
-        <div className="page-body">
-          {nothingAnywhere ? (
-            <div className="empty-state">
-              <div className="inner">
-                <span className="ic">
-                  <I.Sparkles size={28} />
-                </span>
-                <div className="title">No exploratory sessions yet</div>
-                <div className="hint">
-                  Spin up an interactive agent for spikes, debugging, or poking around — it runs in
-                  your repo, with no Jira ticket attached.
-                </div>
-                <button
-                  type="button"
-                  className="btn primary"
-                  style={{ marginTop: 6 }}
-                  onClick={() => setCreating(true)}
-                >
-                  <I.Plus size={13} /> New session
-                </button>
+        <div className="right">
+          <button type="button" className="btn primary" onClick={() => setCreating(true)}>
+            <I.Plus size={14} /> New session
+          </button>
+        </div>
+      </div>
+      <SessionTabs
+        tabs={groups.tabs}
+        countOf={(tab) => active.filter((s) => tabOf(s) === tab).length}
+        active={activeTab}
+        onSelect={setActiveTab}
+        onAdd={addTab}
+        onRename={(id, name) => void saveGroups(renameTabIn(groups, id, name))}
+        onDelete={deleteTab}
+        onReorder={(dragId, targetId) =>
+          void saveGroups({ ...groups, tabs: moveBefore(groups.tabs, dragId, targetId) })
+        }
+        onDropSession={(sessionId, tab) => void assign(sessionId, tab, null)}
+      />
+      <div className="page-body">
+        {nothingAnywhere ? (
+          <div className="empty-state">
+            <div className="inner">
+              <span className="ic">
+                <I.Sparkles size={28} />
+              </span>
+              <div className="title">No exploratory sessions yet</div>
+              <div className="hint">
+                Spin up an interactive agent for spikes, debugging, or poking around — it runs in
+                your repo, with no Jira ticket attached.
               </div>
+              <button
+                type="button"
+                className="btn primary"
+                style={{ marginTop: 6 }}
+                onClick={() => setCreating(true)}
+              >
+                <I.Plus size={13} /> New session
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="unsectioned" {...unsectionedDrop}>
-                {unsectioned.length > 0 ? (
-                  grid(unsectioned)
-                ) : (
-                  <div className="pr-muted">No unfiled sessions — drop cards here to unfile.</div>
-                )}
-              </div>
-
-              {sections.map((sec) => (
-                <SectionGroup
-                  key={sec.id}
-                  section={sec}
-                  count={inTab.filter((s) => sectionOf(s) === sec.id).length}
-                  onToggle={() => patchSection(sec.id, { collapsed: !sec.collapsed })}
-                  onRename={(name) => patchSection(sec.id, { name })}
-                  onDelete={() => deleteSection(sec.id)}
-                  onDropSession={(id) => void assign(id, activeTab, sec.id)}
-                  onDropSection={(dragId) =>
-                    void saveGroups({
-                      ...groups,
-                      sections: moveBefore(groups.sections, dragId, sec.id),
-                    })
-                  }
-                >
-                  {grid(inTab.filter((s) => sectionOf(s) === sec.id))}
-                </SectionGroup>
-              ))}
-
-              {addingSection ? (
-                <div className="sec-add-edit">
-                  <TitleEditor
-                    initial=""
-                    onSave={(name) => void saveGroups(withNewSection(groups, name, activeTab))}
-                    onClose={() => setAddingSection(false)}
-                  />
-                </div>
+          </div>
+        ) : (
+          <>
+            <div className="unsectioned" {...unsectionedDrop}>
+              {unsectioned.length > 0 ? (
+                grid(unsectioned)
               ) : (
-                <button type="button" className="sec-add" onClick={() => setAddingSection(true)}>
-                  <I.Plus size={12} /> Add section
-                </button>
+                <div className="pr-muted">No unfiled sessions — drop cards here to unfile.</div>
               )}
+            </div>
 
-              {archived.length > 0 && (
-                <ArchiveBin
-                  archived={archived}
-                  open={binOpen}
-                  onToggle={() => setBinOpen((v) => !v)}
-                  onRestore={(id) => void unarchive(id)}
-                  onDelete={(id) => void remove(id)}
-                  onDropSession={(id) => void archive(id)}
+            {sections.map((sec) => (
+              <SectionGroup
+                key={sec.id}
+                section={sec}
+                count={inTab.filter((s) => sectionOf(s) === sec.id).length}
+                onToggle={() => patchSection(sec.id, { collapsed: !sec.collapsed })}
+                onRename={(name) => patchSection(sec.id, { name })}
+                onDelete={() => deleteSection(sec.id)}
+                onDropSession={(id) => void assign(id, activeTab, sec.id)}
+                onDropSection={(dragId) =>
+                  void saveGroups({
+                    ...groups,
+                    sections: moveBefore(groups.sections, dragId, sec.id),
+                  })
+                }
+              >
+                {grid(inTab.filter((s) => sectionOf(s) === sec.id))}
+              </SectionGroup>
+            ))}
+
+            {addingSection ? (
+              <div className="sec-add-edit">
+                <TitleEditor
+                  initial=""
+                  onSave={(name) => void saveGroups(withNewSection(groups, name, activeTab))}
+                  onClose={() => setAddingSection(false)}
                 />
-              )}
-            </>
-          )}
-        </div>
-        {creating && (
-          <NewSessionModal
-            defaultCli={agentCli()}
-            onClose={() => setCreating(false)}
-            onCreate={onCreate}
-          />
+              </div>
+            ) : (
+              <button type="button" className="sec-add" onClick={() => setAddingSection(true)}>
+                <I.Plus size={12} /> Add section
+              </button>
+            )}
+
+            {archived.length > 0 && (
+              <ArchiveBin
+                archived={archived}
+                open={binOpen}
+                onToggle={() => setBinOpen((v) => !v)}
+                onRestore={(id) => void unarchive(id)}
+                onDelete={(id) => void remove(id)}
+                onDropSession={(id) => void archive(id)}
+              />
+            )}
+          </>
         )}
       </div>
+      {creating && (
+        <NewSessionModal
+          defaultCli={agentCli()}
+          onClose={() => setCreating(false)}
+          onCreate={onCreate}
+        />
+      )}
     </div>
   );
 }

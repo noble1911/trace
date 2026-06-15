@@ -14,6 +14,7 @@ import { OrchestratorFab } from "@/domains/orchestrator/Fab";
 import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
 import { useOrchestratorStore } from "@/domains/orchestrator/store";
 import { PrsView } from "@/domains/prs/PrsView";
+import { RecentSessions } from "@/domains/sessions/RecentSessions";
 import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
@@ -214,10 +215,15 @@ export function App() {
     </>
   );
 
+  // The Recents sidebar lives on the Sessions view AND alongside an open session
+  // detail (so you can hop between recent sessions without backing out).
+  const showRecents = nav === "sessions" || openSession != null;
+
   return (
     <>
-      <div className="app">
+      <div className={`app${showRecents ? " has-recents" : ""}`}>
         <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
+        {showRecents && <RecentSessions />}
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}

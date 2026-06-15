@@ -96,7 +96,7 @@ export function SessionDetail({
   };
 
   return (
-    <div className="detail">
+    <div className="detail detail-recents">
       <div className="detail-top">
         <button type="button" className="back" onClick={onBack}>
           <I.Back size={14} /> Sessions

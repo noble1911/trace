@@ -16,12 +16,21 @@ export function relTime(epochSecs: number): string {
 interface SessionCardProps {
   session: ScratchSession;
   status: SessionStatus;
+  /** True once you've looked at this waiting session — silences "needs you". */
+  acked?: boolean;
   onOpen: () => void;
   onArchive: () => void;
   onRename: (title: string) => void;
 }
 
-export function SessionCard({ session, status, onOpen, onArchive, onRename }: SessionCardProps) {
+export function SessionCard({
+  session,
+  status,
+  acked,
+  onOpen,
+  onArchive,
+  onRename,
+}: SessionCardProps) {
   const [renaming, setRenaming] = useState(false);
   const archive = (e: MouseEvent) => {
     e.stopPropagation();
@@ -56,7 +65,7 @@ export function SessionCard({ session, status, onOpen, onArchive, onRename }: Se
       <div className="session-card-head">
         <span className={`session-cli ${session.cli}`}>{session.cli}</span>
         {status === "working" && <span className="thinking">working</span>}
-        {status === "waiting" && <span className="waiting">needs you</span>}
+        {status === "waiting" && !acked && <span className="waiting">needs you</span>}
         <button
           type="button"
           className="session-del"
