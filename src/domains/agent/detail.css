@@ -3,7 +3,10 @@
 /* ============ Agent detail ============ */
 .detail {
   position: fixed;
-  inset: 0;
+  /* Leave the 56px rail exposed so nav (and the agent-waiting badges) stay
+     reachable while you're inside a session — this app is about juggling
+     parallel agents, so you shouldn't have to back out to switch. */
+  inset: 0 0 0 56px;
   background: var(--bg-0);
   z-index: 50;
   display: flex;

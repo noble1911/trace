@@ -172,6 +172,14 @@ export function App() {
     : null;
   const project = data?.boardName ?? session.site;
 
+  // The rail stays visible inside a detail view; clicking a nav item there should
+  // leave the detail and go to that view, not just swap the hidden content under it.
+  const handleNav = (id: NavId) => {
+    closeIssue();
+    closeSession();
+    setNav(id);
+  };
+
   const boardActions = (
     <>
       {boards.length > 1 && (
@@ -209,7 +217,7 @@ export function App() {
   return (
     <>
       <div className="app">
-        <Rail nav={nav} onNav={setNav} waitingCount={waitingCount} />
+        <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
         <main className="main">
           {nav === "board" && <Board />}
