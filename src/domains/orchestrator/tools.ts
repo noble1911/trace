@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { transcriptText } from "@/domains/agent/transcript";
 import { useBoardStore } from "@/domains/board/store";
+import { describeConflicts } from "./conflicts";
 
 // Read-only tools for Phase 2. The board snapshot in the system prompt answers
 // most questions; these let the model pull the two things the snapshot omits —
@@ -35,6 +36,12 @@ export const READ_TOOLS: Anthropic.Tool[] = [
       required: ["issue_key"],
     },
   },
+  {
+    name: "check_conflicts",
+    description:
+      "Check whether any file is being changed in more than one active worktree — a merge-conflict risk across agents working in parallel. Takes no arguments.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
 ];
 
 function readString(input: unknown, field: string): string {
@@ -47,6 +54,9 @@ function readString(input: unknown, field: string): string {
 
 /** Execute a read-only tool call and return its result as text for the model. */
 export async function runReadTool(name: string, input: unknown): Promise<string> {
+  // Board-wide tools take no issue_key.
+  if (name === "check_conflicts") return describeConflicts();
+
   const board = useBoardStore.getState();
   const key = readString(input, "issue_key").trim().toUpperCase();
   if (!key) return "Error: missing issue_key.";

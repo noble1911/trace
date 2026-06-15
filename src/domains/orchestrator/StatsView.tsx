@@ -3,6 +3,7 @@ import { useActivityStore } from "@/domains/activity/store";
 import { columnColor } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { type BoardStats, computeBoardStats } from "./stats";
+import { useOrchestratorStore } from "./store";
 
 // The deterministic board overview — no AI. Reads the board store and renders
 // the metrics from stats.ts.
@@ -13,6 +14,8 @@ export function StatsView() {
   const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
   const pullRequests = useBoardStore((s) => s.pullRequests);
   const activity = useActivityStore((s) => s.events);
+  const sprintGoal = useOrchestratorStore((s) => s.sprintGoal);
+  const setSprintGoal = useOrchestratorStore((s) => s.setSprintGoal);
 
   const stats = useMemo<BoardStats>(
     () =>
@@ -34,6 +37,19 @@ export function StatsView() {
 
   return (
     <div className="orch-stats">
+      <div className="orch-goal">
+        <label htmlFor="orch-goal-input" className="orch-goal-label">
+          Sprint goal
+        </label>
+        <input
+          id="orch-goal-input"
+          className="orch-goal-input"
+          value={sprintGoal}
+          placeholder="What does a good sprint look like?"
+          onChange={(e) => setSprintGoal(e.target.value)}
+        />
+      </div>
+
       {stats.flags.length > 0 && (
         <div className="orch-flags">
           {stats.flags.map((f) => (

@@ -163,6 +163,34 @@
   flex-direction: column;
   gap: 16px;
 }
+.orch-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.orch-goal-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-4);
+  font-weight: 600;
+}
+.orch-goal-input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 12.5px;
+  color: var(--fg-0);
+}
+.orch-goal-input:focus {
+  border-color: var(--border-strong);
+  outline: none;
+}
+.orch-goal-input::placeholder {
+  color: var(--fg-4);
+}
 .orch-flags {
   display: flex;
   flex-direction: column;

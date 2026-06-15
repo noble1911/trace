@@ -17,7 +17,7 @@ Ground rules:
 - You can read (ticket details, agent transcripts) and act (move a ticket, start an agent, send input to an agent, comment on a ticket). Every action pops a confirmation card the user must approve before it runs — so propose and take actions freely; the user is the gate. Don't ask "shall I?" in prose and then wait — just call the tool; the card is the ask.
 - You do NOT raise or merge pull requests — the coding agents do that themselves. If a ticket looks ready, say so and offer to move it, but never try to raise or merge a PR.
 - Be concise and concrete. Reference tickets by key, lead with the recommendation, and keep answers skimmable.
-- When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done.`;
+- When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done. When a SPRINT GOAL is set, weight your recommendations toward it.`;
 
 export interface ChatMessage {
   role: "user" | "assistant";

@@ -67,6 +67,18 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
       required: ["issue_key", "body"],
     },
   },
+  {
+    name: "broadcast_to_agents",
+    description:
+      "Send the same line of input to every running agent at once (each followed by Enter). Use for a fleet-wide instruction, e.g. 'rebase onto the latest main'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "The text to send to all running agents." },
+      },
+      required: ["message"],
+    },
+  },
 ];
 
 export const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((t) => t.name));
@@ -96,6 +108,8 @@ export function actionSummary(name: string, input: unknown): string {
       return `Send to ${key}'s agent: "${clip(field(input, "message"))}"`;
     case "comment_on_issue":
       return `Comment on ${key}: "${clip(field(input, "body"))}"`;
+    case "broadcast_to_agents":
+      return `Broadcast to ALL agents: "${clip(field(input, "message"))}"`;
     default:
       return name;
   }
@@ -104,6 +118,20 @@ export function actionSummary(name: string, input: unknown): string {
 /** Execute a confirmed mutating tool. Returns a result string for the model. */
 export async function runWriteTool(name: string, input: unknown): Promise<string> {
   const board = useBoardStore.getState();
+
+  if (name === "broadcast_to_agents") {
+    const message = field(input, "message");
+    if (!message.trim()) return "Error: empty message.";
+    const agents = [...board.runningAgents].filter((k) => !k.startsWith("term:"));
+    if (agents.length === 0) return "No running agents to broadcast to.";
+    const results = await Promise.allSettled(agents.map((k) => sendAgentInput(k, `${message}\r`)));
+    const failed = agents.filter((_, i) => results[i].status === "rejected");
+    const ok = agents.length - failed.length;
+    return failed.length === 0
+      ? `Broadcast sent to all ${agents.length} running agent(s).`
+      : `Broadcast sent to ${ok}/${agents.length} — failed: ${failed.join(", ")}.`;
+  }
+
   const key = field(input, "issue_key").trim().toUpperCase();
   if (!key) return "Error: missing issue_key.";
 

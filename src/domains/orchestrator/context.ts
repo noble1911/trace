@@ -3,6 +3,7 @@ import { dedupePrs } from "@/domains/board/prDedupe";
 import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
 import { computeBoardStats } from "./stats";
+import { useOrchestratorStore } from "./store";
 
 // The compact board snapshot handed to the orchestrator LLM each turn. It mirrors
 // what the user sees, but as terse text — every NUMBER comes from the
@@ -67,5 +68,8 @@ export function buildBoardContext(): string {
       lines.push(`- ${e.issueKey ? `${e.issueKey} ` : ""}${e.title} [${e.kind}]`);
     }
   }
-  return lines.join("\n");
+
+  // The sprint goal, if set, frames everything below it.
+  const goal = useOrchestratorStore.getState().sprintGoal.trim();
+  return goal ? `SPRINT GOAL: ${goal}\n\n${lines.join("\n")}` : lines.join("\n");
 }
