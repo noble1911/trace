@@ -138,3 +138,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Freeform Vega-Lite charts (AI-supplied data) */
+.vega-chart {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.vega-chart svg {
+  max-width: 100%;
+  height: auto;
+}

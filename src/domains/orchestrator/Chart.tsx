@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { type ChartModel, chartFromSpec } from "./chartData";
+import { VegaChart } from "./VegaChart";
 
 // Inline charts for the chat. Pure CSS (conic-gradient ring, div bars) — no
 // charting lib — using design tokens so they match the app. The data is
@@ -15,9 +16,15 @@ export function ChartBlock({ raw }: { raw: string }) {
   } catch {
     return <div className="chart-err">Couldn't read that chart.</div>;
   }
-  const model = chartFromSpec(spec);
-  if ("error" in model) return <div className="chart-err">{model.error}</div>;
-  return <Chart model={model} />;
+  // A "kind" picks a deterministic board chart (code supplies the data, so it
+  // can't be wrong). Anything else is a freeform Vega-Lite spec the model built
+  // from data it has or fetched — rendered as-is.
+  if (typeof spec.kind === "string") {
+    const model = chartFromSpec(spec);
+    if ("error" in model) return <div className="chart-err">{model.error}</div>;
+    return <Chart model={model} />;
+  }
+  return <VegaChart spec={spec} />;
 }
 
 function Chart({ model }: { model: ChartModel }) {
