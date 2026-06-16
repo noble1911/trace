@@ -15,6 +15,8 @@ export interface ScratchSession {
   section?: string | null;
   /** Runs in its own worktree (linkable to a ticket). Legacy sessions don't. */
   worktree?: boolean;
+  /** Configured repo path this session runs in; null/undefined = default repo. */
+  repo?: string | null;
 }
 
 /** A top-level view on the Sessions page (e.g. one per repo). */

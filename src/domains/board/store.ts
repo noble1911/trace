@@ -271,6 +271,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     );
   },
   openIssue(key) {
+    // The issue detail and a session detail are both full-screen overlays, so
+    // only one may be open — opening an issue dismisses any open session (else
+    // both render stacked, e.g. a board-agent notification firing mid-session).
+    useSessionsStore.getState().close();
     set({ selectedIssueKey: key });
   },
   ackWaiting(key) {

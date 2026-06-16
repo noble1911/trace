@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { activity } from "@/domains/activity/store";
+import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import {
   archiveSession,
@@ -25,7 +26,7 @@ interface SessionsStore {
   selectedId: string | null;
   loaded: boolean;
   load: () => Promise<void>;
-  create: (title: string, cli: AgentCli) => Promise<ScratchSession>;
+  create: (title: string, cli: AgentCli, repo?: string | null) => Promise<ScratchSession>;
   rename: (id: string, title: string) => Promise<void>;
   archive: (id: string) => Promise<void>;
   unarchive: (id: string) => Promise<void>;
@@ -53,7 +54,7 @@ function patch(
 // Recently-opened sessions, persisted to localStorage (client-only state, like
 // the board filter) so the Sessions view's Recents sidebar survives restarts.
 const RECENT_KEY = "trace.recentSessions";
-const RECENT_CAP = 10;
+const RECENT_CAP = 20;
 
 function loadRecent(): string[] {
   try {
@@ -88,8 +89,8 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     const [sessions, groups] = await Promise.all([listSessions(), listSessionGroups()]);
     set({ sessions, groups, loaded: true });
   },
-  async create(title, cli) {
-    const session = await createSession(title, cli);
+  async create(title, cli, repo) {
+    const session = await createSession(title, cli, repo);
     set((s) => {
       const recent = pushRecent(s.recent, session.id);
       saveRecent(recent);
@@ -153,6 +154,11 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     activity.log({ kind: "session-created", issueKey, title: `session linked to ${issueKey}` });
   },
   select(id) {
+    // Mirror of board.openIssue — selecting a session dismisses any open issue
+    // so the two full-screen overlays can't stack. The board↔sessions import
+    // cycle is safe: each store only reads the other inside an action (call
+    // time), never during module init.
+    useBoardStore.getState().closeIssue();
     set((s) => {
       const recent = pushRecent(s.recent, id);
       saveRecent(recent);

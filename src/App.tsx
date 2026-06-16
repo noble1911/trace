@@ -219,9 +219,12 @@ export function App() {
   // detail (so you can hop between recent sessions without backing out).
   const showRecents = nav === "sessions" || openSession != null;
 
+  // `has-recents` lives on the root wrapper (not `.app`) so it can inset both
+  // the app grid AND the fixed orchestrator FAB/panel — siblings of `.app` —
+  // away from the right-docked recents column.
   return (
-    <>
-      <div className={`app${showRecents ? " has-recents" : ""}`}>
+    <div className={`app-root${showRecents ? " has-recents" : ""}`}>
+      <div className="app">
         <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
         {showRecents && <RecentSessions />}
         <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
@@ -239,6 +242,6 @@ export function App() {
       <OrchestratorFab />
       <OrchestratorPanel />
       <Toaster />
-    </>
+    </div>
   );
 }

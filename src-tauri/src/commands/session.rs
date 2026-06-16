@@ -39,6 +39,11 @@ pub struct ScratchSession {
     /// keep the repo root — their Claude conversations are keyed to that cwd.
     #[serde(default)]
     pub worktree: bool,
+    /// The configured repo this session runs in, chosen at creation. `None` for
+    /// sessions created before this field (and a fallback to the first
+    /// configured repo at start time).
+    #[serde(default)]
+    pub repo: Option<String>,
 }
 
 /// How long an archived session lingers before it's auto-purged (14 days).
@@ -100,10 +105,20 @@ pub fn list_sessions() -> Vec<ScratchSession> {
 
 /// Create (persist) a new exploratory session. Does not start its agent.
 #[tauri::command]
-pub fn create_session(title: String, cli: String) -> Result<ScratchSession, String> {
+pub fn create_session(
+    title: String,
+    cli: String,
+    repo: Option<String>,
+) -> Result<ScratchSession, String> {
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
+    // Only honor a repo that's actually configured; anything else falls back to
+    // the default repo at start time (`None`).
+    let repo = repo.and_then(|r| {
+        let r = r.trim().to_string();
+        (!r.is_empty() && crate::commands::repos::all_repos().contains(&r)).then_some(r)
+    });
     let session = ScratchSession {
         id: new_id(),
         title,
@@ -113,6 +128,7 @@ pub fn create_session(title: String, cli: String) -> Result<ScratchSession, Stri
         tab: None,
         section: None,
         worktree: true,
+        repo,
     };
     let mut list = load();
     list.push(session.clone());
@@ -168,7 +184,10 @@ pub fn link_session_to_issue(
                 .to_string(),
         );
     }
-    let repo = crate::commands::repos::default_repo()
+    let repo = list[pos]
+        .repo
+        .clone()
+        .or_else(crate::commands::repos::default_repo)
         .ok_or("Add a repository in Settings first.")?;
     let dirname = crate::commands::repos::workspace_dirname(&id);
     let dir = format!("{repo}/.worktrees/{dirname}");
@@ -337,7 +356,12 @@ pub fn start_session(
     let session =
         load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
 
-    let repo = crate::commands::repos::default_repo()
+    // The repo chosen at creation, falling back to the default for sessions that
+    // predate the per-session repo field.
+    let repo = session
+        .repo
+        .clone()
+        .or_else(crate::commands::repos::default_repo)
         .ok_or("Add a repository in Settings before starting a session.")?;
 
     let busy = git::git_busy_check(&repo);

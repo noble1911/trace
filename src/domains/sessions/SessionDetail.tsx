@@ -7,7 +7,7 @@ import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal, fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
-import { resetAgentSession, stopAgent } from "@/ipc/agent";
+import { agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
 import { startSession } from "@/ipc/session";
 import { LinkTicketModal } from "./LinkTicketModal";
 import { useSessionsStore } from "./store";
@@ -63,6 +63,26 @@ export function SessionDetail({
   useEffect(() => {
     if (waiting) ackWaiting(session.id);
   }, [waiting, session.id, ackWaiting]);
+
+  // Reconcile run-state with the backend on mount. A renderer reload resets the
+  // store's `runningAgents` to empty, but the backend PTY survives — so a live
+  // session would wrongly show the "Start" overlay. Worse, clicking Start then
+  // no-ops on the backend (it's already running) *after* the frontend cleared
+  // the terminal, leaving a blank screen (the idle agent emits nothing to
+  // repaint it). Adopt the backend's truth so the live screen — replayed by the
+  // terminal snapshot — shows and Start isn't offered.
+  useEffect(() => {
+    let cancelled = false;
+    void agentRunning(session.id).then((alive) => {
+      if (cancelled) return;
+      if (alive && !useBoardStore.getState().runningAgents.has(session.id)) {
+        setAgentRunning(session.id, true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.id, setAgentRunning]);
 
   const start = async () => {
     // See AgentDetail.start — a re-entrant start would spawn a second agent into

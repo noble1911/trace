@@ -9,8 +9,12 @@ export function listSessions(): Promise<ScratchSession[]> {
   return invoke("list_sessions");
 }
 
-export function createSession(title: string, cli: AgentCli): Promise<ScratchSession> {
-  return invoke("create_session", { title, cli });
+export function createSession(
+  title: string,
+  cli: AgentCli,
+  repo?: string | null
+): Promise<ScratchSession> {
+  return invoke("create_session", { title, cli, repo: repo ?? null });
 }
 
 export function renameSession(id: string, title: string): Promise<ScratchSession> {

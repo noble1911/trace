@@ -4,7 +4,7 @@ import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { type AgentCli, resetAgentSession, stopAgent } from "@/ipc/agent";
+import { type AgentCli, agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
@@ -90,6 +90,24 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   useEffect(() => {
     if (status === "waiting") ackWaiting(issue.key);
   }, [status, issue.key, ackWaiting]);
+
+  // Reconcile run-state with the backend on mount. A renderer reload clears the
+  // store's `runningAgents`, but the backend PTY survives — without this a live
+  // agent shows the Start overlay, and clicking Start no-ops on the backend
+  // (already running) after the terminal was cleared, leaving a blank screen.
+  // Adopt the backend's truth so the live screen (terminal snapshot) shows.
+  useEffect(() => {
+    let cancelled = false;
+    void agentRunning(issue.key).then((alive) => {
+      if (cancelled) return;
+      if (alive && !useBoardStore.getState().runningAgents.has(issue.key)) {
+        setAgentRunning(issue.key, true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [issue.key, setAgentRunning]);
 
   // Re-check this issue's PRs on open — they change outside the app.
   useEffect(() => {

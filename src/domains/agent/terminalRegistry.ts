@@ -51,6 +51,16 @@ interface TerminalEntry {
    */
   skipSeq: number;
   /**
+   * Generation counter, bumped by `resetTerminal` (i.e. a fresh spawn). The
+   * `ptySnapshot` replay in `getTerminal` is async; if the terminal is reset and
+   * the session respawned while that fetch is in flight, the late `.then` must
+   * NOT apply the old history — doing so repaints stale bytes and, worse, sets
+   * `skipSeq` to the *old* run's high-water mark, which makes the pump swallow
+   * the new run's first chunks (its seq restarts at 1) → a blank/garbled chat.
+   * The replay captures this value up front and bails if it no longer matches.
+   */
+  epoch: number;
+  /**
    * Whether this terminal has ever rendered output. A terminal with scrollback is
    * kept alive across navigation even after the agent stops, so its history is
    * preserved (we never replay, so a disposed terminal comes back blank). Only
@@ -122,6 +132,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
     opened: false,
     lastSeen: 0,
     skipSeq: 0,
+    epoch: 0,
     hasOutput: false,
     lastSent: null,
     unsub: () => {},
@@ -156,9 +167,15 @@ export function getTerminal(issueKey: string): TerminalEntry {
   // killed the old one): replay the backend's rolling history. Replay is only
   // safe at the size the bytes were painted for, so size first, write, then
   // re-fit to the actual pane (xterm reflows the buffer on resize).
+  const snapshotEpoch = entry.epoch;
   void ptySnapshot(issueKey)
     .then((snap) => {
       if (!snap || snap.chunks.length === 0) return;
+      // Bail if the terminal was reset/respawned (epoch bumped) or disposed and
+      // re-created (no longer the registered entry) while we were fetching —
+      // applying the old history now would repaint stale bytes and poison
+      // skipSeq, swallowing the fresh session's first chunks.
+      if (registry.get(issueKey) !== entry || entry.epoch !== snapshotEpoch) return;
       // Live bytes already hit this terminal — replaying underneath them
       // would garble; fall back to live-only (the TUI repaints on fit).
       if (entry.hasOutput) return;
@@ -229,6 +246,9 @@ export function resetTerminal(issueKey: string): void {
   // mark would silently swallow the new session's first chunks.
   entry.skipSeq = 0;
   entry.hasOutput = false;
+  // Invalidate any in-flight ptySnapshot replay (see `epoch`): a late replay
+  // would otherwise clobber the just-started session.
+  entry.epoch++;
 }
 
 /**

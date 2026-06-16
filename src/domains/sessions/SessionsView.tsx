@@ -75,10 +75,10 @@ export function SessionsView() {
     void saveGroups(patchSectionIn(groups, id, patch));
   const deleteSection = (id: string) => void saveGroups(withoutSection(groups, id)).then(load);
 
-  const onCreate = (title: string, cli: AgentCli) => {
+  const onCreate = (title: string, cli: AgentCli, repo: string | null) => {
     setAgentCli(cli);
     setCreating(false);
-    void create(title, cli).then((s) => {
+    void create(title, cli, repo).then((s) => {
       if (activeTab) void assign(s.id, activeTab, null);
     });
   };
