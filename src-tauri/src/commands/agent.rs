@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, State};
 
 use crate::claude::pty::{spawn_agent_pty, spawn_shell_pty};
+use crate::claude::render_bridge;
 use crate::git;
 use crate::helpers::{new_id, restrict_perms, slugify};
 use crate::state::{AppState, StartGuard};
@@ -170,6 +171,18 @@ pub(crate) fn spawn_in(
         return Ok(());
     }
     let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli, &cwd);
+    // Start the loopback HTML bridge once (lazily) and hand this agent the
+    // coordinates so its `trace-render` can post cards to the panel. Bind failure
+    // yields a disabled bridge (port 0) and we simply skip the injection.
+    let bridge = state
+        .render_bridge
+        .get_or_init(|| render_bridge::start(app.clone()).unwrap_or_default());
+    let mut env_overrides = HashMap::new();
+    if bridge.port != 0 {
+        env_overrides.insert("TRACE_ISSUE_KEY".to_string(), workspace_id.clone());
+        env_overrides.insert("TRACE_RENDER_PORT".to_string(), bridge.port.to_string());
+        env_overrides.insert("TRACE_RENDER_TOKEN".to_string(), bridge.token.clone());
+    }
     let (session, pid) = spawn_agent_pty(
         app,
         workspace_id.clone(),
@@ -180,7 +193,7 @@ pub(crate) fn spawn_in(
         model,
         extra_args,
         initial_prompt,
-        HashMap::new(),
+        env_overrides,
         cols.max(20),
         rows.max(4),
     )?;

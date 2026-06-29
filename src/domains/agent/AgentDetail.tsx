@@ -14,15 +14,18 @@ import { FilesPane } from "./FilesPane";
 import { launchIssueAgent } from "./launch";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
+import { RichOutputPanel } from "./RichOutputPanel";
+import { useRichOutputStore } from "./richOutputStore";
 import { StartPrompt } from "./StartPrompt";
 import { TerminalPane } from "./TerminalPane";
 import { TestsPane } from "./TestsPane";
 import { TicketPane } from "./TicketPane";
 
-type TabId = "chat" | "ticket" | "files" | "terminal" | "tests" | "pr";
+type TabId = "chat" | "html" | "ticket" | "files" | "terminal" | "tests" | "pr";
 
 const TABS: { id: TabId; label: string; icon: (p: { size?: number }) => ReactNode }[] = [
   { id: "chat", label: "Chat", icon: I.Chat },
+  { id: "html", label: "HTML", icon: I.Sparkles },
   { id: "ticket", label: "Ticket", icon: I.Ticket },
   { id: "files", label: "Files", icon: I.Code },
   { id: "terminal", label: "Terminal", icon: I.Terminal },
@@ -59,6 +62,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
+  // Selecting a primitive (length) keeps this referentially stable across renders.
+  const htmlCount = useRichOutputStore((s) => s.blocks[issue.key]?.length ?? 0);
   const status = useBoardStore((s) =>
     statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
   );
@@ -240,6 +245,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
                 >
                   <Ico size={13} />
                   {t.label}
+                  {t.id === "html" && htmlCount > 0 && <span className="count">{htmlCount}</span>}
                 </button>
               );
             })}
@@ -261,6 +267,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
               )}
             </div>
           )}
+          {tab === "html" && <RichOutputPanel issueKey={issue.key} />}
           {tab === "ticket" && <TicketPane issue={issue} />}
           {tab === "files" && <FilesPane workspaceId={issue.key} />}
           {tab === "terminal" && <TerminalPane issueKey={issue.key} />}

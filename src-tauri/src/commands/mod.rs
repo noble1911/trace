@@ -9,6 +9,7 @@ pub mod jira;
 pub mod orchestrator;
 pub mod pr;
 pub mod repos;
+pub mod rich_output;
 pub mod session;
 pub mod tests;
 pub mod update;

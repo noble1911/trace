@@ -244,3 +244,101 @@
   font-family: var(--font-mono);
 }
 
+/* HTML tab: a switcher header + one full-pane sandboxed iframe at a time (see
+   RichOutputPanel). The agent renders documents here via trace-render. */
+.rich-output-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rich-output-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-faint);
+}
+/* One chip per document (label = its <title>); the row scrolls if there are many. */
+.rich-output-tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.rich-output-tab {
+  flex-shrink: 0;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--fg-3);
+  padding: 4px 10px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+}
+.rich-output-tab:hover {
+  color: var(--fg-1);
+}
+.rich-output-tab.active {
+  color: var(--fg-0);
+  border-color: var(--border-strong);
+  background: var(--bg-3);
+}
+.rich-output-clear {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--fg-3);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.rich-output-clear:hover {
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+}
+/* Fills the remaining pane exactly (flex, not a fixed height) so there's no gap
+   below a short doc and no outer scrollbar; the document scrolls inside its own
+   frame when taller than the pane. */
+.rich-output-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: var(--bg-2);
+  display: block;
+}
+.rich-output-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  text-align: center;
+}
+.rich-output-empty-title {
+  font-size: 14px;
+  color: var(--fg-2);
+}
+.rich-output-empty-hint {
+  font-size: 12.5px;
+  color: var(--fg-4);
+  max-width: 440px;
+  line-height: 1.6;
+}
+.rich-output-empty-hint code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+

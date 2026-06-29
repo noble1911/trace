@@ -57,6 +57,8 @@ pub fn run() {
             commands::diff::git_diff_summary,
             commands::diff::git_diff_file,
             commands::diff::read_workspace_file,
+            commands::rich_output::load_rich_output,
+            commands::rich_output::save_rich_output,
             commands::editor::open_in_editor,
             commands::session::list_sessions,
             commands::session::create_session,

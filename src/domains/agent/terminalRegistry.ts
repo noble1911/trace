@@ -4,6 +4,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import { type OutputChunk, useBoardStore } from "@/domains/board/store";
 import { ptySnapshot, resizeAgent, sendAgentInput } from "@/ipc/agent";
+import { useRichOutputStore } from "./richOutputStore";
 import { termFontFamily, termFontSize, termLineHeight } from "./terminalPrefs";
 
 /**
@@ -21,6 +22,11 @@ function openLink(uri: string) {
 // (The font has the same constraint — see `terminalPrefs.ts`.)
 const PTY_BG = "#050505"; // --bg-0
 const PTY_FG = "#ededed"; // --fg-1
+
+// Private OSC opcode the agent uses to ship base64-encoded HTML to the companion
+// panel out-of-band (OSC 7700 ; base64(html) ST). Bypasses the character grid
+// entirely — see the handler in `getTerminal`.
+const RICH_HTML_OSC = 7700;
 
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -108,6 +114,20 @@ export function getTerminal(issueKey: string): TerminalEntry {
   // Plain-text URLs (PR links in agent output) become clickable. Disposed
   // with the terminal — loadAddon ties the addon's lifetime to it.
   term.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri)));
+
+  // Out-of-band HTML channel: the agent prints OSC 7700 ; base64(html) ST and we
+  // swallow it here so it never paints into the grid, decode the payload, and
+  // hand the raw HTML to the rich-output store; the panel renders it in a
+  // sandboxed iframe. The handler is disposed with the parser on `term.dispose()`.
+  term.parser.registerOscHandler(RICH_HTML_OSC, (payload) => {
+    try {
+      const html = new TextDecoder().decode(decodeBase64(payload));
+      useRichOutputStore.getState().push(issueKey, html);
+    } catch {
+      // Drop a malformed marker rather than corrupt the screen.
+    }
+    return true; // handled — never falls through to the grid renderer
+  });
 
   // Shift+Enter inserts a newline instead of submitting. A terminal can't
   // natively tell Shift+Enter from Enter (both are \r), so we do what Claude
@@ -249,6 +269,9 @@ export function resetTerminal(issueKey: string): void {
   // Invalidate any in-flight ptySnapshot replay (see `epoch`): a late replay
   // would otherwise clobber the just-started session.
   entry.epoch++;
+  // NB: rendered HTML cards are deliberately NOT cleared here — they outlive a
+  // stop/start so the user can return to past diagrams (cleared only on request,
+  // via the HTML tab's Clear action).
 }
 
 /**
@@ -291,4 +314,6 @@ export function disposeTerminal(issueKey: string): void {
   entry.term.dispose();
   entry.container.remove();
   registry.delete(issueKey);
+  // Rendered HTML cards are intentionally kept (persisted) so they survive a
+  // teardown — see the note in `resetTerminal`.
 }

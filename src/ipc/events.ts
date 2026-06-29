@@ -15,10 +15,21 @@ export interface AgentRunState {
   running: boolean;
 }
 
+export interface RichHtml {
+  /** The owning issue/workspace key — matches the rich-output store keying. */
+  issueKey: string;
+  /** Raw HTML from the agent's `trace-render`; rendered in a sandboxed iframe. */
+  html: string;
+}
+
 export function onPtyOutput(cb: (payload: PtyOutput) => void): Promise<UnlistenFn> {
   return listen<PtyOutput>("pty-output", (e) => cb(e.payload));
 }
 
 export function onAgentRunState(cb: (payload: AgentRunState) => void): Promise<UnlistenFn> {
   return listen<AgentRunState>("agent-run-state", (e) => cb(e.payload));
+}
+
+export function onRichHtml(cb: (payload: RichHtml) => void): Promise<UnlistenFn> {
+  return listen<RichHtml>("rich-html", (e) => cb(e.payload));
 }

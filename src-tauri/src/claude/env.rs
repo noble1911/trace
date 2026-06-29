@@ -52,7 +52,11 @@ pub fn build_effective_cli_env(env_overrides: &HashMap<String, String>) -> HashM
         .get("PATH")
         .cloned()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    let extra = format!("{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin");
+    // Prepend trace's bin dir so the generated `trace-render` producer resolves
+    // (see `claude::render_bridge`), then the usual install locations.
+    let bin = crate::helpers::trace_bin_dir();
+    let extra =
+        format!("{}:{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", bin.display());
     let merged = if existing.is_empty() {
         extra
     } else {

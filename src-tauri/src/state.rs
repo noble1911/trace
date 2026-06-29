@@ -2,10 +2,12 @@
 //! commands and the PTY pump thread.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::OnceLock;
 
 use parking_lot::{Mutex, RwLock};
 
 use crate::claude::pty::PtySession;
+use crate::claude::render_bridge::RenderBridge;
 use crate::jira::JiraConnection;
 
 /// Rolling raw-output history for one workspace's PTY. The renderer's copy of
@@ -46,6 +48,10 @@ pub struct AppState {
     /// duplicated terminal output and a `--session-id`/`--resume` collision. This
     /// reserves the id for the duration of a start so the second request no-ops.
     pub starting: Mutex<HashSet<String>>,
+    /// Loopback HTML bridge (port + token), started lazily on the first agent
+    /// spawn and shared by all agents. `OnceLock` so it binds once and lives for
+    /// the app's lifetime. See `claude::render_bridge`.
+    pub render_bridge: OnceLock<RenderBridge>,
 }
 
 impl AppState {

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import type { NavId } from "@/app/nav";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { I } from "@/components/Icon";
 import { Toaster } from "@/components/Toaster";
 import { ActivityView } from "@/domains/activity/ActivityView";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
+import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
 import { JiraLogin } from "@/domains/jira/components/JiraLogin";
@@ -19,7 +21,7 @@ import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
-import { onAgentRunState, onPtyOutput } from "@/ipc/events";
+import { onAgentRunState, onPtyOutput, onRichHtml } from "@/ipc/events";
 import { consumeNotificationClick, setDockBadge } from "@/ipc/notify";
 import { checkAppUpdate } from "@/ipc/update";
 import { toast } from "./app/toast";
@@ -71,6 +73,7 @@ export function App() {
     let cancelled = false;
     let unlistenRun: (() => void) | undefined;
     let unlistenPty: (() => void) | undefined;
+    let unlistenRich: (() => void) | undefined;
     void onAgentRunState((p) => setAgentRunning(p.workspaceId, p.running)).then((fn) => {
       if (cancelled) fn();
       else unlistenRun = fn;
@@ -79,12 +82,24 @@ export function App() {
       if (cancelled) fn();
       else unlistenPty = fn;
     });
+    // HTML the agent emits via `trace-render` (out-of-band, bypassing the PTY) —
+    // pushed to the rich-output store; the panel renders it in a sandboxed iframe.
+    void onRichHtml((p) => useRichOutputStore.getState().push(p.issueKey, p.html)).then((fn) => {
+      if (cancelled) fn();
+      else unlistenRich = fn;
+    });
     return () => {
       cancelled = true;
       unlistenRun?.();
       unlistenPty?.();
+      unlistenRich?.();
     };
   }, [setAgentRunning, appendOutput]);
+
+  // Load persisted HTML cards once so the HTML tab survives reloads/restarts.
+  useEffect(() => {
+    void useRichOutputStore.getState().hydrate();
+  }, []);
 
   // Load the board whenever the selected board changes.
   useEffect(() => {
@@ -237,8 +252,16 @@ export function App() {
         </main>
       </div>
 
-      {openIssue && <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />}
-      {openSession && <SessionDetail session={openSession} onBack={closeSession} />}
+      {openIssue && (
+        <ErrorBoundary label={`${openIssue.key} detail crashed`} onBack={closeIssue}>
+          <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />
+        </ErrorBoundary>
+      )}
+      {openSession && (
+        <ErrorBoundary label="Session detail crashed" onBack={closeSession}>
+          <SessionDetail session={openSession} onBack={closeSession} />
+        </ErrorBoundary>
+      )}
       <OrchestratorFab />
       <OrchestratorPanel />
       <Toaster />

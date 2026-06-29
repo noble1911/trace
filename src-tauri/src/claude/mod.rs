@@ -5,3 +5,4 @@
 pub mod discovery;
 pub mod env;
 pub mod pty;
+pub mod render_bridge;

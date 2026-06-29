@@ -1,9 +1,22 @@
 //! Small shared helpers used across modules.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use uuid::Uuid;
+
+/// trace's config/data dir (`~/Library/Application Support/trace` on macOS). The
+/// home for persisted JSON and the generated agent tooling. Mirrors the
+/// `dirs::config_dir().join("trace")` pattern used in `commands/*`.
+pub fn trace_dir() -> PathBuf {
+    dirs::config_dir().unwrap_or_else(|| PathBuf::from(".")).join("trace")
+}
+
+/// Dir prepended to every agent's PATH; holds trace-generated CLIs like the
+/// `trace-render` producer (see `claude::render_bridge`).
+pub fn trace_bin_dir() -> PathBuf {
+    trace_dir().join("bin")
+}
 
 /// Restrict a config file to user-only access (0600). Everything we persist
 /// under the config dir goes through this — session ids and repo paths aren't
