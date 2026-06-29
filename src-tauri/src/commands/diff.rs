@@ -155,13 +155,10 @@ fn untracked_line_count(work_dir: &str, path: &str) -> u32 {
     }
 }
 
-/// File-list summary: every path that differs from the base, with line counts.
-/// Includes committed and uncommitted changes in the worktree.
-#[tauri::command]
-pub fn git_diff_summary(
-    issue_key: String,
-) -> Result<DiffSummary, String> {
-    let (repo, worktree) = work_dir_for(&issue_key)?;
+/// File-list summary (blocking): every path that differs from the base, with
+/// line counts. Includes committed and uncommitted changes in the worktree.
+fn diff_summary_blocking(issue_key: &str) -> Result<DiffSummary, String> {
+    let (repo, worktree) = work_dir_for(issue_key)?;
     let base = base_ref(&repo);
     let against = diff_base(&worktree, &base);
     let out = Command::new("git")
@@ -200,6 +197,18 @@ pub fn git_diff_summary(
         files.push(FileSummary { path, add, del: 0 });
     }
     Ok(DiffSummary { base, files })
+}
+
+/// File-list summary for the diff/Files views and the Recents diff stats.
+///
+/// Async + spawn_blocking is essential: a synchronous command runs on Tauri's
+/// main thread, so a burst of these (the Recents sidebar fetches one per
+/// worktree session) would freeze the UI while git ran. Off-thread, it doesn't.
+#[tauri::command]
+pub async fn git_diff_summary(issue_key: String) -> Result<DiffSummary, String> {
+    tauri::async_runtime::spawn_blocking(move || diff_summary_blocking(&issue_key))
+        .await
+        .map_err(|e| format!("diff summary task failed: {e}"))?
 }
 
 /// Per-file unified diff parsed into hunks for the diff viewer.
