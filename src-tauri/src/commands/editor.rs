@@ -1,7 +1,7 @@
-//! Open an issue's workspace in a desktop editor. Ported from the original
-//! project's open button. Tries OS-native launchers first (bundle ids on macOS),
-//! then the editor's CLI binary on PATH. Falls back to the repo root when the
-//! worktree doesn't exist yet.
+//! Open a workspace in a desktop editor — an issue's worktree or an exploratory
+//! session's. Ported from the original project's open button. Tries OS-native
+//! launchers first (bundle ids on macOS), then the editor's CLI binary on PATH.
+//! Falls back to the repo root when the worktree doesn't exist yet.
 
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -65,16 +65,24 @@ fn open_cursor(path: &str) -> bool {
     try_launch("cursor", &[path])
 }
 
-/// Open the issue's worktree (or the repo root if no worktree yet) in `editor`.
+/// Open the workspace's worktree (or the repo root if no worktree yet) in
+/// `editor`. `workspace_id` is a Jira issue key or an exploratory session id.
 #[tauri::command]
 pub fn open_in_editor(issue_key: String, editor: String) -> Result<(), String> {
-    // The issue's assigned repo, or the default repo if it hasn't been started.
-    let repo = crate::commands::repos::repo_for(&issue_key)
-        .ok()
-        .or_else(crate::commands::repos::default_repo)
-        .ok_or("Add a repository in Settings first.")?;
-    let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
-    let path = if Path::new(&worktree).exists() { worktree } else { repo };
+    // A session resolves its own repo + worktree; an issue resolves its assigned
+    // repo (falling back to the default). Neither creates a worktree here —
+    // opening an editor shouldn't spawn a checkout — so both open the repo root
+    // when no worktree exists yet.
+    let path = if crate::commands::session::is_session(&issue_key) {
+        crate::commands::session::session_cwd(&issue_key, false)?
+    } else {
+        let repo = crate::commands::repos::repo_for(&issue_key)
+            .ok()
+            .or_else(crate::commands::repos::default_repo)
+            .ok_or("Add a repository in Settings first.")?;
+        let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
+        if Path::new(&worktree).exists() { worktree } else { repo }
+    };
 
     let opened = match editor.trim().to_lowercase().as_str() {
         "vscode" | "code" => open_vscode(&path),

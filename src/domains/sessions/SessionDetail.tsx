@@ -8,6 +8,7 @@ import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal, fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
+import { type Editor, openInEditor } from "@/ipc/editor";
 import { startSession } from "@/ipc/session";
 import { LinkTicketModal } from "./LinkTicketModal";
 import { useSessionsStore } from "./store";
@@ -15,6 +16,12 @@ import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
 type TabId = "chat" | "files" | "terminal";
+
+const EDITORS: { id: Editor; label: string }[] = [
+  { id: "vscode", label: "VS Code" },
+  { id: "intellij", label: "IntelliJ" },
+  { id: "cursor", label: "Cursor" },
+];
 
 // Full-screen detail for one exploratory session. Reuses the agent detail shell
 // (`.detail`), the live terminal, and the Files/Diff pane — all keyed by the
@@ -114,6 +121,11 @@ export function SessionDetail({
     await resetAgentSession(session.id).catch(() => {});
     await start();
   };
+  // The session id is the workspace-id the backend opens (its worktree, or the
+  // repo root before it's ever started) — same contract as a board agent.
+  const openEditor = (editor: Editor) => {
+    void openInEditor(session.id, editor).catch((e) => toast.error(String(e)));
+  };
 
   return (
     <div className="detail detail-recents">
@@ -149,6 +161,19 @@ export function SessionDetail({
         </div>
         <div className="right">
           {running && <span className="thinking">working</span>}
+          <div className="open-in" title="Open this session's worktree in an editor">
+            {EDITORS.map((ed) => (
+              <button
+                key={ed.id}
+                type="button"
+                className="open-btn"
+                onClick={() => openEditor(ed.id)}
+                title={`Open the worktree in ${ed.label}`}
+              >
+                <I.Code size={12} /> {ed.label}
+              </button>
+            ))}
+          </div>
           {session.worktree && (
             <button
               type="button"
@@ -212,7 +237,9 @@ export function SessionDetail({
                     </span>
                     <div className="title">Start this exploratory session</div>
                     <div className="hint">
-                      The agent runs in your repo root and shares your working tree.
+                      {session.worktree
+                        ? "The agent runs in an isolated worktree for this session."
+                        : "The agent runs in your repo root and shares your working tree."}
                     </div>
                     <button
                       type="button"

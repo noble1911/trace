@@ -294,18 +294,11 @@ pub fn start_terminal(
         return Ok(());
     };
 
-    // The shell opens wherever the workspace's agent runs: a session's
-    // worktree when it has one, the repo root for legacy root sessions, or
-    // the issue's worktree (created on demand).
+    // The shell opens wherever the workspace's agent runs: a session's worktree
+    // (created on demand, using the session's own repo — not the global default),
+    // the repo root for legacy root sessions, or the issue's worktree.
     let cwd = if crate::commands::session::is_session(&issue_key) {
-        let repo = crate::commands::repos::default_repo()
-            .ok_or("Add a repository in Settings before opening a terminal.")?;
-        let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);
-        if std::path::Path::new(&worktree).exists() {
-            worktree
-        } else {
-            repo
-        }
+        crate::commands::session::session_cwd(&issue_key, true)?
     } else {
         let repo = crate::commands::repos::repo_for(&issue_key)?;
         let worktree = crate::commands::repos::workspace_dir(&repo, &issue_key);

@@ -1,8 +1,9 @@
 //! Exploratory ("scratch") sessions — interactive agents not tied to a Jira
-//! issue. They run in the configured repo root (no worktree) and persist their
-//! metadata locally so they survive restarts. The PTY transport, the stop/input/
-//! resize commands, and Claude session-id resume are all shared with board
-//! agents (`commands::agent`), keyed by the session id.
+//! issue. New sessions run in their own worktree (like issues, and linkable to a
+//! ticket later); legacy sessions predating that field stay in the repo root.
+//! Metadata persists locally so they survive restarts. The PTY transport, the
+//! stop/input/resize commands, and Claude session-id resume are all shared with
+//! board agents (`commands::agent`), keyed by the session id.
 
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -160,6 +161,48 @@ pub fn rename_session(id: String, title: String) -> Result<ScratchSession, Strin
 /// Whether a workspace id belongs to an exploratory session (vs a Jira issue).
 pub(crate) fn is_session(id: &str) -> bool {
     load().iter().any(|s| s.id == id)
+}
+
+/// Resolve the working directory for a scratch session, honoring the session's
+/// own `repo` (not the global default) so sessions created against a non-default
+/// repo land in the right place.
+///
+/// A worktree-backed session runs in `<repo>/.worktrees/<slug>`. `create`
+/// controls what happens when that worktree isn't on disk yet:
+/// - `true` (agent start, shell terminal): create it on demand — mirrors
+///   `start_session`, so the shell always opens in the session's worktree
+///   rather than falling back to the repo root.
+/// - `false` ("open in editor"): fall back to the repo root — opening an editor
+///   shouldn't materialize a git worktree as a side effect.
+///
+/// Legacy sessions without a worktree always resolve to the repo root, where
+/// their Claude conversation is keyed.
+pub(crate) fn session_cwd(id: &str, create: bool) -> Result<String, String> {
+    let session =
+        load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
+    let repo = session
+        .repo
+        .clone()
+        .or_else(crate::commands::repos::default_repo)
+        .ok_or("Add a repository in Settings first.")?;
+    if !session.worktree {
+        return Ok(repo);
+    }
+    let worktree = crate::commands::repos::workspace_dir(&repo, id);
+    if std::path::Path::new(&worktree).exists() {
+        return Ok(worktree);
+    }
+    if !create {
+        return Ok(repo);
+    }
+    let busy = git::git_busy_check(&repo);
+    if busy.starts_with("busy") {
+        return Err(format!("Repository is {busy} — finish that git operation first."));
+    }
+    let branch = format!("workspace/{}", crate::helpers::slugify(id));
+    let default_branch = git::get_default_branch(&repo);
+    git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
+    Ok(worktree)
 }
 
 /// Bind an exploratory session's workspace to a Jira issue. Nothing moves on
@@ -356,31 +399,10 @@ pub fn start_session(
     let session =
         load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
 
-    // The repo chosen at creation, falling back to the default for sessions that
-    // predate the per-session repo field.
-    let repo = session
-        .repo
-        .clone()
-        .or_else(crate::commands::repos::default_repo)
-        .ok_or("Add a repository in Settings before starting a session.")?;
-
-    let busy = git::git_busy_check(&repo);
-    if busy.starts_with("busy") {
-        return Err(format!("Repository is {busy} — finish that git operation first."));
-    }
-
-    // Worktree sessions get the same isolation as issues (and become linkable
-    // to a ticket later); legacy sessions stay in the repo root where their
-    // Claude conversations live.
-    let cwd = if session.worktree {
-        let worktree = crate::commands::repos::workspace_dir(&repo, &id);
-        let branch = format!("workspace/{}", crate::helpers::slugify(&id));
-        let default_branch = git::get_default_branch(&repo);
-        git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
-        worktree
-    } else {
-        repo
-    };
+    // Worktree sessions get the same isolation as issues (and become linkable to
+    // a ticket later), created on demand; legacy sessions stay in the repo root
+    // where their Claude conversations live. Shared with the shell terminal.
+    let cwd = session_cwd(&id, true)?;
 
     spawn_in(app, &state, id, cwd, session.cli, None, extra_args.unwrap_or_default(), None, cols, rows)
 }

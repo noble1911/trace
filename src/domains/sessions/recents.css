@@ -44,6 +44,12 @@
   right: var(--recents-w);
 }
 
+/* The "Open in" editor group sits inline in the top bar (no rail here), so drop
+   the vertical margin it carries in the agent context rail. */
+.detail-top .open-in {
+  margin-top: 0;
+}
+
 .rs-head {
   font-size: 10.5px;
   text-transform: uppercase;
