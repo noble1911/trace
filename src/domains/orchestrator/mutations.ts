@@ -136,7 +136,14 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
     if (!message.trim()) return "Error: empty message.";
     const agents = [...board.runningAgents].filter((k) => !k.startsWith("term:"));
     if (agents.length === 0) return "No running agents to broadcast to.";
-    const results = await Promise.allSettled(agents.map((k) => sendAgentInput(k, `${message}\r`)));
+    // A broadcast starts a turn on every agent it reaches, so each one's
+    // finished turn is worth a notification again.
+    const results = await Promise.allSettled(
+      agents.map((k) => {
+        board.noteUserTurn(k);
+        return sendAgentInput(k, `${message}\r`);
+      })
+    );
     const failed = agents.filter((_, i) => results[i].status === "rejected");
     const ok = agents.length - failed.length;
     return failed.length === 0
@@ -216,6 +223,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
     const message = field(input, "message");
     if (!message.trim()) return "Error: empty message.";
     try {
+      board.noteUserTurn(key);
       await sendAgentInput(key, `${message}\r`);
       return `Sent to ${key}'s agent.`;
     } catch (e) {

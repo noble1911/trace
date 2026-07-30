@@ -12,10 +12,24 @@ import { termFontFamily, termFontSize, termLineHeight } from "./terminalPrefs";
  * can't `window.open` (Tauri blocks it), so clicks route through the opener
  * plugin — and only for http(s): terminal bytes are untrusted, and other
  * schemes (file:, custom app handlers) could do more than open a page.
+ *
+ * When the foreground app has mouse reporting on, it — not us — owns plain
+ * clicks: xterm forwards the click and the app opens the URL itself, so opening
+ * it here too gave two browser tabs per click. Claude Code's fullscreen TUI
+ * turns reporting on (`?1000/1002/1003h` right after `?1049h`), which is why the
+ * doubling appeared with fullscreen. Option-click stays ours, because xterm
+ * treats alt-clicks as a selection gesture and never reports them to the app —
+ * so links in a mouse-reporting TUI are still reachable from trace.
  */
-function openLink(uri: string) {
-  if (/^https?:\/\//i.test(uri)) void openUrl(uri);
+function openLink(term: Terminal, event: MouseEvent, uri: string) {
+  if (!/^https?:\/\//i.test(uri)) return;
+  if (term.modes.mouseTrackingMode !== "none" && !event.altKey) return;
+  void openUrl(uri);
 }
+
+// Keys that can't be the user handing an agent work — they only ever accompany
+// another keystroke, so they must not arm a waiting notification on their own.
+const BARE_MODIFIERS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 
 // xterm paints to a canvas and can't resolve CSS variables, so these mirror
 // tokens.css (--bg-0 / --fg-1). If the tokens change, change these too.
@@ -107,13 +121,13 @@ export function getTerminal(issueKey: string): TerminalEntry {
     theme: { background: PTY_BG, foreground: PTY_FG, cursor: PTY_FG },
     // OSC 8 hyperlinks (gh and modern CLIs emit these) are ignored by xterm
     // unless a handler is set.
-    linkHandler: { activate: (_event, uri) => openLink(uri) },
+    linkHandler: { activate: (event, uri) => openLink(term, event, uri) },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
   // Plain-text URLs (PR links in agent output) become clickable. Disposed
   // with the terminal — loadAddon ties the addon's lifetime to it.
-  term.loadAddon(new WebLinksAddon((_event, uri) => openLink(uri)));
+  term.loadAddon(new WebLinksAddon((event, uri) => openLink(term, event, uri)));
 
   // Out-of-band HTML channel: the agent prints OSC 7700 ; base64(html) ST and we
   // swallow it here so it never paints into the grid, decode the payload, and
@@ -135,6 +149,13 @@ export function getTerminal(issueKey: string): TerminalEntry {
   // line-continuation idiom, and conveniently also the shell's. (ESC CR /
   // meta+enter was tried first but current Claude builds submit on it.)
   term.attachCustomKeyEventHandler((e) => {
+    // A keystroke is the one unambiguous signal that the user is handing this
+    // agent work — xterm funnels mouse reports, focus in/out and terminal query
+    // replies through `onData` alongside real typing, so the key event (not the
+    // byte stream) is what re-arms the session's waiting notification.
+    if (e.type === "keydown" && !BARE_MODIFIERS.has(e.key)) {
+      useBoardStore.getState().noteUserTurn(issueKey);
+    }
     if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       // Inject once on keydown, but swallow EVERY phase: WebKit also fires a
       // keypress for Enter, and xterm would emit its own \r from it — which

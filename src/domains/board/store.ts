@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
-import { autoStartOnMove, notifyOnWaiting } from "@/domains/agent/defaults";
+import { autoStartOnMove } from "@/domains/agent/defaults";
 import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
-import { notify } from "@/ipc/notify";
 import { isStartOfWork } from "./columns";
+import { armWaitingNotify, cancelWaitingWatch, watchForQuiet } from "./waitingNotify";
 
 // Tauri command errors arrive as strings; trim noise so the toast reads cleanly.
 function formatMoveError(err: unknown): string {
@@ -56,50 +56,6 @@ export interface OutputChunk {
   data: string;
 }
 
-// A running agent flips from "working" to "waiting" after this much output
-// silence — Claude streams bytes while generating, so a quiet gap means it has
-// finished its turn and is waiting on the user.
-const WAITING_AFTER_MS = 1800;
-const waitingTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-// When each workspace last flipped to "working". A waiting notification only
-// fires after a real stretch of work — idle TUI repaints cause brief
-// working-blips that would otherwise re-notify on every status-line redraw.
-const MIN_WORK_FOR_NOTIFY_MS = 5000;
-const workingSince = new Map<string, number>();
-
-/** Notify that an agent finished its turn — unless the user is watching it. */
-function maybeNotifyWaiting(workspaceId: string) {
-  // Plain shells (`term:`) are always "waiting"; only agents are news.
-  if (workspaceId.startsWith("term:")) return;
-  if (!notifyOnWaiting()) return;
-  const started = workingSince.get(workspaceId);
-  workingSince.delete(workspaceId);
-  if (started === undefined || Date.now() - started < MIN_WORK_FOR_NOTIFY_MS) return;
-  const { runningAgents, selectedIssueKey } = useBoardStore.getState();
-  if (!runningAgents.has(workspaceId)) return;
-  const sessions = useSessionsStore.getState();
-  const watching =
-    document.hasFocus() &&
-    (selectedIssueKey === workspaceId || sessions.selectedId === workspaceId);
-  if (watching) return;
-  const title = sessions.sessions.find((s) => s.id === workspaceId)?.title ?? workspaceId;
-  void notify(
-    `${title} is waiting`,
-    "The agent finished its turn and needs your input.",
-    workspaceId
-  );
-}
-
-/** An agent finishing its turn may have just raised or merged a PR via gh —
- * re-check the issue's dev-status so badges don't go stale. */
-function refreshPrsFor(workspaceId: string) {
-  if (workspaceId.startsWith("term:")) return;
-  const { data, refreshIssuePrs } = useBoardStore.getState();
-  const issue = data?.issues.find((i) => i.key === workspaceId);
-  if (issue) void refreshIssuePrs(issue.key, issue.id);
-}
-
 /** Derive a session's status from the running set + activity flag. */
 export function statusOf(
   running: boolean,
@@ -128,11 +84,21 @@ interface BoardStore {
   agentActivity: Record<string, "working" | "waiting">;
   /**
    * Waiting sessions the user has already looked at — excluded from the rail
-   * and Dock badges until the agent works again. Viewing a session is the
-   * acknowledgement; replying isn't required to clear the flag.
+   * and Dock badges until they give the agent more work. Viewing a session is
+   * the acknowledgement; replying isn't required to clear the flag. Only
+   * `noteUserTurn` clears it: an idle TUI repaints itself, so "the agent
+   * produced bytes" is not evidence of anything new to look at.
    */
   ackedWaiting: Set<string>;
   ackWaiting: (key: string) => void;
+  /**
+   * The user just gave a workspace work — typed into its terminal, sent it an
+   * orchestrator message, or started it. Re-arms its waiting notification and
+   * drops the acknowledgement so the finished turn counts as news again.
+   */
+  noteUserTurn: (workspaceId: string) => void;
+  /** Flip a running agent's activity to "waiting" (the quiet timer's callback). */
+  markWaiting: (workspaceId: string) => void;
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
   /**
@@ -285,6 +251,23 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { ackedWaiting: next };
     });
   },
+  noteUserTurn(workspaceId) {
+    armWaitingNotify(workspaceId);
+    // Called on every keystroke, so skip the store write unless it changes
+    // something — a no-op `set` still wakes every subscriber.
+    if (!get().ackedWaiting.has(workspaceId)) return;
+    set((s) => {
+      const next = new Set(s.ackedWaiting);
+      next.delete(workspaceId);
+      return { ackedWaiting: next };
+    });
+  },
+  markWaiting(workspaceId) {
+    set((s) => {
+      if (!s.runningAgents.has(workspaceId)) return {};
+      return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
+    });
+  },
   closeIssue() {
     set({ selectedIssueKey: null });
   },
@@ -304,59 +287,36 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const agentActivity = { ...s.agentActivity };
       const ackedWaiting = new Set(s.ackedWaiting);
       if (running) {
-        // Just started — treat as working until output settles.
+        // Just started — treat as working until output settles. Launching is the
+        // user's turn, so the first finished turn is worth a notification.
         agentActivity[key] = "working";
         ackedWaiting.delete(key);
+        armWaitingNotify(key);
       } else {
-        // Stopped/exited — clear any activity and its pending timer.
+        // Stopped/exited — clear any activity and its pending timers.
         delete agentActivity[key];
         ackedWaiting.delete(key);
-        workingSince.delete(key);
-        const t = waitingTimers.get(key);
-        if (t) {
-          clearTimeout(t);
-          waitingTimers.delete(key);
-        }
+        cancelWaitingWatch(key);
       }
       return { runningAgents: next, agentActivity, ackedWaiting };
     });
   },
   appendOutput(workspaceId, data, seq) {
-    if (get().agentActivity[workspaceId] !== "working") {
-      workingSince.set(workspaceId, Date.now());
-    }
     set((s) => {
       const prev = s.outputBuffers[workspaceId] ?? [];
       const out: Partial<BoardStore> = {
         outputBuffers: { ...s.outputBuffers, [workspaceId]: [...prev, { seq, data }] },
       };
-      // Output means the agent is generating — mark it working and (re)arm the
-      // timer that flips it to "waiting" once the stream goes quiet. Working
-      // again also resets the acknowledgement so the *next* wait re-flags.
+      // Output means the agent is generating — mark it working; `watchForQuiet`
+      // decides when the turn is over. Note that output deliberately does NOT
+      // clear `ackedWaiting` or arm a notification: a repainting idle TUI emits
+      // bytes too, and only the user starting a new turn is real news.
       if (s.agentActivity[workspaceId] !== "working") {
         out.agentActivity = { ...s.agentActivity, [workspaceId]: "working" };
-        if (s.ackedWaiting.has(workspaceId)) {
-          const acked = new Set(s.ackedWaiting);
-          acked.delete(workspaceId);
-          out.ackedWaiting = acked;
-        }
       }
       return out;
     });
-    const existing = waitingTimers.get(workspaceId);
-    if (existing) clearTimeout(existing);
-    waitingTimers.set(
-      workspaceId,
-      setTimeout(() => {
-        waitingTimers.delete(workspaceId);
-        set((s) => {
-          if (!s.runningAgents.has(workspaceId)) return {};
-          return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
-        });
-        maybeNotifyWaiting(workspaceId);
-        refreshPrsFor(workspaceId);
-      }, WAITING_AFTER_MS)
-    );
+    watchForQuiet(workspaceId);
   },
   clearOutput(workspaceId) {
     set((s) => {
