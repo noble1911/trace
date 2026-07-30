@@ -1,5 +1,16 @@
 import type { AgentCli } from "@/ipc/agent";
 
+/**
+ * A companion agent on a session: a second CLI running in the *same* worktree,
+ * so work started with one agent can be continued by another. Its `id` is a
+ * workspace id in its own right — the PTY, conversation, and run-state are all
+ * keyed by it, exactly like a session's or an issue's.
+ */
+export interface SessionAgent {
+  id: string;
+  cli: AgentCli;
+}
+
 /** An exploratory session — an interactive agent not tied to a Jira issue. */
 export interface ScratchSession {
   id: string;
@@ -17,6 +28,8 @@ export interface ScratchSession {
   worktree?: boolean;
   /** Configured repo path this session runs in; null/undefined = default repo. */
   repo?: string | null;
+  /** Extra agents sharing this session's worktree (empty/undefined = just one). */
+  agents?: SessionAgent[];
 }
 
 /** A top-level view on the Sessions page (e.g. one per repo). */

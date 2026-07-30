@@ -1,4 +1,5 @@
 import { notifyOnWaiting } from "@/domains/agent/defaults";
+import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { notify } from "@/ipc/notify";
 import { useBoardStore } from "./store";
@@ -93,11 +94,15 @@ function maybeNotifyWaiting(workspaceId: string) {
   const { runningAgents, selectedIssueKey } = useBoardStore.getState();
   if (!runningAgents.has(workspaceId)) return;
   const sessions = useSessionsStore.getState();
+  // "Watching" is per *agent*, not per session: a session can have several agent
+  // tabs and only the one in view counts as seen (`selectedAgentId`).
   const watching =
     document.hasFocus() &&
-    (selectedIssueKey === workspaceId || sessions.selectedId === workspaceId);
+    (selectedIssueKey === workspaceId || sessions.selectedAgentId === workspaceId);
   if (watching) return;
-  const title = sessions.sessions.find((s) => s.id === workspaceId)?.title ?? workspaceId;
+  // Resolves companion agents too ("Refactor auth · codex"), which otherwise
+  // would have announced themselves as a bare workspace id.
+  const title = workspaceTitle(sessions.sessions, workspaceId) ?? workspaceId;
   void notify(
     `${title} is waiting`,
     "The agent finished its turn and needs your input.",

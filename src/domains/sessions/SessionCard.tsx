@@ -1,6 +1,7 @@
 import { type DragEvent, type MouseEvent, useState } from "react";
 import { I } from "@/components/Icon";
 import type { SessionStatus } from "@/domains/board/store";
+import { companionsOf } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -32,6 +33,7 @@ export function SessionCard({
   onRename,
 }: SessionCardProps) {
   const [renaming, setRenaming] = useState(false);
+  const companions = companionsOf(session);
   const archive = (e: MouseEvent) => {
     e.stopPropagation();
     onArchive();
@@ -64,6 +66,14 @@ export function SessionCard({
     >
       <div className="session-card-head">
         <span className={`session-cli ${session.cli}`}>{session.cli}</span>
+        {companions.length > 0 && (
+          <span
+            className="session-cli"
+            title={`Also in this worktree: ${companions.map((a) => a.cli).join(", ")}`}
+          >
+            +{companions.length}
+          </span>
+        )}
         {status === "working" && <span className="thinking">working</span>}
         {status === "waiting" && !acked && <span className="waiting">needs you</span>}
         <button

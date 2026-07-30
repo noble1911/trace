@@ -1,9 +1,10 @@
 import { type DragEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { agentCli, setAgentCli } from "@/domains/agent/defaults";
-import { statusOf, useBoardStore } from "@/domains/board/store";
+import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import { ArchiveBin } from "./ArchiveBin";
+import { sessionNeedsYou, sessionStatus } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
 import {
   moveBefore,
@@ -105,8 +106,9 @@ export function SessionsView() {
         <SessionCard
           key={s.id}
           session={s}
-          status={statusOf(running.has(s.id), agentActivity[s.id])}
-          acked={ackedWaiting.has(s.id)}
+          // Across every agent on the session, not just the one it started with.
+          status={sessionStatus(s, running, agentActivity)}
+          acked={!sessionNeedsYou(s, running, agentActivity, ackedWaiting)}
           onOpen={() => select(s.id)}
           onArchive={() => void archive(s.id)}
           onRename={(title) => void rename(s.id, title)}

@@ -1,14 +1,17 @@
 import { create } from "zustand";
 import { activity } from "@/domains/activity/store";
+import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli } from "@/ipc/agent";
 import {
+  addSessionAgent,
   archiveSession,
   createSession,
   deleteSession,
   linkSessionToIssue,
   listSessionGroups,
   listSessions,
+  removeSessionAgent,
   renameSession,
   saveSessionGroups,
   setSessionGroup,
@@ -24,6 +27,15 @@ interface SessionsStore {
   /** Tabs + sections (display order). The frontend owns all manipulation. */
   groups: SessionGroups;
   selectedId: string | null;
+  /**
+   * Workspace id of the agent tab in view inside the open session — its own agent
+   * or one of its companions. Lives here rather than in the detail component
+   * because "is the user looking at this agent right now?" is what decides
+   * whether a finished turn is worth a notification (see `waitingNotify`).
+   */
+  selectedAgentId: string | null;
+  /** Focus one of the open session's agent tabs. */
+  selectAgent: (workspaceId: string) => void;
   loaded: boolean;
   load: () => Promise<void>;
   create: (title: string, cli: AgentCli, repo?: string | null) => Promise<ScratchSession>;
@@ -37,6 +49,10 @@ interface SessionsStore {
   assign: (id: string, tab: string | null, section: string | null) => Promise<void>;
   /** Bind a session to a Jira issue — the session is consumed by the ticket. */
   linkToIssue: (id: string, issueKey: string) => Promise<void>;
+  /** Add a companion agent (a second CLI) to a session's worktree. */
+  addAgent: (id: string, cli: AgentCli) => Promise<ScratchSession>;
+  /** Remove a companion agent — kills its PTY and forgets its conversation. */
+  removeAgent: (id: string, agentId: string) => Promise<void>;
   select: (id: string) => void;
   close: () => void;
   /** Session ids most-recently opened, newest first (capped, persisted). */
@@ -83,6 +99,7 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
   sessions: [],
   groups: { tabs: [], sections: [] },
   selectedId: null,
+  selectedAgentId: null,
   loaded: false,
   recent: loadRecent(),
   async load() {
@@ -94,7 +111,12 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     set((s) => {
       const recent = pushRecent(s.recent, session.id);
       saveRecent(recent);
-      return { sessions: [session, ...s.sessions], selectedId: session.id, recent };
+      return {
+        sessions: [session, ...s.sessions],
+        selectedId: session.id,
+        selectedAgentId: session.id,
+        recent,
+      };
     });
     activity.log({ kind: "session-created", title: `created session “${session.title}”` });
     return session;
@@ -108,6 +130,7 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     set((s) => ({
       sessions: patch(s.sessions, id, Math.floor(Date.now() / 1000)),
       selectedId: s.selectedId === id ? null : s.selectedId,
+      selectedAgentId: s.selectedId === id ? null : s.selectedAgentId,
     }));
   },
   async unarchive(id) {
@@ -122,6 +145,7 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         selectedId: s.selectedId === id ? null : s.selectedId,
+        selectedAgentId: s.selectedId === id ? null : s.selectedAgentId,
         recent,
       };
     });
@@ -148,10 +172,25 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
       return {
         sessions: s.sessions.filter((x) => x.id !== id),
         selectedId: s.selectedId === id ? null : s.selectedId,
+        selectedAgentId: s.selectedId === id ? null : s.selectedAgentId,
         recent,
       };
     });
     activity.log({ kind: "session-created", issueKey, title: `session linked to ${issueKey}` });
+  },
+  async addAgent(id, cli) {
+    const updated = await addSessionAgent(id, cli);
+    set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? updated : x)) }));
+    activity.log({ kind: "session-created", title: `added a ${cli} agent to “${updated.title}”` });
+    return updated;
+  },
+  async removeAgent(id, agentId) {
+    const updated = await removeSessionAgent(id, agentId);
+    set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? updated : x)) }));
+    // The PTY is gone backend-side; drop the renderer's mirror of it too.
+    useBoardStore.getState().setAgentRunning(agentId, false);
+    useBoardStore.getState().clearOutput(agentId);
+    disposeTerminal(agentId);
   },
   select(id) {
     // Mirror of board.openIssue — selecting a session dismisses any open issue
@@ -160,12 +199,23 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     // time), never during module init.
     useBoardStore.getState().closeIssue();
     set((s) => {
-      const recent = pushRecent(s.recent, id);
+      // Tolerate a companion agent's workspace id (a notification click carries
+      // the *agent's* id, not the session's) — open the session that hosts it.
+      const owner =
+        s.sessions.find((x) => x.id === id) ??
+        s.sessions.find((x) => x.agents?.some((a) => a.id === id));
+      const sessionId = owner?.id ?? id;
+      const recent = pushRecent(s.recent, sessionId);
       saveRecent(recent);
-      return { selectedId: id, recent };
+      // Opening by a companion's id focuses that companion's tab — which is what
+      // makes clicking its notification land on the agent that pinged you.
+      return { selectedId: sessionId, selectedAgentId: id, recent };
     });
   },
+  selectAgent(workspaceId) {
+    set({ selectedAgentId: workspaceId });
+  },
   close() {
-    set({ selectedId: null });
+    set({ selectedId: null, selectedAgentId: null });
   },
 }));

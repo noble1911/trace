@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::commands::agent::{forget_session_id, spawn_in};
+use crate::commands::session_agents::{discard_agents, stop_agents, SessionAgent};
 use crate::git;
 use crate::helpers::new_id;
 use crate::state::{AppState, StartGuard};
@@ -45,6 +46,21 @@ pub struct ScratchSession {
     /// configured repo at start time).
     #[serde(default)]
     pub repo: Option<String>,
+    /// Extra agents sharing this session's worktree (`commands::session_agents`) —
+    /// e.g. a codex agent continuing work claude started. Each has its own PTY and
+    /// conversation; the worktree belongs to the session.
+    #[serde(default)]
+    pub agents: Vec<SessionAgent>,
+}
+
+impl ScratchSession {
+    /// Workspace ids this session is responsible for: its own agent, its shell,
+    /// and every companion. What has to be torn down when the session goes away.
+    pub(crate) fn workspace_ids(&self) -> Vec<String> {
+        let mut ids = vec![self.id.clone(), format!("term:{}", self.id)];
+        ids.extend(self.agents.iter().map(|a| a.id.clone()));
+        ids
+    }
 }
 
 /// How long an archived session lingers before it's auto-purged (14 days).
@@ -57,14 +73,14 @@ fn sessions_file() -> PathBuf {
         .join("scratch.json")
 }
 
-fn load() -> Vec<ScratchSession> {
+pub(crate) fn load() -> Vec<ScratchSession> {
     std::fs::read_to_string(sessions_file())
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }
 
-fn save(list: &[ScratchSession]) -> Result<(), String> {
+pub(crate) fn save(list: &[ScratchSession]) -> Result<(), String> {
     let path = sessions_file();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -91,6 +107,9 @@ pub fn list_sessions() -> Vec<ScratchSession> {
             let keep = now.saturating_sub(at) < ARCHIVE_RETENTION_SECS;
             if !keep {
                 let _ = forget_session_id(&s.id);
+                for agent in &s.agents {
+                    let _ = forget_session_id(&agent.id);
+                }
                 crate::commands::worktrees::remove_for_workspace(&s.id);
             }
             keep
@@ -130,6 +149,7 @@ pub fn create_session(
         section: None,
         worktree: true,
         repo,
+        agents: Vec::new(),
     };
     let mut list = load();
     list.push(session.clone());
@@ -158,9 +178,19 @@ pub fn rename_session(id: String, title: String) -> Result<ScratchSession, Strin
     Ok(renamed)
 }
 
-/// Whether a workspace id belongs to an exploratory session (vs a Jira issue).
+/// The session that owns a workspace id: the session itself, or — for a
+/// companion agent (`commands::session_agents`) — the session whose worktree it
+/// shares. This is what lets a companion id flow through the shell terminal, the
+/// editor action, and cwd resolution without any of them knowing it isn't a
+/// session id.
+pub(crate) fn owning_session(id: &str) -> Option<ScratchSession> {
+    load().into_iter().find(|s| s.id == id || s.agents.iter().any(|a| a.id == id))
+}
+
+/// Whether a workspace id belongs to an exploratory session (vs a Jira issue) —
+/// true for a session's own id and for any of its companion agents.
 pub(crate) fn is_session(id: &str) -> bool {
-    load().iter().any(|s| s.id == id)
+    owning_session(id).is_some()
 }
 
 /// Resolve the working directory for a scratch session, honoring the session's
@@ -177,9 +207,12 @@ pub(crate) fn is_session(id: &str) -> bool {
 ///
 /// Legacy sessions without a worktree always resolve to the repo root, where
 /// their Claude conversation is keyed.
+///
+/// `id` may be a companion agent's id: the worktree belongs to the *session*, so
+/// every agent on it resolves to the same directory — that shared cwd is the
+/// whole point of companions.
 pub(crate) fn session_cwd(id: &str, create: bool) -> Result<String, String> {
-    let session =
-        load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
+    let session = owning_session(id).ok_or("That session no longer exists.")?;
     let repo = session
         .repo
         .clone()
@@ -188,7 +221,7 @@ pub(crate) fn session_cwd(id: &str, create: bool) -> Result<String, String> {
     if !session.worktree {
         return Ok(repo);
     }
-    let worktree = crate::commands::repos::workspace_dir(&repo, id);
+    let worktree = crate::commands::repos::workspace_dir(&repo, &session.id);
     if std::path::Path::new(&worktree).exists() {
         return Ok(worktree);
     }
@@ -199,83 +232,10 @@ pub(crate) fn session_cwd(id: &str, create: bool) -> Result<String, String> {
     if busy.starts_with("busy") {
         return Err(format!("Repository is {busy} — finish that git operation first."));
     }
-    let branch = format!("workspace/{}", crate::helpers::slugify(id));
+    let branch = format!("workspace/{}", crate::helpers::slugify(&session.id));
     let default_branch = git::get_default_branch(&repo);
     git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
     Ok(worktree)
-}
-
-/// Bind an exploratory session's workspace to a Jira issue. Nothing moves on
-/// disk — the issue *adopts* the session's worktree (a Claude conversation is
-/// keyed by its absolute cwd, so relocating it would orphan the history), the
-/// conversation id transfers to the issue key, the branch is renamed to the
-/// issue convention so PRs work, and the session is consumed.
-#[tauri::command]
-pub fn link_session_to_issue(
-    state: State<'_, AppState>,
-    id: String,
-    issue_key: String,
-) -> Result<(), String> {
-    let mut list = load();
-    let Some(pos) = list.iter().position(|s| s.id == id) else {
-        return Err("That session no longer exists.".to_string());
-    };
-    if !list[pos].worktree {
-        return Err(
-            "This session predates worktree sessions and shares the repo root — it can't be \
-             bound to a ticket."
-                .to_string(),
-        );
-    }
-    let repo = list[pos]
-        .repo
-        .clone()
-        .or_else(crate::commands::repos::default_repo)
-        .ok_or("Add a repository in Settings first.")?;
-    let dirname = crate::commands::repos::workspace_dirname(&id);
-    let dir = format!("{repo}/.worktrees/{dirname}");
-    if !std::path::Path::new(&dir).exists() {
-        return Err("Start this session once before linking — it has no worktree yet.".to_string());
-    }
-    // Refuse if the issue already has its own checkout — merging two working
-    // trees isn't something we can do safely.
-    let issue_dir = crate::commands::repos::workspace_dir(&repo, &issue_key);
-    if issue_dir != dir && std::path::Path::new(&issue_dir).exists() {
-        return Err(format!(
-            "{issue_key} already has a worktree — remove it first (Settings → Worktrees)."
-        ));
-    }
-
-    // Stop the session's PTYs; the conversation resumes under the issue key.
-    for key in [id.clone(), format!("term:{id}")] {
-        let live = state.pty_sessions.lock().remove(&key);
-        if let Some(mut s) = live {
-            s.kill();
-        }
-        state.child_pids.lock().remove(&key);
-        state.output_history.lock().remove(&key);
-    }
-
-    // Rename the branch to the issue convention (renames don't touch the cwd).
-    let old_branch = format!("workspace/{}", crate::helpers::slugify(&id));
-    let new_branch = format!("workspace/{}", crate::helpers::slugify(&issue_key));
-    let out = std::process::Command::new("git")
-        .args(["branch", "-m", &old_branch, &new_branch])
-        .current_dir(&repo)
-        .output()
-        .map_err(|e| format!("git branch rename failed to start: {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "Couldn't rename the session branch: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
-
-    crate::commands::repos::adopt_workspace_dir(&issue_key, &dirname, &repo)?;
-    crate::commands::agent::move_session_id(&id, &issue_key)?;
-
-    list.remove(pos);
-    save(&list)
 }
 
 /// File a session under a tab and/or section (`None` = default/unsectioned).
@@ -328,15 +288,14 @@ pub(crate) fn reconcile_groups(
     Ok(())
 }
 
-/// Move a session to the recycle bin: stop its PTY but keep its metadata and
-/// Claude id so it can be restored and resumed.
+/// Move a session to the recycle bin: stop its PTYs (its own agent, its shell and
+/// any companions) but keep the metadata and Claude ids so it can be restored and
+/// resumed.
 #[tauri::command]
 pub fn archive_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let live = state.pty_sessions.lock().remove(&id);
-    if let Some(mut session) = live {
-        session.kill();
+    if let Some(session) = owning_session(&id) {
+        stop_agents(&state, &session.workspace_ids());
     }
-    state.child_pids.lock().remove(&id);
     let mut list = load();
     let now = now_secs();
     for s in &mut list {
@@ -362,14 +321,13 @@ pub fn unarchive_session(id: String) -> Result<(), String> {
 /// Delete a session: stop its PTY if live, drop its saved Claude id, remove it.
 #[tauri::command]
 pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    // Take the session out of the map (dropping the guard) before killing it, so
-    // we never hold the lock across the wait.
-    let live = state.pty_sessions.lock().remove(&id);
-    if let Some(mut session) = live {
-        session.kill();
+    // Everything the session owned goes: its agent, its shell, its companions.
+    if let Some(session) = owning_session(&id) {
+        discard_agents(&state, &session.workspace_ids());
+        for agent in &session.agents {
+            let _ = forget_session_id(&agent.id);
+        }
     }
-    state.child_pids.lock().remove(&id);
-    state.output_history.lock().remove(&id);
     let _ = forget_session_id(&id);
     // Clean up any worktree/branch backing this workspace — the session is
     // gone for good, so its checkout is too.

@@ -1,21 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { agentArgs } from "@/domains/agent/defaults";
 import { FilesPane } from "@/domains/agent/FilesPane";
-import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
-import { disposeTerminal, fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
+import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
-import { agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
+import type { AgentCli } from "@/ipc/agent";
 import { type Editor, openInEditor } from "@/ipc/editor";
-import { startSession } from "@/ipc/session";
+import { startSession, startSessionAgent } from "@/ipc/session";
+import { AddAgentMenu } from "./AddAgentMenu";
+import { AgentPane } from "./AgentPane";
+import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
+import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
-type TabId = "chat" | "files" | "terminal";
+/** Which pane the body shows. Agent tabs all share the "agent" pane. */
+type PaneId = "agent" | "files" | "terminal";
 
 const EDITORS: { id: Editor; label: string }[] = [
   { id: "vscode", label: "VS Code" },
@@ -24,8 +28,12 @@ const EDITORS: { id: Editor; label: string }[] = [
 ];
 
 // Full-screen detail for one exploratory session. Reuses the agent detail shell
-// (`.detail`), the live terminal, and the Files/Diff pane — all keyed by the
-// session id, which is the same workspace-id contract board agents use.
+// (`.detail`), the live terminal, and the Files/Diff pane — all keyed by workspace
+// id, the same contract board agents use.
+//
+// A session can host several agents in ONE worktree (see `agentRoster`): the agent
+// it was created with, plus companions added here. Each gets its own tab, PTY and
+// conversation, so work claude started can be continued by codex on the same code.
 export function SessionDetail({
   session,
   onBack,
@@ -33,19 +41,77 @@ export function SessionDetail({
   session: ScratchSession;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<TabId>("chat");
-  const [error, setError] = useState<string | null>(null);
+  const [pane, setPane] = useState<PaneId>("agent");
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [linking, setLinking] = useState(false);
   const rename = useSessionsStore((s) => s.rename);
   const linkToIssue = useSessionsStore((s) => s.linkToIssue);
-  const running = useBoardStore((s) => s.runningAgents.has(session.id));
-  const waiting = useBoardStore((s) => s.agentActivity[session.id] === "waiting");
+  const addAgent = useSessionsStore((s) => s.addAgent);
+  const removeAgent = useSessionsStore((s) => s.removeAgent);
+  // Which agent tab is in view lives in the store: the notifier consults it to
+  // decide whether a finished turn is something the user is already watching.
+  const selectedAgent = useSessionsStore((s) => s.selectedAgentId);
+  const selectAgent = useSessionsStore((s) => s.selectAgent);
+  const runningAgents = useBoardStore((s) => s.runningAgents);
+  const agentActivity = useBoardStore((s) => s.agentActivity);
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
   const openIssue = useBoardStore((s) => s.openIssue);
-  const startingRef = useRef(false);
+
+  const roster = useMemo(() => agentRoster(session), [session]);
+  // Falls back to the session's own agent, which also self-heals the selection
+  // when the companion whose tab was open is removed.
+  const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
+
+  // The only difference between agents: how the backend spawns them.
+  const spawn = useCallback(
+    (cols: number, rows: number) =>
+      active.companion
+        ? startSessionAgent(session.id, active.workspaceId, cols, rows, agentArgs())
+        : startSession(session.id, cols, rows, agentArgs()),
+    [session.id, active.companion, active.workspaceId]
+  );
+  const run = useAgentRun(active.workspaceId, spawn);
+  const waiting = agentActivity[active.workspaceId] === "waiting";
+
+  // Viewing a waiting agent acknowledges it — see AgentDetail.
+  useEffect(() => {
+    if (waiting) ackWaiting(active.workspaceId);
+  }, [waiting, active.workspaceId, ackWaiting]);
+
+  const showAgent = (workspaceId: string) => {
+    selectAgent(workspaceId);
+    setPane("agent");
+    setConfirmRemove(false);
+  };
+
+  const onAddAgent = (cli: AgentCli) => {
+    void addAgent(session.id, cli)
+      .then((updated) => {
+        // The backend appends, so the new companion is the last one.
+        const companions = companionsOf(updated);
+        const added = companions[companions.length - 1];
+        if (added) showAgent(added.id);
+        toast.success(`Added a ${cli} agent to this session`);
+      })
+      .catch((err) => toast.error(String(err)));
+  };
+
+  const onRemoveAgent = () => {
+    // Two clicks: removing an agent kills its PTY and forgets its conversation.
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      return;
+    }
+    setConfirmRemove(false);
+    const removed = active.workspaceId;
+    selectAgent(session.id);
+    void removeAgent(session.id, removed)
+      .then(() => toast.success("Agent removed"))
+      .catch((err) => toast.error(String(err)));
+  };
 
   const onPickIssue = (issueKey: string) => {
     setLinking(false);
@@ -53,12 +119,11 @@ export function SessionDetail({
       .then(() => {
         // The PTYs were killed backend-side; drop the renderer's terminals and
         // buffers so the issue card rebuilds cleanly under its own key.
-        setAgentRunning(session.id, false);
-        setAgentRunning(`term:${session.id}`, false);
-        disposeTerminal(session.id);
-        disposeTerminal(`term:${session.id}`);
-        clearOutput(session.id);
-        clearOutput(`term:${session.id}`);
+        for (const id of [...agentWorkspaceIds(session), `term:${session.id}`]) {
+          setAgentRunning(id, false);
+          clearOutput(id);
+          disposeTerminal(id);
+        }
         toast.success(`Session linked to ${issueKey}`);
         onBack();
         openIssue(issueKey);
@@ -66,66 +131,17 @@ export function SessionDetail({
       .catch((err) => toast.error(String(err)));
   };
 
-  // Viewing a waiting session acknowledges it — see AgentDetail.
-  useEffect(() => {
-    if (waiting) ackWaiting(session.id);
-  }, [waiting, session.id, ackWaiting]);
-
-  // Reconcile run-state with the backend on mount. A renderer reload resets the
-  // store's `runningAgents` to empty, but the backend PTY survives — so a live
-  // session would wrongly show the "Start" overlay. Worse, clicking Start then
-  // no-ops on the backend (it's already running) *after* the frontend cleared
-  // the terminal, leaving a blank screen (the idle agent emits nothing to
-  // repaint it). Adopt the backend's truth so the live screen — replayed by the
-  // terminal snapshot — shows and Start isn't offered.
-  useEffect(() => {
-    let cancelled = false;
-    void agentRunning(session.id).then((alive) => {
-      if (cancelled) return;
-      if (alive && !useBoardStore.getState().runningAgents.has(session.id)) {
-        setAgentRunning(session.id, true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [session.id, setAgentRunning]);
-
-  const start = async () => {
-    // See AgentDetail.start — a re-entrant start would spawn a second agent into
-    // the same workspace and duplicate the terminal output.
-    if (startingRef.current || running) return;
-    startingRef.current = true;
-    setError(null);
-    // Spawn at the live terminal's measured size (it's already mounted under the
-    // start overlay), mirroring the board agent flow — no spawn-time resize.
-    const size = fitTerminal(session.id) ?? { cols: 80, rows: 24 };
-    clearOutput(session.id);
-    resetTerminal(session.id);
-    try {
-      await startSession(session.id, size.cols, size.rows, agentArgs());
-      setAgentRunning(session.id, true);
-    } catch (err) {
-      setError(String(err));
-      toast.error(String(err));
-    } finally {
-      startingRef.current = false;
-    }
-  };
-  const stop = async () => {
-    await stopAgent(session.id).catch(() => {});
-    setAgentRunning(session.id, false);
-    clearOutput(session.id);
-  };
-  const startFresh = async () => {
-    await resetAgentSession(session.id).catch(() => {});
-    await start();
-  };
-  // The session id is the workspace-id the backend opens (its worktree, or the
-  // repo root before it's ever started) — same contract as a board agent.
+  // The session id is the workspace the backend opens (its worktree, or the repo
+  // root before it's ever started) — same contract as a board agent.
   const openEditor = (editor: Editor) => {
     void openInEditor(session.id, editor).catch((e) => toast.error(String(e)));
   };
+
+  const startHint = active.companion
+    ? "Runs in this session's worktree — it sees everything the other agents here have written."
+    : session.worktree
+      ? "The agent runs in an isolated worktree for this session."
+      : "The agent runs in your repo root and shares your working tree.";
 
   return (
     <div className="detail detail-recents">
@@ -137,7 +153,7 @@ export function SessionDetail({
           <I.Sparkles size={18} />
         </span>
         <div>
-          <span className="id">{session.cli}</span>
+          <span className="id">{active.label}</span>
           {renaming ? (
             <TitleEditor
               initial={session.title}
@@ -160,7 +176,7 @@ export function SessionDetail({
           )}
         </div>
         <div className="right">
-          {running && <span className="thinking">working</span>}
+          {run.running && <span className="thinking">working</span>}
           <div className="open-in" title="Open this session's worktree in an editor">
             {EDITORS.map((ed) => (
               <button
@@ -174,6 +190,16 @@ export function SessionDetail({
               </button>
             ))}
           </div>
+          {active.companion && (
+            <button
+              type="button"
+              className={`btn${confirmRemove ? " danger" : ""}`}
+              onClick={onRemoveAgent}
+              title="Stop this agent and remove it from the session (its conversation is forgotten; the worktree stays)"
+            >
+              <I.X size={13} /> {confirmRemove ? "Confirm remove" : `Remove ${active.label}`}
+            </button>
+          )}
           {session.worktree && (
             <button
               type="button"
@@ -184,86 +210,78 @@ export function SessionDetail({
               <I.Ticket size={13} /> Link to ticket
             </button>
           )}
-          {running ? (
-            <button type="button" className="btn" onClick={stop}>
-              <I.X size={13} /> Stop session
+          {run.running ? (
+            <button type="button" className="btn" onClick={() => void run.stop()}>
+              <I.X size={13} /> Stop {active.label}
             </button>
           ) : (
-            <button type="button" className="btn primary" onClick={start}>
-              <I.Bolt size={13} /> Start {session.cli}
+            <button type="button" className="btn primary" onClick={() => void run.start()}>
+              <I.Bolt size={13} /> Start {active.label}
             </button>
           )}
         </div>
       </div>
 
-      {error && (
-        <div style={{ padding: "8px 20px", color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>
+      {run.error && (
+        <div style={{ padding: "8px 20px", color: "var(--c-danger)", fontSize: 12.5 }}>
+          {run.error}
+        </div>
       )}
 
       <div className="detail-body no-rail">
         <div className="detail-left">
           <div className="detail-tabs">
+            {roster.map((entry) => {
+              const live = runningAgents.has(entry.workspaceId);
+              const state = live ? (agentActivity[entry.workspaceId] ?? "working") : "off";
+              const selected = pane === "agent" && entry.workspaceId === active.workspaceId;
+              return (
+                <button
+                  key={entry.workspaceId}
+                  type="button"
+                  className={`detail-tab${selected ? " active" : ""}`}
+                  onClick={() => showAgent(entry.workspaceId)}
+                  title={
+                    entry.companion ? "Companion agent — same worktree" : "This session's agent"
+                  }
+                >
+                  <I.Chat size={13} /> {entry.label}
+                  <span className={`agent-dot ${state}`} />
+                </button>
+              );
+            })}
+            <AddAgentMenu
+              onAdd={onAddAgent}
+              disabled={companionsOf(session).length >= MAX_COMPANIONS}
+            />
+            <span className="detail-tab-sep" />
             <button
               type="button"
-              className={`detail-tab${tab === "chat" ? " active" : ""}`}
-              onClick={() => setTab("chat")}
-            >
-              <I.Chat size={13} /> Chat
-            </button>
-            <button
-              type="button"
-              className={`detail-tab${tab === "files" ? " active" : ""}`}
-              onClick={() => setTab("files")}
+              className={`detail-tab${pane === "files" ? " active" : ""}`}
+              onClick={() => setPane("files")}
             >
               <I.Code size={13} /> Files
             </button>
             <button
               type="button"
-              className={`detail-tab${tab === "terminal" ? " active" : ""}`}
-              onClick={() => setTab("terminal")}
+              className={`detail-tab${pane === "terminal" ? " active" : ""}`}
+              onClick={() => setPane("terminal")}
             >
               <I.Terminal size={13} /> Terminal
             </button>
           </div>
 
-          {tab === "chat" && (
-            <div className="pty-host-wrap">
-              <PtyTerminal issueKey={session.id} />
-              {!running && (
-                <div className="empty-state">
-                  <div className="inner">
-                    <span className="ic">
-                      <I.Sparkles size={28} />
-                    </span>
-                    <div className="title">Start this exploratory session</div>
-                    <div className="hint">
-                      {session.worktree
-                        ? "The agent runs in an isolated worktree for this session."
-                        : "The agent runs in your repo root and shares your working tree."}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn primary"
-                      style={{ marginTop: 6 }}
-                      onClick={start}
-                    >
-                      <I.Bolt size={13} /> Start {session.cli}
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={startFresh}
-                      title="Forget the saved conversation and begin a new one — use this if you see “session not found”."
-                    >
-                      Start fresh conversation
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          {pane === "agent" && (
+            <AgentPane
+              key={active.workspaceId}
+              workspaceId={active.workspaceId}
+              cli={active.cli}
+              run={run}
+              hint={startHint}
+            />
           )}
-          {tab === "files" && <FilesPane workspaceId={session.id} />}
-          {tab === "terminal" && <TerminalPane issueKey={session.id} />}
+          {pane === "files" && <FilesPane workspaceId={session.id} />}
+          {pane === "terminal" && <TerminalPane issueKey={session.id} />}
           {linking && <LinkTicketModal onClose={() => setLinking(false)} onPick={onPickIssue} />}
         </div>
       </div>

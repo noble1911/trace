@@ -1,4 +1,5 @@
-import { statusOf, useBoardStore } from "@/domains/board/store";
+import { useBoardStore } from "@/domains/board/store";
+import { sessionNeedsYou, sessionStatus } from "./agentRoster";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { relTime } from "./SessionCard";
 import { useSessionsStore } from "./store";
@@ -37,10 +38,11 @@ export function RecentSessions() {
       ) : (
         <ul className="rs-list">
           {items.map((s) => {
-            const status = statusOf(running.has(s.id), agentActivity[s.id]);
+            // Status covers every agent on the session (its own plus companions).
+            const status = sessionStatus(s, running, agentActivity);
             // Attention (the blinking "needs you") only while unacknowledged;
             // once seen it reads as a plain active session so it stops nagging.
-            const attention = status === "waiting" && !ackedWaiting.has(s.id);
+            const attention = sessionNeedsYou(s, running, agentActivity, ackedWaiting);
             const where =
               [tabName(s.tab), sectionName(s.section)].filter(Boolean).join(" · ") || "Unfiled";
             const stat = diffs[s.id];

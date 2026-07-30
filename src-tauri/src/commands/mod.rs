@@ -11,6 +11,8 @@ pub mod pr;
 pub mod repos;
 pub mod rich_output;
 pub mod session;
+pub mod session_agents;
+pub mod session_link;
 pub mod tests;
 pub mod update;
 pub mod worktrees;

@@ -65,3 +65,27 @@ export function startSession(
 ): Promise<void> {
   return invoke("start_session", { id, cols, rows, extraArgs: extraArgs ?? null });
 }
+
+/**
+ * Add a companion agent to a session — a second CLI (or a second instance of the
+ * same one) sharing the session's worktree. Returns the updated session.
+ */
+export function addSessionAgent(id: string, cli: AgentCli): Promise<ScratchSession> {
+  return invoke("add_session_agent", { id, cli });
+}
+
+/** Remove a companion agent: its PTY is killed and its conversation forgotten. */
+export function removeSessionAgent(id: string, agentId: string): Promise<ScratchSession> {
+  return invoke("remove_session_agent", { id, agentId });
+}
+
+/** Start (or resume) a companion agent in its session's worktree. */
+export function startSessionAgent(
+  id: string,
+  agentId: string,
+  cols: number,
+  rows: number,
+  extraArgs?: string[]
+): Promise<void> {
+  return invoke("start_session_agent", { id, agentId, cols, rows, extraArgs: extraArgs ?? null });
+}
