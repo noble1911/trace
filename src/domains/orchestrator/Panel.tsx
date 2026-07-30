@@ -1,5 +1,6 @@
 import { I } from "@/components/Icon";
 import { ChatView } from "./ChatView";
+import { usePanelResize } from "./hooks/usePanelResize";
 import { StatsView } from "./StatsView";
 import { type OrchTab, useOrchestratorStore } from "./store";
 
@@ -15,11 +16,48 @@ export function OrchestratorPanel() {
   const tab = useOrchestratorStore((s) => s.tab);
   const setOpen = useOrchestratorStore((s) => s.setOpen);
   const setTab = useOrchestratorStore((s) => s.setTab);
+  const { size, resizing, startResize, onHandleKey, resetSize } = usePanelResize();
 
   if (!open) return null;
 
   return (
-    <div className="orch-panel" role="dialog" aria-label="Orchestrator">
+    <div
+      className={`orch-panel${resizing ? " resizing" : ""}`}
+      role="dialog"
+      aria-label="Orchestrator"
+      // Dynamic: the panel's size is dragged by the user (see usePanelResize).
+      style={{ width: size.width, height: size.height }}
+    >
+      {/* Grab handles on the two free edges — the other two are pinned to the
+          bottom-right corner. Buttons (not bare divs) so they're focusable and
+          the arrow keys work; double-click restores the default size. */}
+      <button
+        type="button"
+        className="orch-resize left"
+        aria-label="Resize panel width"
+        onPointerDown={startResize("left")}
+        onKeyDown={onHandleKey("left")}
+        onDoubleClick={resetSize}
+        title="Drag or use ←/→ to resize"
+      />
+      <button
+        type="button"
+        className="orch-resize top"
+        aria-label="Resize panel height"
+        onPointerDown={startResize("top")}
+        onKeyDown={onHandleKey("top")}
+        onDoubleClick={resetSize}
+        title="Drag or use ↑/↓ to resize"
+      />
+      <button
+        type="button"
+        className="orch-resize corner"
+        aria-label="Resize panel"
+        onPointerDown={startResize("corner")}
+        onKeyDown={onHandleKey("corner")}
+        onDoubleClick={resetSize}
+        title="Drag or use arrow keys · double-click to reset"
+      />
       <div className="head">
         <span className="glow">
           <I.Sparkles size={11} />

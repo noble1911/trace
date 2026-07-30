@@ -70,12 +70,12 @@
   margin-left: 4px;
 }
 
+/* Width/height are set inline from usePanelResize (drag the left/top edges) —
+   deliberately not declared here, so there's one source of truth for the size. */
 .orch-panel {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  width: 400px;
-  height: min(640px, calc(100vh - 80px));
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -85,6 +85,81 @@
   box-shadow: 0 30px 80px -10px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
+/* Resize handles. They sit inside the panel's rounded border (which clips at
+   overflow: hidden), above the content, and are invisible until hovered. */
+.orch-resize {
+  position: absolute;
+  z-index: 2;
+}
+.orch-resize::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.orch-resize:hover::after,
+.orch-resize:focus-visible::after {
+  background: var(--border-strong);
+}
+.orch-resize:focus-visible {
+  outline: none;
+}
+.orch-resize.left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.orch-resize.left::after {
+  inset: 12px auto 12px 0;
+  width: 2px;
+}
+.orch-resize.top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+.orch-resize.top::after {
+  inset: 0 12px auto 12px;
+  height: 2px;
+}
+.orch-resize.corner {
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  z-index: 3;
+}
+.orch-resize.corner::after {
+  inset: 0 auto auto 0;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid transparent;
+  border-left: 2px solid transparent;
+  border-top-left-radius: var(--radius-lg);
+  background: transparent;
+  transition: border-color 0.12s ease;
+}
+.orch-resize.corner:hover::after,
+.orch-resize.corner:focus-visible::after {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+/* While dragging, keep the gesture off the transcript: text selection and the
+   chart iframes would otherwise fight the pointer. */
+.orch-panel.resizing {
+  user-select: none;
+}
+.orch-panel.resizing .orch-body {
+  pointer-events: none;
+}
+
 .orch-panel .head {
   display: flex;
   align-items: center;
