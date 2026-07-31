@@ -85,6 +85,8 @@ pub fn run() {
             commands::orchestrator::get_anthropic_key,
             commands::orchestrator::set_anthropic_key,
             commands::orchestrator::orchestrator_cli,
+            commands::providers::moonshot_key_configured,
+            commands::providers::set_moonshot_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

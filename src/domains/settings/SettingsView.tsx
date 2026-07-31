@@ -5,6 +5,7 @@ import {
   agentArgsRaw,
   agentCli,
   agentModelRaw,
+  agentProvider,
   autoStartOnMove,
   DEFAULT_KICKOFF_PROMPT,
   kickoffPromptRaw,
@@ -12,6 +13,7 @@ import {
   setAgentArgs,
   setAgentCli,
   setAgentModel,
+  setAgentProvider,
   setAutoStartOnMove,
   setKickoffPrompt,
   setNotifyOnWaiting,
@@ -19,7 +21,8 @@ import {
 import { JiraForm, PylonForm } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
+import { moonshotKeyConfigured, setMoonshotKey } from "@/ipc/providers";
 import { AssistantSettings } from "./AssistantSettings";
 import { RepoSettings } from "./RepoSettings";
 import { SettingRow } from "./SettingRow";
@@ -48,16 +51,34 @@ export function SettingsView() {
   }, [connectingProvider, sessions]);
 
   const [cli, setCli] = useState<AgentCli>(agentCli);
+  const [provider, setProvider] = useState<AgentProvider>(agentProvider);
   const [model, setModel] = useState(agentModelRaw);
   const [args, setArgs] = useState(agentArgsRaw);
   const [notifyWaiting, setNotifyWaiting] = useState(notifyOnWaiting);
   const [kickoff, setKickoff] = useState(kickoffPromptRaw);
   const [autoStart, setAutoStart] = useState(autoStartOnMove);
   const [tab, setTab] = useState<SettingsTab>("general");
+  const [moonshotSaved, setMoonshotSaved] = useState(false);
+  const [moonshotKey, setMoonshotKeyInput] = useState("");
+
+  useEffect(() => {
+    moonshotKeyConfigured()
+      .then(setMoonshotSaved)
+      .catch(() => setMoonshotSaved(false));
+  }, []);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
     setAgentCli(next);
+  };
+  const chooseProvider = (next: AgentProvider) => {
+    setProvider(next);
+    setAgentProvider(next);
+  };
+  const saveMoonshotKey = async (next: string) => {
+    await setMoonshotKey(next);
+    setMoonshotSaved(Boolean(next.trim()));
+    setMoonshotKeyInput("");
   };
   const chooseModel = (next: string) => {
     setModel(next);
@@ -133,6 +154,58 @@ export function SettingsView() {
                   <option value="codex">Codex</option>
                 </select>
               </SettingRow>
+              {cli === "claude" && (
+                <SettingRow
+                  label="Provider"
+                  hint="Kimi runs the same Claude Code harness against Moonshot's API."
+                >
+                  <select
+                    aria-label="Default provider"
+                    value={provider}
+                    onChange={(e) => chooseProvider(e.target.value as AgentProvider)}
+                  >
+                    <option value="anthropic">Anthropic</option>
+                    <option value="moonshot">Kimi (Moonshot)</option>
+                  </select>
+                </SettingRow>
+              )}
+              {cli === "claude" && provider === "moonshot" && (
+                <div className="setting-block">
+                  <div className="label">Moonshot API key</div>
+                  <div className="hint">
+                    {moonshotSaved
+                      ? "A key is saved. Enter a new one to replace it."
+                      : "Required for Kimi agents — from platform.moonshot.ai."}
+                  </div>
+                  <div className="key-row">
+                    <input
+                      type="password"
+                      className="key-input"
+                      aria-label="Moonshot API key"
+                      placeholder={moonshotSaved ? "•••••••••••••••• (saved)" : "sk-…"}
+                      value={moonshotKey}
+                      onChange={(e) => setMoonshotKeyInput(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="key-btn"
+                      disabled={!moonshotKey.trim()}
+                      onClick={() => void saveMoonshotKey(moonshotKey)}
+                    >
+                      Save
+                    </button>
+                  </div>
+                  {moonshotSaved && (
+                    <button
+                      type="button"
+                      className="key-remove"
+                      onClick={() => void saveMoonshotKey("")}
+                    >
+                      Remove key
+                    </button>
+                  )}
+                </div>
+              )}
               <SettingRow
                 label="Default model"
                 hint="Passed as --model. Blank uses the CLI default."

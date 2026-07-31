@@ -164,6 +164,10 @@ pub(crate) fn spawn_in(
     model: Option<String>,
     extra_args: Vec<String>,
     initial_prompt: Option<String>,
+    // Model provider for the Claude harness: Some("moonshot") points the same
+    // `claude` CLI at Moonshot's Anthropic-compatible endpoint (Kimi). Only
+    // meaningful with cli == "claude"; ignored otherwise.
+    provider: Option<String>,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
@@ -182,6 +186,13 @@ pub(crate) fn spawn_in(
         env_overrides.insert("TRACE_ISSUE_KEY".to_string(), workspace_id.clone());
         env_overrides.insert("TRACE_RENDER_PORT".to_string(), bridge.port.to_string());
         env_overrides.insert("TRACE_RENDER_TOKEN".to_string(), bridge.token.clone());
+    }
+    let mut model = model;
+    if cli == "claude" && provider.as_deref() == Some("moonshot") {
+        env_overrides.extend(crate::commands::providers::moonshot_env()?);
+        if model.is_none() {
+            model = Some(crate::commands::providers::MOONSHOT_DEFAULT_MODEL.to_string());
+        }
     }
     let (session, pid) = spawn_agent_pty(
         app,
@@ -228,6 +239,7 @@ pub fn start_agent(
     rows: u16,
     model: Option<String>,
     cli: Option<String>,
+    provider: Option<String>,
     extra_args: Option<Vec<String>>,
     initial_prompt: Option<String>,
     // The ticket's summary + labels, so repo mappings can match a tag like "[BE]"
@@ -270,6 +282,7 @@ pub fn start_agent(
         model,
         extra_args.unwrap_or_default(),
         initial_prompt,
+        provider,
         cols,
         rows,
     )

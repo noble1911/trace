@@ -1,4 +1,4 @@
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 
 /**
  * A companion agent on a session: a second CLI running in the *same* worktree,
@@ -9,6 +9,8 @@ import type { AgentCli } from "@/ipc/agent";
 export interface SessionAgent {
   id: string;
   cli: AgentCli;
+  /** Model provider for the Claude harness; null/undefined = Anthropic. */
+  provider?: AgentProvider | null;
 }
 
 /** An exploratory session — an interactive agent not tied to a Jira issue. */
@@ -16,6 +18,8 @@ export interface ScratchSession {
   id: string;
   title: string;
   cli: AgentCli;
+  /** Model provider for the Claude harness; null/undefined = Anthropic. */
+  provider?: AgentProvider | null;
   /** Unix epoch seconds at creation. */
   createdAt: number;
   /** Epoch seconds when archived (recycle bin); null/undefined = active. */

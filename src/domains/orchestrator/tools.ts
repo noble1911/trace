@@ -16,7 +16,10 @@ export const READ_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon)." },
+        issue_key: {
+          type: "string",
+          description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon).",
+        },
       },
       required: ["issue_key"],
     },

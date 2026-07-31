@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { activity } from "@/domains/activity/store";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import {
   addSessionAgent,
   archiveSession,
@@ -38,7 +38,12 @@ interface SessionsStore {
   selectAgent: (workspaceId: string) => void;
   loaded: boolean;
   load: () => Promise<void>;
-  create: (title: string, cli: AgentCli, repo?: string | null) => Promise<ScratchSession>;
+  create: (
+    title: string,
+    cli: AgentCli,
+    repo?: string | null,
+    provider?: AgentProvider
+  ) => Promise<ScratchSession>;
   rename: (id: string, title: string) => Promise<void>;
   archive: (id: string) => Promise<void>;
   unarchive: (id: string) => Promise<void>;
@@ -50,7 +55,7 @@ interface SessionsStore {
   /** Bind a session to a Jira issue — the session is consumed by the ticket. */
   linkToIssue: (id: string, issueKey: string) => Promise<void>;
   /** Add a companion agent (a second CLI) to a session's worktree. */
-  addAgent: (id: string, cli: AgentCli) => Promise<ScratchSession>;
+  addAgent: (id: string, cli: AgentCli, provider?: AgentProvider) => Promise<ScratchSession>;
   /** Remove a companion agent — kills its PTY and forgets its conversation. */
   removeAgent: (id: string, agentId: string) => Promise<void>;
   select: (id: string) => void;
@@ -106,8 +111,8 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     const [sessions, groups] = await Promise.all([listSessions(), listSessionGroups()]);
     set({ sessions, groups, loaded: true });
   },
-  async create(title, cli, repo) {
-    const session = await createSession(title, cli, repo);
+  async create(title, cli, repo, provider) {
+    const session = await createSession(title, cli, repo, provider);
     set((s) => {
       const recent = pushRecent(s.recent, session.id);
       saveRecent(recent);
@@ -178,8 +183,8 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     });
     activity.log({ kind: "session-created", issueKey, title: `session linked to ${issueKey}` });
   },
-  async addAgent(id, cli) {
-    const updated = await addSessionAgent(id, cli);
+  async addAgent(id, cli, provider) {
+    const updated = await addSessionAgent(id, cli, provider);
     set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? updated : x)) }));
     activity.log({ kind: "session-created", title: `added a ${cli} agent to “${updated.title}”` });
     return updated;

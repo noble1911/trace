@@ -86,7 +86,11 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
   from the user's *board configuration*; on Pylon, from a rolling 30-day window with state-derived columns.
   Never hardcoded.
 - **Agent:** an interactive `claude` (or `codex`) TUI hosted in a PTY, rooted in a git worktree created for one
-  issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data).
+  issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data). A
+  `provider` axis (`"anthropic"` | `"moonshot"`) points the same Claude Code harness at Moonshot's
+  Anthropic-compatible endpoint (Kimi) via `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` env injected at spawn;
+  the Moonshot key lives Rust-side in a `0600` config file (`commands/providers.rs`) and never crosses to the
+  renderer.
 - **Exploratory session:** the same agent transport without a tracker issue — a named scratch session in its
   own worktree (`domains/sessions/`, `commands/session.rs`).
 - **Lifecycle:** moving a card transitions the tracker's issue AND triggers the matching action — start agent

@@ -8,6 +8,7 @@ pub mod groups;
 pub mod issues;
 pub mod orchestrator;
 pub mod pr;
+pub mod providers;
 pub mod repos;
 pub mod rich_output;
 pub mod session;

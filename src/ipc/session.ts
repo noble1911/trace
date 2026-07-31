@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ScratchSession, SessionGroups } from "@/domains/sessions/types";
-import type { AgentCli } from "./agent";
+import type { AgentCli, AgentProvider } from "./agent";
 
 // Typed wrappers around the exploratory-session commands. Start/stop/input/resize
 // reuse the agent commands (ipc/agent.ts) keyed by the session id.
@@ -12,9 +12,10 @@ export function listSessions(): Promise<ScratchSession[]> {
 export function createSession(
   title: string,
   cli: AgentCli,
-  repo?: string | null
+  repo?: string | null,
+  provider?: AgentProvider
 ): Promise<ScratchSession> {
-  return invoke("create_session", { title, cli, repo: repo ?? null });
+  return invoke("create_session", { title, cli, repo: repo ?? null, provider: provider ?? null });
 }
 
 export function renameSession(id: string, title: string): Promise<ScratchSession> {
@@ -70,8 +71,12 @@ export function startSession(
  * Add a companion agent to a session — a second CLI (or a second instance of the
  * same one) sharing the session's worktree. Returns the updated session.
  */
-export function addSessionAgent(id: string, cli: AgentCli): Promise<ScratchSession> {
-  return invoke("add_session_agent", { id, cli });
+export function addSessionAgent(
+  id: string,
+  cli: AgentCli,
+  provider?: AgentProvider
+): Promise<ScratchSession> {
+  return invoke("add_session_agent", { id, cli, provider: provider ?? null });
 }
 
 /** Remove a companion agent: its PTY is killed and its conversation forgotten. */

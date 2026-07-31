@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { listRepos } from "@/ipc/repos";
 
 interface NewSessionModalProps {
   defaultCli: AgentCli;
+  defaultProvider: AgentProvider;
   onClose: () => void;
-  onCreate: (title: string, cli: AgentCli, repo: string | null) => void;
+  onCreate: (title: string, cli: AgentCli, repo: string | null, provider: AgentProvider) => void;
 }
 
 // Show the repo's folder name, not its full path — matches the board's picker.
@@ -15,9 +16,15 @@ const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 // Title + agent + repository picker for a new exploratory session. Title is
 // optional (the backend falls back to "Exploration" when blank); the session
 // runs in an isolated worktree of the chosen repo.
-export function NewSessionModal({ defaultCli, onClose, onCreate }: NewSessionModalProps) {
+export function NewSessionModal({
+  defaultCli,
+  defaultProvider,
+  onClose,
+  onCreate,
+}: NewSessionModalProps) {
   const [title, setTitle] = useState("");
   const [cli, setCli] = useState<AgentCli>(defaultCli);
+  const [provider, setProvider] = useState<AgentProvider>(defaultProvider);
   const [repos, setRepos] = useState<string[]>([]);
   const [repo, setRepo] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +47,7 @@ export function NewSessionModal({ defaultCli, onClose, onCreate }: NewSessionMod
     };
   }, []);
 
-  const submit = () => onCreate(title.trim() || "Exploration", cli, repo || null);
+  const submit = () => onCreate(title.trim() || "Exploration", cli, repo || null, provider);
 
   return (
     <Modal
@@ -82,6 +89,19 @@ export function NewSessionModal({ defaultCli, onClose, onCreate }: NewSessionMod
           <option value="codex">Codex</option>
         </select>
       </label>
+      {cli === "claude" && (
+        <label className="field">
+          <span className="field-label">Provider</span>
+          <select
+            className="field-input"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as AgentProvider)}
+          >
+            <option value="anthropic">Anthropic</option>
+            <option value="moonshot">Kimi (Moonshot)</option>
+          </select>
+        </label>
+      )}
       {repos.length === 0 ? (
         <div className="field">
           <span className="field-label">Repository</span>

@@ -24,6 +24,10 @@ pub struct ScratchSession {
     pub title: String,
     /// "claude" | "codex".
     pub cli: String,
+    /// Model provider for the Claude harness: Some("moonshot") = Kimi via
+    /// Moonshot's Anthropic-compatible endpoint. `None` = Anthropic.
+    #[serde(default)]
+    pub provider: Option<String>,
     /// Unix epoch seconds at creation (display ordering on the frontend).
     pub created_at: u64,
     /// Epoch seconds when archived (in the recycle bin); `None` = active. Purged
@@ -128,11 +132,15 @@ pub fn list_sessions() -> Vec<ScratchSession> {
 pub fn create_session(
     title: String,
     cli: String,
+    provider: Option<String>,
     repo: Option<String>,
 ) -> Result<ScratchSession, String> {
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
+    // The provider only applies to the Claude harness — drop it for codex.
+    let provider = (cli == "claude" && provider.as_deref() == Some("moonshot"))
+        .then(|| "moonshot".to_string());
     // Only honor a repo that's actually configured; anything else falls back to
     // the default repo at start time (`None`).
     let repo = repo.and_then(|r| {
@@ -143,6 +151,7 @@ pub fn create_session(
         id: new_id(),
         title,
         cli,
+        provider,
         created_at: now_secs(),
         archived_at: None,
         tab: None,
@@ -362,5 +371,17 @@ pub fn start_session(
     // where their Claude conversations live. Shared with the shell terminal.
     let cwd = session_cwd(&id, true)?;
 
-    spawn_in(app, &state, id, cwd, session.cli, None, extra_args.unwrap_or_default(), None, cols, rows)
+    spawn_in(
+        app,
+        &state,
+        id,
+        cwd,
+        session.cli,
+        None,
+        extra_args.unwrap_or_default(),
+        None,
+        session.provider,
+        cols,
+        rows,
+    )
 }
