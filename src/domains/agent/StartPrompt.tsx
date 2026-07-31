@@ -8,7 +8,13 @@ interface StartPromptProps {
   repos: string[];
   repoChoice: string;
   onRepoChange: (path: string) => void;
+  /** Display name of the agent about to launch (e.g. "claude", "kimi · fw"). */
+  agentName: string;
+  /** The harness CLI ("claude" | "codex") — names the TUI the user will get. */
+  cliName: string;
 }
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Overlay shown over the (mounted-but-idle) terminal before a session starts:
 // pick the repo, then start. Disabled until at least one repo is configured.
@@ -18,6 +24,8 @@ export function StartPrompt({
   repos,
   repoChoice,
   onRepoChange,
+  agentName,
+  cliName,
 }: StartPromptProps) {
   const noRepos = repos.length === 0;
   return (
@@ -26,10 +34,10 @@ export function StartPrompt({
         <span className="ic">
           <I.Bolt size={28} />
         </span>
-        <div className="title">Start an interactive Claude session</div>
+        <div className="title">Start an interactive {capitalize(agentName)} session</div>
         <div className="hint">
-          The agent runs in an isolated git worktree under the repo you pick. You'll get the full
-          Claude TUI right here.
+          The agent runs in an isolated git worktree under the repo you pick. You'll get the full{" "}
+          {cliName} TUI right here.
         </div>
         {noRepos ? (
           <div className="hint" style={{ color: "var(--c-warn)" }}>
@@ -54,7 +62,7 @@ export function StartPrompt({
           onClick={onStart}
           disabled={noRepos}
         >
-          <I.Bolt size={13} /> Start session
+          <I.Bolt size={13} /> Start {agentName}
         </button>
         <button
           type="button"
