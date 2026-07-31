@@ -196,7 +196,8 @@ export function SettingsView() {
                 <div className="hint">
                   Sent to the agent when you start it from the board (the ✦ button on a card, or —
                   with auto-start on — dragging to In&nbsp;Progress). Placeholders: {"{key}"},{" "}
-                  {"{summary}"}, {"{description}"}. Blank uses the default.
+                  {"{summary}"}, {"{description}"}, {"{comments}"} (the ticket's discussion thread,
+                  fetched at launch). Blank uses the default.
                 </div>
                 <textarea
                   aria-label="Kickoff prompt"

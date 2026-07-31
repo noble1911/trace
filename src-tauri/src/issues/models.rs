@@ -114,6 +114,23 @@ pub struct PullRequest {
     pub title: String,
 }
 
+/// One entry in an issue's discussion thread (Jira comment; Pylon customer
+/// message or internal note), flattened to plain text by the provider parser.
+/// Feeds the `{comments}` placeholder in the agent kickoff brief.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueComment {
+    /// Author display name (customer, teammate, or bot).
+    pub author: String,
+    /// Creation timestamp as the API carries it, when present.
+    pub created: Option<String>,
+    /// Internal note never shown to the customer (Pylon `is_private`). Always
+    /// false on Jira — its comment endpoint carries no such flag.
+    pub is_internal: bool,
+    /// Plain-text body (ADF/HTML already flattened).
+    pub body: String,
+}
+
 // ---- shared helpers for provider parsers ------------------------------------
 
 /// First letter of a display name, upper-cased (for the avatar fallback).

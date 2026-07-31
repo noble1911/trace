@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BoardData,
   BoardSummary,
+  IssueComment,
   IssueUser,
   ProviderKind,
   ProviderSession,
@@ -56,6 +57,16 @@ export function commentOnIssue(
   body: string
 ): Promise<void> {
   return invoke("comment_on_issue", { provider, issueKey, body });
+}
+
+/** Recent entries in an issue's discussion thread, oldest-first (Jira
+ * comments; Pylon conversation incl. internal notes). Providers without a
+ * readable thread return []. */
+export function listIssueComments(
+  provider: ProviderKind,
+  issueId: string
+): Promise<IssueComment[]> {
+  return invoke("list_issue_comments", { provider, issueId });
 }
 
 /** PRs linked to an issue. `fresh` busts Jira's dev-status cache — use for

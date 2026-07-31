@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use crate::issues::models::{initial_of, Assignee, Issue};
+use crate::issues::models::{initial_of, Assignee, Issue, IssueComment};
 
 /// Pylon's base issue states, in board-column order. Custom status slugs are
 /// appended before `closed` as they're discovered on issues.
@@ -119,6 +119,28 @@ fn parse_assignee(v: &Value, user_names: &HashMap<String, (String, Option<String
     })
 }
 
+/// Convert one raw message Value (`GET /issues/{id}/messages`) into the shared
+/// comment shape. `message_html` is flattened with the same `html_to_text`
+/// used for issue bodies; `is_private` marks internal notes.
+pub fn parse_comment(v: &Value) -> Option<IssueComment> {
+    let body = v
+        .get("message_html")
+        .and_then(Value::as_str)
+        .map(html_to_text)
+        .filter(|s| !s.is_empty())?;
+    Some(IssueComment {
+        author: v
+            .get("author")
+            .and_then(|a| a.get("name"))
+            .and_then(Value::as_str)
+            .unwrap_or("Unknown")
+            .to_string(),
+        created: v.get("timestamp").and_then(Value::as_str).map(str::to_string),
+        is_internal: v.get("is_private").and_then(Value::as_bool).unwrap_or(false),
+        body,
+    })
+}
+
 /// Reduce Pylon's `body_html` to plain text for the Ticket tab. Deliberately
 /// small: block-level tags become newlines, the rest is stripped, common
 /// entities decoded.
@@ -159,4 +181,32 @@ pub fn html_to_text(html: &str) -> String {
         out = out.replace("\n\n\n", "\n\n");
     }
     out.trim().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_comment_strips_html_and_flags_internal() {
+        let v = serde_json::json!({
+            "author": { "name": "sarah@acme" },
+            "timestamp": "2026-07-30T14:02:00Z",
+            "is_private": true,
+            "message_html": "<p>Chats are getting <b>too long</b></p><p>Second para</p>"
+        });
+        let c = parse_comment(&v).expect("comment should parse");
+        assert_eq!(c.author, "sarah@acme");
+        assert!(c.is_internal);
+        assert_eq!(c.body, "Chats are getting too long\n\nSecond para");
+    }
+
+    #[test]
+    fn parse_comment_defaults_to_public_unknown_author() {
+        let v = serde_json::json!({ "message_html": "<p>hi</p>" });
+        let c = parse_comment(&v).expect("comment should parse");
+        assert_eq!(c.author, "Unknown");
+        assert!(!c.is_internal);
+        assert_eq!(c.body, "hi");
+    }
 }

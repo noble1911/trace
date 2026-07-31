@@ -4,7 +4,7 @@ The board is **provider-agnostic**. Several providers can be connected at once: 
 maps each `ProviderKind` to its `issues::Provider` connection, and every board command takes the
 target provider as an argument. Each provider implements `issues::IssueProvider`
 (`src-tauri/src/issues/mod.rs`): `current_user`, `list_boards`, `get_board`, `transition_issue`,
-`add_comment`, `get_pull_requests`, `session_info`.
+`add_comment`, `list_comments`, `get_pull_requests`, `session_info`.
 
 ## Shared shapes
 
@@ -35,6 +35,8 @@ target provider as an argument. Each provider implements `issues::IssueProvider`
 - Transition = `PATCH /issues/{id}` with `{"state": slug}` (no workflow gates). The API accepts an
   issue number, so the card key `#123` maps directly.
 - Comment = `POST /issues/{id}/note` (internal note, `body_html`).
+- Thread read = `GET /issues/{id}/messages` (oldest-first, cursor-paginated; `is_private` marks
+  internal notes) — powers the `{comments}` placeholder in the agent kickoff brief.
 - No dev-status integration → `get_pull_requests` returns empty; the frontend skips PR fan-out for
   non-Jira providers.
 

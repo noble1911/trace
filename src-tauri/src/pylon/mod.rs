@@ -8,7 +8,7 @@ pub mod board;
 pub mod client;
 pub mod models;
 
-use crate::issues::models::{BoardData, BoardSummary, IssueUser, PullRequest};
+use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 use crate::issues::{IssueProvider, ProviderKind, ProviderSession};
 
 /// An authenticated Pylon connection (Bearer API token, Admin-generated).
@@ -56,6 +56,10 @@ impl IssueProvider for PylonConnection {
 
     async fn add_comment(&self, issue_key: &str, body: &str) -> Result<(), String> {
         board::add_note(self, issue_key, body).await
+    }
+
+    async fn list_comments(&self, issue_id: &str) -> Result<Vec<IssueComment>, String> {
+        board::list_comments(self, issue_id).await
     }
 
     /// Pylon has no dev-status integration — no PR badges on its cards.

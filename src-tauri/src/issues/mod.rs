@@ -13,7 +13,7 @@ use serde::Serialize;
 use crate::jira::JiraConnection;
 use crate::pylon::PylonConnection;
 
-use models::{BoardData, BoardSummary, IssueUser, PullRequest};
+use models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 
 /// Which tracker a session belongs to. Serialized to the frontend so the UI can
 /// show provider-specific affordances (e.g. Jira's epic links).
@@ -88,6 +88,14 @@ pub trait IssueProvider {
         body: &str,
     ) -> impl std::future::Future<Output = Result<(), String>> + Send;
 
+    /// Recent entries in the issue's discussion thread, oldest-first (Jira
+    /// comments; Pylon conversation incl. internal notes). Providers without
+    /// a readable thread return an empty list.
+    fn list_comments(
+        &self,
+        issue_id: &str,
+    ) -> impl std::future::Future<Output = Result<Vec<IssueComment>, String>> + Send;
+
     /// PRs linked to an issue. Providers without a dev-status integration
     /// return an empty list (the UI just renders no badge).
     fn get_pull_requests(
@@ -133,6 +141,13 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.add_comment(issue_key, body).await,
             Provider::Pylon(c) => c.add_comment(issue_key, body).await,
+        }
+    }
+
+    async fn list_comments(&self, issue_id: &str) -> Result<Vec<IssueComment>, String> {
+        match self {
+            Provider::Jira(c) => c.list_comments(issue_id).await,
+            Provider::Pylon(c) => c.list_comments(issue_id).await,
         }
     }
 

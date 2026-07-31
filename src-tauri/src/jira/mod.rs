@@ -4,10 +4,11 @@
 pub mod auth;
 pub mod board;
 pub mod client;
+pub mod comments;
 pub mod dev;
 pub mod parse;
 
-use crate::issues::models::{BoardData, BoardSummary, IssueUser, PullRequest};
+use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 use crate::issues::{IssueProvider, ProviderKind, ProviderSession};
 
 /// An authenticated Jira connection. `token` is secret — it stays in the Rust
@@ -54,6 +55,10 @@ impl IssueProvider for JiraConnection {
 
     async fn add_comment(&self, issue_key: &str, body: &str) -> Result<(), String> {
         board::add_comment(self, issue_key, body).await
+    }
+
+    async fn list_comments(&self, issue_id: &str) -> Result<Vec<IssueComment>, String> {
+        comments::list_comments(self, issue_id).await
     }
 
     async fn get_pull_requests(&self, issue_id: &str, fresh: bool) -> Result<Vec<PullRequest>, String> {

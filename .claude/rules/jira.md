@@ -41,7 +41,8 @@ abstraction. Jira specifics follow. We never hardcode columns or maintain a loca
 ## Conventions
 
 - All Jira HTTP lives in `src-tauri/src/jira/client.rs`; raw-JSON parsers in `jira/parse.rs` (producing the
-  shared `issues::models` shapes); board/sprint logic in `jira/board.rs`; PR dev-status in `jira/dev.rs`.
+  shared `issues::models` shapes); board/sprint logic in `jira/board.rs`; comment fetch in
+  `jira/comments.rs`; PR dev-status in `jira/dev.rs`.
   Frontend talks to it only through `commands/issues.rs` → `src/ipc/issues.ts`.
 - Treat the API as paginated: follow `startAt`/`isLast` on Agile endpoints and `nextPageToken` on
   `/search/jql` — a single-page fetch silently truncates large orgs.
