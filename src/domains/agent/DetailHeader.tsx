@@ -2,7 +2,7 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
+import type { Issue, PullRequest } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 
 interface DetailHeaderProps {

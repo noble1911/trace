@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::helpers::restrict_perms;
 
 use super::client;
-use super::models::{parse_user, JiraUser};
+use super::parse::parse_user;
 use super::JiraConnection;
+use crate::issues::models::IssueUser;
 
 #[derive(Serialize, Deserialize)]
 struct StoredSession {
@@ -26,7 +27,7 @@ struct StoredSession {
 }
 
 /// Validate a connection by calling `/myself`. Returns the authenticated user.
-pub async fn validate(conn: &JiraConnection) -> Result<JiraUser, String> {
+pub async fn validate(conn: &JiraConnection) -> Result<IssueUser, String> {
     let v = client::get(conn, "/rest/api/3/myself").await?;
     Ok(parse_user(&v))
 }

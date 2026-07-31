@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useActivityStore } from "@/domains/activity/store";
 import { columnColor } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
-import { useJiraStore } from "@/domains/jira/store";
+import { useIssuesStore } from "@/domains/issues/store";
 import { type BoardStats, computeBoardStats, filterByAssignee } from "./stats";
 import { useOrchestratorStore } from "./store";
 
@@ -16,7 +16,10 @@ export function StatsView() {
   const pullRequests = useBoardStore((s) => s.pullRequests);
   const assigneeFilter = useBoardStore((s) => s.assigneeFilter);
   const activity = useActivityStore((s) => s.events);
-  const currentUser = useJiraStore((s) => s.user);
+  const boardProvider = useBoardStore((s) => s.provider);
+  const currentUser = useIssuesStore((s) =>
+    boardProvider ? (s.users[boardProvider] ?? null) : null
+  );
   const sprintGoal = useOrchestratorStore((s) => s.sprintGoal);
   const setSprintGoal = useOrchestratorStore((s) => s.setSprintGoal);
 

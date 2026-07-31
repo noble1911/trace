@@ -1,4 +1,4 @@
-import type { Assignee } from "@/domains/jira/types";
+import type { Assignee } from "@/domains/issues/types";
 
 type Size = "md" | "lg" | "xl";
 

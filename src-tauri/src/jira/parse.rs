@@ -1,123 +1,14 @@
-//! Frontend-facing Jira shapes + parsers from Jira's raw JSON.
+//! Parsers from Jira's raw JSON into the provider-agnostic board models.
 //!
 //! We parse from `serde_json::Value` rather than deriving full Deserialize structs
 //! because Jira payloads are large and version-variable — we pluck only what the
 //! board needs and stay resilient to extra/missing fields.
 
-use serde::Serialize;
 use serde_json::Value;
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct JiraUser {
-    pub account_id: String,
-    pub display_name: String,
-    pub email: Option<String>,
-    pub avatar_url: Option<String>,
-}
+use crate::issues::models::{initial_of, Assignee, Issue, IssueUser};
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BoardSummary {
-    pub id: i64,
-    pub name: String,
-    pub board_type: String,
-}
-
-/// A board column and the set of status ids that map into it. Order is the
-/// board's configured order — this replaces any hardcoded column list.
-/// One status a board column maps to. A column can hold several (e.g. an
-/// "In Progress" column covering both In Progress and Blocked), so each carries
-/// its own id+name for the per-status drop zones.
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ColumnStatus {
-    pub id: String,
-    pub name: String,
-    /// Jira status category key: `new` | `indeterminate` | `done`. Lets the
-    /// frontend tell "work starts here" columns from to-do/done ones without
-    /// hardcoding column names.
-    pub category: String,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BoardColumn {
-    pub name: String,
-    pub statuses: Vec<ColumnStatus>,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Assignee {
-    pub account_id: String,
-    pub display_name: String,
-    pub initial: String,
-    pub avatar_url: Option<String>,
-}
-
-/// A board card = a Jira issue from the current sprint.
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Issue {
-    /// Numeric Jira id (as a string). Needed for dev-status / pull-request lookups.
-    pub id: String,
-    pub key: String,
-    pub summary: String,
-    pub status_id: String,
-    pub status_name: String,
-    /// Jira status category key: `new` | `indeterminate` | `done`.
-    pub status_category: String,
-    /// Mapped priority code for the card's accent bar: p0..p3.
-    pub priority: String,
-    pub issue_type: String,
-    pub labels: Vec<String>,
-    pub assignee: Option<Assignee>,
-    pub description: Option<String>,
-    /// Epic name/summary for display.
-    pub epic: Option<String>,
-    /// Epic issue key (e.g. PM-1200) for the browse link.
-    pub epic_key: Option<String>,
-    /// Jira's epic palette key ("color_1"…"color_14"); None for team-managed
-    /// parents, where the frontend falls back to a hashed hue.
-    pub epic_color: Option<String>,
-    pub reporter: Option<String>,
-}
-
-/// Everything the board needs in one payload.
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BoardData {
-    pub board_id: i64,
-    pub board_name: String,
-    pub sprint_name: Option<String>,
-    pub columns: Vec<BoardColumn>,
-    pub issues: Vec<Issue>,
-}
-
-/// A GitHub pull request linked to a Jira issue (via the dev-status integration).
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PullRequest {
-    pub number: String,
-    pub url: String,
-    /// `open` | `merged` | `declined` | `draft` (lower-cased for CSS class reuse).
-    pub state: String,
-    pub title: String,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Transition {
-    pub id: String,
-    pub name: String,
-    pub to_status_id: String,
-    pub to_status_name: String,
-}
-
-// ---- parsers ---------------------------------------------------------------
-
-fn str_at<'a>(v: &'a Value, path: &[&str]) -> Option<&'a str> {
+pub fn str_at<'a>(v: &'a Value, path: &[&str]) -> Option<&'a str> {
     let mut cur = v;
     for key in path {
         cur = cur.get(key)?;
@@ -134,13 +25,6 @@ fn map_priority(name: &str) -> String {
         _ => "p3",
     }
     .to_string()
-}
-
-fn initial_of(name: &str) -> String {
-    name.chars()
-        .next()
-        .map(|c| c.to_ascii_uppercase().to_string())
-        .unwrap_or_else(|| "?".to_string())
 }
 
 /// Flatten an Atlassian Document Format (ADF) node tree to plain text.
@@ -173,8 +57,8 @@ pub fn adf_to_text(node: &Value) -> String {
     out.trim().to_string()
 }
 
-pub fn parse_user(v: &Value) -> JiraUser {
-    JiraUser {
+pub fn parse_user(v: &Value) -> IssueUser {
+    IssueUser {
         account_id: str_at(v, &["accountId"]).unwrap_or("").to_string(),
         display_name: str_at(v, &["displayName"]).unwrap_or("Unknown").to_string(),
         email: str_at(v, &["emailAddress"]).map(str::to_string),
@@ -235,6 +119,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
         epic_key,
         epic_color,
         reporter: str_at(fields, &["reporter", "displayName"]).map(str::to_string),
+        browse_url: None,
     })
 }
 

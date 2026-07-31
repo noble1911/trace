@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
+import type { Issue, PullRequest } from "@/domains/issues/types";
 import {
   type AgentCli,
   type AgentProvider,

@@ -1,4 +1,4 @@
-import type { Issue } from "@/domains/jira/types";
+import type { Issue } from "@/domains/issues/types";
 
 // The "Ticket" tab — the linked Jira issue's fields.
 export function TicketPane({ issue }: { issue: Issue }) {

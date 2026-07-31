@@ -1,8 +1,8 @@
 import { useActivityStore } from "@/domains/activity/store";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
-import { useJiraStore } from "@/domains/jira/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
+import { useIssuesStore } from "@/domains/issues/store";
+import type { Issue, PullRequest } from "@/domains/issues/types";
 import { computeBoardStats, filterByAssignee, type StatsInput } from "./stats";
 import { useOrchestratorStore } from "./store";
 
@@ -33,7 +33,10 @@ function ticketLine(issue: Issue, agent: SessionStatus, prs: PullRequest[] | und
 
 /** Resolve the board's effective assignee filter (undefined → the current user). */
 function effectiveAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
-  const currentUserId = useJiraStore.getState().user?.accountId ?? null;
+  const provider = board.provider;
+  const currentUserId = provider
+    ? (useIssuesStore.getState().users[provider]?.accountId ?? null)
+    : null;
   return board.assigneeFilter === undefined ? currentUserId : board.assigneeFilter;
 }
 
@@ -76,7 +79,9 @@ export function buildBoardContext(): string {
     assignee === null
       ? "all assignees"
       : (scopedIssues.find((i) => i.assignee?.accountId === assignee)?.assignee?.displayName ??
-        useJiraStore.getState().user?.displayName ??
+        (board.provider
+          ? useIssuesStore.getState().users[board.provider]?.displayName
+          : undefined) ??
         "the selected assignee");
 
   const lines: string[] = [

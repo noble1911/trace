@@ -4,7 +4,7 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { useBoardStore } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
+import type { Issue, PullRequest } from "@/domains/issues/types";
 
 type Tab = "open" | "draft" | "merged" | "closed";
 const TABS: Tab[] = ["open", "draft", "merged", "closed"];

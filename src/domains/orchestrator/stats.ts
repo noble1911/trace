@@ -1,7 +1,7 @@
 import type { ActivityEvent } from "@/domains/activity/store";
 import { groupIssuesByColumn } from "@/domains/board/columns";
 import { dedupePrs } from "@/domains/board/prDedupe";
-import type { BoardData, PullRequest } from "@/domains/jira/types";
+import type { BoardData, PullRequest } from "@/domains/issues/types";
 
 // Deterministic board metrics. All numbers come from here — the orchestrator
 // LLM (later phases) only narrates these, never computes them, because LLMs

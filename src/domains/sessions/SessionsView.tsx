@@ -125,7 +125,7 @@ export function SessionsView() {
       <div className="page-head">
         <div>
           <h1>Sessions</h1>
-          <div className="desc">Exploratory agents not tied to a Jira ticket.</div>
+          <div className="desc">Exploratory agents not tied to a ticket.</div>
         </div>
         <div className="right">
           <button type="button" className="btn primary" onClick={() => setCreating(true)}>

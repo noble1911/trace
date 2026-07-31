@@ -22,8 +22,8 @@
 - → **in progress** column: ensure a worktree exists for the issue, then `spawn_agent_pty`.
 - → **review** column: `git push` + `gh pr create` (reused `commands/pr.rs`).
 - → **done** column: merge the PR.
-- Each transition ALSO fires the matching Jira transition (see `jira.md`). UI moves optimistically; reconcile on
-  result.
+- Each transition ALSO fires the matching tracker transition (Jira: `jira.md`; Pylon: `providers.md`). UI moves
+  optimistically; reconcile on result.
 
 ## Security (carried over — these were learned the hard way)
 

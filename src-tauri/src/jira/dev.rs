@@ -5,8 +5,8 @@
 use serde_json::Value;
 
 use super::client;
-use super::models::PullRequest;
 use super::JiraConnection;
+use crate::issues::models::PullRequest;
 
 /// PRs linked to the issue's numeric id, across configured GitHub instances.
 /// Returns an empty list (not an error) when no PRs / no integration — the UI
