@@ -188,6 +188,7 @@ pub(crate) fn spawn_in(
         env_overrides.insert("TRACE_RENDER_TOKEN".to_string(), bridge.token.clone());
     }
     let mut model = model;
+    let mut extra_args = extra_args;
     if cli == "claude" {
         if let Some(spec) = provider.as_deref().and_then(crate::commands::providers::spec) {
             env_overrides.extend(crate::commands::providers::env(spec)?);
@@ -197,6 +198,19 @@ pub(crate) fn spawn_in(
             match model.as_deref() {
                 Some(m) if m.starts_with(spec.model_prefix) => {}
                 _ => model = Some(spec.default_model.to_string()),
+            }
+            // Fireworks' Anthropic-compatible API rejects server-side tools
+            // (400 "Unexpected content chunk type tool_reference") — per
+            // docs.fireworks.ai/tools-sdks/anthropic-compatibility that
+            // covers web search and web fetch, which Claude Code exposes as
+            // WebSearch/WebFetch. Disable both for this provider. Client-side
+            // function calling (Bash, Edit, ...) is unaffected.
+            if spec.id == "fireworks" {
+                extra_args.extend([
+                    "--disallowedTools".to_string(),
+                    "WebSearch".to_string(),
+                    "WebFetch".to_string(),
+                ]);
             }
         }
     }
