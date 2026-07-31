@@ -6,7 +6,7 @@
 
 use serde_json::Value;
 
-use crate::issues::models::{initial_of, Assignee, Issue, IssueUser};
+use crate::issues::models::{initial_of, Assignee, Issue, IssueComment, IssueUser};
 
 pub fn str_at<'a>(v: &'a Value, path: &[&str]) -> Option<&'a str> {
     let mut cur = v;
@@ -55,6 +55,22 @@ pub fn adf_to_text(node: &Value) -> String {
     let mut out = String::new();
     walk(node, &mut out);
     out.trim().to_string()
+}
+
+/// Convert one raw comment Value (`GET /issue/{id}/comment`) into the shared
+/// shape. Bodies are ADF, flattened with the same `adf_to_text` as descriptions.
+pub fn parse_comment(v: &Value) -> Option<IssueComment> {
+    let body = v.get("body").filter(|b| !b.is_null()).map(adf_to_text)?;
+    if body.is_empty() {
+        return None;
+    }
+    Some(IssueComment {
+        author: str_at(v, &["author", "displayName"]).unwrap_or("Unknown").to_string(),
+        created: str_at(v, &["created"]).map(str::to_string),
+        // Jira comments from this endpoint carry no internal/public flag.
+        is_internal: false,
+        body,
+    })
 }
 
 pub fn parse_user(v: &Value) -> IssueUser {
@@ -163,4 +179,34 @@ fn parse_epic(fields: &Value) -> (Option<String>, Option<String>, Option<String>
         }
     }
     (None, None, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_comment_flattens_adf_body() {
+        let v = serde_json::json!({
+            "author": { "displayName": "Ada" },
+            "created": "2026-07-30T14:02:00.000+0000",
+            "body": {
+                "type": "doc",
+                "content": [
+                    { "type": "paragraph", "content": [{ "type": "text", "text": "First line" }] },
+                    { "type": "paragraph", "content": [{ "type": "text", "text": "Second line" }] }
+                ]
+            }
+        });
+        let c = parse_comment(&v).expect("comment should parse");
+        assert_eq!(c.author, "Ada");
+        assert!(!c.is_internal);
+        assert_eq!(c.body, "First line\nSecond line");
+    }
+
+    #[test]
+    fn parse_comment_skips_bodiless() {
+        let v = serde_json::json!({ "author": { "displayName": "Ada" } });
+        assert!(parse_comment(&v).is_none());
+    }
 }

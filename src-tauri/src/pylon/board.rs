@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use serde_json::{json, Value};
 
 use super::client;
-use super::models::{parse_issue, state_category, state_name, BASE_STATES};
+use super::models::{parse_comment, parse_issue, state_category, state_name, BASE_STATES};
 use super::PylonConnection;
-use crate::issues::models::{BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue};
+use crate::issues::models::{BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue, IssueComment};
 
 const OPEN_BOARD_ID: &str = "open-issues";
 /// Cap on issues fetched per board load (runaway guard, mirrors Jira's caps).
@@ -18,6 +18,8 @@ const MAX_ISSUES: usize = 1000;
 /// Closed issues older than this are dropped — the Closed column shows recent
 /// completions, not the org's whole history.
 const CLOSED_KEEP_DAYS: i64 = 14;
+/// Cap on thread messages fetched per brief (runaway guard, mirrors MAX_ISSUES).
+const MAX_MESSAGES: usize = 200;
 
 /// Pylon's virtual boards — the UI's board picker gets exactly one choice.
 pub fn virtual_boards() -> Vec<BoardSummary> {
@@ -203,4 +205,38 @@ pub async fn add_note(conn: &PylonConnection, issue_key: &str, text: &str) -> Re
     let path = format!("/issues/{id}/note");
     client::post(conn, &path, json!({ "body_html": paragraphs.join("") })).await?;
     Ok(())
+}
+
+/// The issue's full conversation thread — customer messages and internal
+/// notes — oldest-first. Paginates `GET /issues/{id}/messages`; `issue_id`
+/// is the native Pylon id (the API also accepts the issue number).
+pub async fn list_comments(conn: &PylonConnection, issue_id: &str) -> Result<Vec<IssueComment>, String> {
+    let id = issue_id.trim_start_matches('#');
+    let path = format!("/issues/{id}/messages");
+    let mut out: Vec<IssueComment> = Vec::new();
+    let mut cursor: Option<String> = None;
+    loop {
+        let mut query = vec![("limit", "100")];
+        if let Some(c) = cursor.as_deref() {
+            query.push(("cursor", c));
+        }
+        let v = client::get_query(conn, &path, &query).await?;
+        if let Some(arr) = client::data(&v).as_array() {
+            out.extend(arr.iter().filter_map(parse_comment));
+        }
+        let pagination = v.get("pagination");
+        let has_next = pagination
+            .and_then(|p| p.get("has_next_page"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        cursor = pagination
+            .and_then(|p| p.get("cursor"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        if !has_next || cursor.is_none() || out.len() >= MAX_MESSAGES {
+            break;
+        }
+    }
+    Ok(out)
 }

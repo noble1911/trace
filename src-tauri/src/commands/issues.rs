@@ -4,7 +4,7 @@
 
 use tauri::State;
 
-use crate::issues::models::{BoardData, BoardSummary, IssueUser, PullRequest};
+use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 use crate::issues::{IssueProvider, Provider, ProviderKind, ProviderSession};
 use crate::jira::JiraConnection;
 use crate::pylon::PylonConnection;
@@ -128,6 +128,19 @@ pub async fn comment_on_issue(
 ) -> Result<(), String> {
     let kind = ProviderKind::parse(&provider)?;
     get_provider(&state, kind)?.add_comment(&issue_key, &body).await
+}
+
+/// Recent entries in an issue's discussion thread (Jira comments; Pylon
+/// conversation incl. internal notes), oldest-first — enriches the agent
+/// kickoff brief. Providers without a readable thread return an empty list.
+#[tauri::command]
+pub async fn list_issue_comments(
+    state: State<'_, AppState>,
+    provider: String,
+    issue_id: String,
+) -> Result<Vec<IssueComment>, String> {
+    let kind = ProviderKind::parse(&provider)?;
+    get_provider(&state, kind)?.list_comments(&issue_id).await
 }
 
 /// PRs linked to an issue. `fresh` busts Jira's dev-status cache (re-syncs from

@@ -234,8 +234,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // Fire-and-forget — worktree creation takes seconds and the board
     // shouldn't block on it. (Dynamic import: launch.ts imports this store,
     // so a static import would be a cycle.)
-    void import("@/domains/agent/launch").then(({ launchIssueAgent, kickoffPrompt }) =>
-      launchIssueAgent(key, { prompt: kickoffPrompt(issue) })
+    void import("@/domains/agent/launch").then(async ({ launchIssueAgent, kickoffPrompt }) =>
+      launchIssueAgent(key, { prompt: await kickoffPrompt(issue) })
         .then(() => toast.success(`Started agent on ${key}`))
         .catch((err) => {
           // Unassigned issue in a multi-repo setup: ask right here on the

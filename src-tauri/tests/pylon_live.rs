@@ -61,3 +61,28 @@ async fn board_loads_columns_and_cards() {
         assert!(board.columns.iter().any(|c| c.statuses.iter().any(|s| s.id == issue.status_id)));
     }
 }
+
+#[tokio::test]
+async fn thread_loads_for_a_card() {
+    let Some(conn) = conn_from_env() else {
+        eprintln!("PYLON_API_KEY not set — skipping live test");
+        return;
+    };
+    let (_, conn) = auth::validate(&conn).await.expect("validate failed");
+
+    let board = conn.get_board("open-issues").await.expect("get_board failed");
+    let Some(issue) = board.issues.first() else {
+        eprintln!("no issues on the board — skipping thread check");
+        return;
+    };
+    // Exercises GET /issues/{id}/messages + parse_comment against the real API.
+    // A card may legitimately have zero messages — the assertion is that the
+    // endpoint and parser don't error, not that the thread is non-empty.
+    let comments = conn.list_comments(&issue.id).await.expect("list_comments failed");
+    println!("{}: {} thread message(s)", issue.key, comments.len());
+    for c in comments.iter().take(3) {
+        let body: String = c.body.chars().take(60).collect();
+        let tag = if c.is_internal { " [internal]" } else { "" };
+        println!("  {}{} — {}", c.author, tag, body);
+    }
+}

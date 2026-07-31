@@ -17,9 +17,10 @@ import { ContextRail } from "./ContextRail";
 import { DetailHeader } from "./DetailHeader";
 import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "./defaults";
 import { FilesPane } from "./FilesPane";
-import { launchIssueAgent } from "./launch";
+import { kickoffPrompt, launchIssueAgent } from "./launch";
 import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
+import { agentLabel } from "./providerLabel";
 import { RichOutputPanel } from "./RichOutputPanel";
 import { useRichOutputStore } from "./richOutputStore";
 import { StartPrompt } from "./StartPrompt";
@@ -153,8 +154,10 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       await setIssueRepo(issue.key, repoChoice);
       // The terminal is already mounted (behind the StartPrompt overlay) and
       // fitted, so launch spawns the PTY at its exact size — no spawn-time
-      // SIGWINCH double-painting the banner.
-      await launchIssueAgent(issue.key, { cli, provider });
+      // SIGWINCH double-painting the banner. Hand the agent the same kickoff
+      // brief the board-drag path uses, so it knows its ticket from the first
+      // turn (skipped automatically when resuming a saved conversation).
+      await launchIssueAgent(issue.key, { cli, provider, prompt: await kickoffPrompt(issue) });
     } catch (err) {
       setError(String(err));
     } finally {
@@ -276,6 +279,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
                   repos={repos}
                   repoChoice={repoChoice}
                   onRepoChange={setRepoChoice}
+                  agentName={agentLabel(cli, provider)}
+                  cliName={cli}
                 />
               )}
             </div>

@@ -39,6 +39,7 @@ pub fn run() {
             commands::issues::get_issue_pull_requests,
             commands::issues::transition_issue,
             commands::issues::comment_on_issue,
+            commands::issues::list_issue_comments,
             commands::repos::list_repos,
             commands::repos::add_repo,
             commands::repos::remove_repo,

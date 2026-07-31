@@ -112,3 +112,13 @@ export interface PullRequest {
   state: string;
   title: string;
 }
+
+/** One entry in an issue's discussion thread (Jira comment; Pylon customer
+ * message or internal note), oldest-first over IPC. */
+export interface IssueComment {
+  author: string;
+  created?: string | null;
+  /** Internal note never shown to the customer (Pylon `is_private`). */
+  isInternal: boolean;
+  body: string;
+}

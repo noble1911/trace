@@ -33,7 +33,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "start_agent",
     description:
-      "The complete 'begin work' action for a ticket: creates its worktree, moves the ticket to the board's In Progress column (unless already in progress), and launches the session with the user's configured kickoff brief (the ticket's key, summary and description) already submitted to the agent. The agent starts working immediately. Do NOT also call move_issue for the In Progress transition, and do NOT call send_to_agent afterward to tell it to start — the kickoff brief already does that; a follow-up message would just type an unsent duplicate over it.",
+      "The complete 'begin work' action for a ticket: creates its worktree, moves the ticket to the board's In Progress column (unless already in progress), and launches the session with the user's configured kickoff brief (the ticket's key, summary, description and recent discussion thread) already submitted to the agent. The agent starts working immediately. Do NOT also call move_issue for the In Progress transition, and do NOT call send_to_agent afterward to tell it to start — the kickoff brief already does that; a follow-up message would just type an unsent duplicate over it.",
     input_schema: {
       type: "object",
       properties: {
