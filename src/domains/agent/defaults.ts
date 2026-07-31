@@ -36,9 +36,10 @@ export function setAgentCli(next: AgentCli) {
   write(CLI_KEY, next);
 }
 
-/** The model provider behind the Claude harness ("moonshot" = Kimi via API). */
+/** The model provider behind the Claude harness (third-party Anthropic-compatible endpoint). */
 export function agentProvider(): AgentProvider {
-  return read(PROVIDER_KEY) === "moonshot" ? "moonshot" : "anthropic";
+  const raw = read(PROVIDER_KEY);
+  return raw === "moonshot" || raw === "fireworks" ? raw : "anthropic";
 }
 
 export function setAgentProvider(next: AgentProvider) {

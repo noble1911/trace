@@ -22,8 +22,8 @@ import { JiraForm, PylonForm } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
-import { moonshotKeyConfigured, setMoonshotKey } from "@/ipc/providers";
 import { AssistantSettings } from "./AssistantSettings";
+import { ProviderKeyField } from "./ProviderKeyField";
 import { RepoSettings } from "./RepoSettings";
 import { SettingRow } from "./SettingRow";
 import { TerminalSettings } from "./TerminalSettings";
@@ -58,14 +58,6 @@ export function SettingsView() {
   const [kickoff, setKickoff] = useState(kickoffPromptRaw);
   const [autoStart, setAutoStart] = useState(autoStartOnMove);
   const [tab, setTab] = useState<SettingsTab>("general");
-  const [moonshotSaved, setMoonshotSaved] = useState(false);
-  const [moonshotKey, setMoonshotKeyInput] = useState("");
-
-  useEffect(() => {
-    moonshotKeyConfigured()
-      .then(setMoonshotSaved)
-      .catch(() => setMoonshotSaved(false));
-  }, []);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
@@ -74,11 +66,6 @@ export function SettingsView() {
   const chooseProvider = (next: AgentProvider) => {
     setProvider(next);
     setAgentProvider(next);
-  };
-  const saveMoonshotKey = async (next: string) => {
-    await setMoonshotKey(next);
-    setMoonshotSaved(Boolean(next.trim()));
-    setMoonshotKeyInput("");
   };
   const chooseModel = (next: string) => {
     setModel(next);
@@ -157,7 +144,7 @@ export function SettingsView() {
               {cli === "claude" && (
                 <SettingRow
                   label="Provider"
-                  hint="Kimi runs the same Claude Code harness against Moonshot's API."
+                  hint="Kimi runs the same Claude Code harness against a third-party API."
                 >
                   <select
                     aria-label="Default provider"
@@ -166,45 +153,12 @@ export function SettingsView() {
                   >
                     <option value="anthropic">Anthropic</option>
                     <option value="moonshot">Kimi (Moonshot)</option>
+                    <option value="fireworks">Kimi K3 Fast (Fireworks)</option>
                   </select>
                 </SettingRow>
               )}
-              {cli === "claude" && provider === "moonshot" && (
-                <div className="setting-block">
-                  <div className="label">Moonshot API key</div>
-                  <div className="hint">
-                    {moonshotSaved
-                      ? "A key is saved. Enter a new one to replace it."
-                      : "Required for Kimi agents — from platform.moonshot.ai."}
-                  </div>
-                  <div className="key-row">
-                    <input
-                      type="password"
-                      className="key-input"
-                      aria-label="Moonshot API key"
-                      placeholder={moonshotSaved ? "•••••••••••••••• (saved)" : "sk-…"}
-                      value={moonshotKey}
-                      onChange={(e) => setMoonshotKeyInput(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="key-btn"
-                      disabled={!moonshotKey.trim()}
-                      onClick={() => void saveMoonshotKey(moonshotKey)}
-                    >
-                      Save
-                    </button>
-                  </div>
-                  {moonshotSaved && (
-                    <button
-                      type="button"
-                      className="key-remove"
-                      onClick={() => void saveMoonshotKey("")}
-                    >
-                      Remove key
-                    </button>
-                  )}
-                </div>
+              {cli === "claude" && provider !== "anthropic" && (
+                <ProviderKeyField provider={provider} />
               )}
               <SettingRow
                 label="Default model"

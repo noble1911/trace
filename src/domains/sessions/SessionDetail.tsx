@@ -3,6 +3,7 @@ import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { agentArgs } from "@/domains/agent/defaults";
 import { FilesPane } from "@/domains/agent/FilesPane";
+import { agentLabel } from "@/domains/agent/providerLabel";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
@@ -94,7 +95,7 @@ export function SessionDetail({
         const companions = companionsOf(updated);
         const added = companions[companions.length - 1];
         if (added) showAgent(added.id);
-        toast.success(`Added a ${provider === "moonshot" ? "kimi" : cli} agent to this session`);
+        toast.success(`Added a ${agentLabel(cli, provider)} agent to this session`);
       })
       .catch((err) => toast.error(String(err)));
   };

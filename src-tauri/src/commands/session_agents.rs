@@ -31,7 +31,7 @@ pub struct SessionAgent {
     pub id: String,
     /// "claude" | "codex".
     pub cli: String,
-    /// Model provider for the Claude harness (Some("moonshot") = Kimi).
+    /// Model provider for the Claude harness (see commands::providers::spec).
     #[serde(default)]
     pub provider: Option<String>,
 }
@@ -45,8 +45,13 @@ pub fn add_session_agent(
     provider: Option<String>,
 ) -> Result<ScratchSession, String> {
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
-    let provider = (cli == "claude" && provider.as_deref() == Some("moonshot"))
-        .then(|| "moonshot".to_string());
+    // Only Claude takes a model provider, and only known ones (spec() = the
+    // registry of Anthropic-compatible endpoints in commands::providers).
+    let provider = if cli == "claude" {
+        provider.filter(|p| crate::commands::providers::spec(p).is_some())
+    } else {
+        None
+    };
     let mut list = load();
     let Some(session) = list.iter_mut().find(|s| s.id == id) else {
         return Err("That session no longer exists.".to_string());

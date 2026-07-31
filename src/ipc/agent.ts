@@ -9,11 +9,12 @@ export function agentRunning(issueKey: string): Promise<boolean> {
 export type AgentCli = "claude" | "codex";
 
 /**
- * Model provider behind the Claude Code harness. "moonshot" points the same
- * `claude` CLI at Moonshot's Anthropic-compatible endpoint (Kimi) via env
- * overrides injected Rust-side; only meaningful with cli === "claude".
+ * Model provider behind the Claude Code harness. Third-party Anthropic-
+ * compatible endpoints (Moonshot's Kimi, Fireworks' Kimi K3 Fast) run the
+ * same `claude` CLI with env overrides injected Rust-side; only meaningful
+ * with cli === "claude".
  */
-export type AgentProvider = "anthropic" | "moonshot";
+export type AgentProvider = "anthropic" | "moonshot" | "fireworks";
 
 export function startAgent(
   issueKey: string,
