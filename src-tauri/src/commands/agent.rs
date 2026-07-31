@@ -215,10 +215,18 @@ pub(crate) fn spawn_in(
                 // tool_reference blocks: its tool results carry tool_reference
                 // chunks Fireworks also 400s on. Claude Code auto-disables
                 // tool search on non-first-party base URLs, but a user-level
-                // ENABLE_TOOL_SEARCH=true overrides that — force it off so all
-                // tools load upfront and no tool_reference ever enters the
-                // conversation.
+                // settings.json `env.ENABLE_TOOL_SEARCH=true` wins over any
+                // process-env value we inject (docs: "settings file value
+                // applies"). CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS strips the
+                // beta headers/fields tool search needs and forces all tools
+                // upfront even when ENABLE_TOOL_SEARCH is set — so settings
+                // can't re-enable it. Keep ENABLE_TOOL_SEARCH=false as a
+                // belt-and-suspenders for CLIs that honour process env.
                 env_overrides.insert("ENABLE_TOOL_SEARCH".to_string(), "false".to_string());
+                env_overrides.insert(
+                    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS".to_string(),
+                    "1".to_string(),
+                );
             }
         }
     }
