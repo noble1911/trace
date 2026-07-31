@@ -211,6 +211,14 @@ pub(crate) fn spawn_in(
                     "WebSearch".to_string(),
                     "WebFetch".to_string(),
                 ]);
+                // ToolSearch (deferred tool loading) is a second source of
+                // tool_reference blocks: its tool results carry tool_reference
+                // chunks Fireworks also 400s on. Claude Code auto-disables
+                // tool search on non-first-party base URLs, but a user-level
+                // ENABLE_TOOL_SEARCH=true overrides that — force it off so all
+                // tools load upfront and no tool_reference ever enters the
+                // conversation.
+                env_overrides.insert("ENABLE_TOOL_SEARCH".to_string(), "false".to_string());
             }
         }
     }
