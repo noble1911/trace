@@ -78,7 +78,11 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
 - **Issue ⇄ card:** every board card is a Jira issue in the user's active sprint. There is no local ticket store
   — Jira is the source of truth. Columns come from the user's *board configuration*, never hardcoded.
 - **Agent:** an interactive `claude` (or `codex`) TUI hosted in a PTY, rooted in a git worktree created for one
-  issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data).
+  issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data). A
+  `provider` axis (`"anthropic"` | `"moonshot"`) points the same Claude Code harness at Moonshot's
+  Anthropic-compatible endpoint (Kimi) via `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` env injected at spawn;
+  the Moonshot key lives Rust-side in a `0600` config file (`commands/providers.rs`) and never crosses to the
+  renderer.
 - **Exploratory session:** the same agent transport without a Jira issue — a named scratch session in its own
   worktree (`domains/sessions/`, `commands/session.rs`).
 - **Lifecycle:** moving a card transitions the Jira issue AND triggers the matching action — start agent (→ in

@@ -6,7 +6,7 @@ import { FilesPane } from "@/domains/agent/FilesPane";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { type Editor, openInEditor } from "@/ipc/editor";
 import { startSession, startSessionAgent } from "@/ipc/session";
 import { AddAgentMenu } from "./AddAgentMenu";
@@ -87,14 +87,14 @@ export function SessionDetail({
     setConfirmRemove(false);
   };
 
-  const onAddAgent = (cli: AgentCli) => {
-    void addAgent(session.id, cli)
+  const onAddAgent = (cli: AgentCli, provider?: AgentProvider) => {
+    void addAgent(session.id, cli, provider)
       .then((updated) => {
         // The backend appends, so the new companion is the last one.
         const companions = companionsOf(updated);
         const added = companions[companions.length - 1];
         if (added) showAgent(added.id);
-        toast.success(`Added a ${cli} agent to this session`);
+        toast.success(`Added a ${provider === "moonshot" ? "kimi" : cli} agent to this session`);
       })
       .catch((err) => toast.error(String(err)));
   };

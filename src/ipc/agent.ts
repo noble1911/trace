@@ -8,6 +8,13 @@ export function agentRunning(issueKey: string): Promise<boolean> {
 
 export type AgentCli = "claude" | "codex";
 
+/**
+ * Model provider behind the Claude Code harness. "moonshot" points the same
+ * `claude` CLI at Moonshot's Anthropic-compatible endpoint (Kimi) via env
+ * overrides injected Rust-side; only meaningful with cli === "claude".
+ */
+export type AgentProvider = "anthropic" | "moonshot";
+
 export function startAgent(
   issueKey: string,
   cols: number,
@@ -16,7 +23,8 @@ export function startAgent(
   cli?: AgentCli,
   extraArgs?: string[],
   initialPrompt?: string,
-  matchText?: string
+  matchText?: string,
+  provider?: AgentProvider
 ): Promise<void> {
   return invoke("start_agent", {
     issueKey,
@@ -24,6 +32,7 @@ export function startAgent(
     rows,
     model: model ?? null,
     cli: cli ?? "claude",
+    provider: provider ?? null,
     extraArgs: extraArgs ?? null,
     initialPrompt: initialPrompt ?? null,
     matchText: matchText ?? null,
