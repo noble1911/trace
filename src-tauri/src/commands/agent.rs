@@ -164,8 +164,8 @@ pub(crate) fn spawn_in(
     model: Option<String>,
     extra_args: Vec<String>,
     initial_prompt: Option<String>,
-    // Model provider for the Claude harness: Some("moonshot") points the same
-    // `claude` CLI at Moonshot's Anthropic-compatible endpoint (Kimi). Only
+    // Model provider for the Claude harness: a registered Anthropic-compatible
+    // endpoint (commands::providers::spec — "moonshot", "fireworks"). Only
     // meaningful with cli == "claude"; ignored otherwise.
     provider: Option<String>,
     cols: u16,
@@ -188,10 +188,16 @@ pub(crate) fn spawn_in(
         env_overrides.insert("TRACE_RENDER_TOKEN".to_string(), bridge.token.clone());
     }
     let mut model = model;
-    if cli == "claude" && provider.as_deref() == Some("moonshot") {
-        env_overrides.extend(crate::commands::providers::moonshot_env()?);
-        if model.is_none() {
-            model = Some(crate::commands::providers::MOONSHOT_DEFAULT_MODEL.to_string());
+    if cli == "claude" {
+        if let Some(spec) = provider.as_deref().and_then(crate::commands::providers::spec) {
+            env_overrides.extend(crate::commands::providers::env(spec)?);
+            // The Settings default model targets Anthropic (e.g. "fable") and
+            // doesn't resolve on a third-party endpoint — keep only models that
+            // clearly belong to this provider, else use its default.
+            match model.as_deref() {
+                Some(m) if m.starts_with(spec.model_prefix) => {}
+                _ => model = Some(spec.default_model.to_string()),
+            }
         }
     }
     let (session, pid) = spawn_agent_pty(
