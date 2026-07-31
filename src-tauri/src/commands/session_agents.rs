@@ -31,13 +31,22 @@ pub struct SessionAgent {
     pub id: String,
     /// "claude" | "codex".
     pub cli: String,
+    /// Model provider for the Claude harness (Some("moonshot") = Kimi).
+    #[serde(default)]
+    pub provider: Option<String>,
 }
 
 /// Add a companion agent to a session. Persists it but does not start it — the
 /// detail view starts it at the terminal's measured size, like every other agent.
 #[tauri::command]
-pub fn add_session_agent(id: String, cli: String) -> Result<ScratchSession, String> {
+pub fn add_session_agent(
+    id: String,
+    cli: String,
+    provider: Option<String>,
+) -> Result<ScratchSession, String> {
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
+    let provider = (cli == "claude" && provider.as_deref() == Some("moonshot"))
+        .then(|| "moonshot".to_string());
     let mut list = load();
     let Some(session) = list.iter_mut().find(|s| s.id == id) else {
         return Err("That session no longer exists.".to_string());
@@ -45,7 +54,7 @@ pub fn add_session_agent(id: String, cli: String) -> Result<ScratchSession, Stri
     if session.agents.len() >= MAX_AGENTS {
         return Err(format!("A session can host at most {MAX_AGENTS} extra agents."));
     }
-    session.agents.push(SessionAgent { id: new_id(), cli });
+    session.agents.push(SessionAgent { id: new_id(), cli, provider });
     let updated = session.clone();
     save(&list)?;
     Ok(updated)
@@ -93,12 +102,13 @@ pub fn start_session_agent(
 
     let session =
         load().into_iter().find(|s| s.id == id).ok_or("That session no longer exists.")?;
-    let cli = session
+    let agent = session
         .agents
         .iter()
         .find(|a| a.id == agent_id)
-        .map(|a| a.cli.clone())
         .ok_or("That agent is no longer part of this session.")?;
+    let cli = agent.cli.clone();
+    let provider = agent.provider.clone();
     let cwd = session_cwd(&id, true)?;
 
     spawn_in(
@@ -110,6 +120,7 @@ pub fn start_session_agent(
         None,
         extra_args.unwrap_or_default(),
         None,
+        provider,
         cols,
         rows,
     )

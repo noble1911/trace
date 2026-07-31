@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 
-const CLIS: AgentCli[] = ["claude", "codex"];
+interface AgentOption {
+  cli: AgentCli;
+  provider?: AgentProvider;
+  label: string;
+}
+
+const OPTIONS: AgentOption[] = [
+  { cli: "claude", label: "claude" },
+  { cli: "claude", provider: "moonshot", label: "claude · kimi" },
+  { cli: "codex", label: "codex" },
+];
 
 interface AddAgentMenuProps {
-  onAdd: (cli: AgentCli) => void;
+  onAdd: (cli: AgentCli, provider?: AgentProvider) => void;
   /** True at the companion cap — the trigger stays visible but inert. */
   disabled?: boolean;
 }
@@ -52,17 +62,17 @@ export function AddAgentMenu({ onAdd, disabled }: AddAgentMenuProps) {
       {open && (
         <div className="add-agent-menu" role="menu">
           <div className="add-agent-head">Add agent · same worktree</div>
-          {CLIS.map((cli) => (
+          {OPTIONS.map((opt) => (
             <button
-              key={cli}
+              key={opt.label}
               type="button"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onAdd(cli);
+                onAdd(opt.cli, opt.provider);
               }}
             >
-              <span className={`session-cli ${cli}`}>{cli}</span>
+              <span className={`session-cli ${opt.cli}`}>{opt.label}</span>
             </button>
           ))}
         </div>

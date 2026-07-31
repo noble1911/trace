@@ -1,5 +1,5 @@
 import type { SessionStatus } from "@/domains/board/store";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import type { ScratchSession, SessionAgent } from "./types";
 
 /**
@@ -90,17 +90,25 @@ export function workspaceTitle(sessions: ScratchSession[], workspaceId: string):
  */
 export function agentRoster(session: ScratchSession): RosterEntry[] {
   const seen = new Map<string, number>();
-  const label = (cli: AgentCli) => {
-    const n = (seen.get(cli) ?? 0) + 1;
-    seen.set(cli, n);
-    return n === 1 ? cli : `${cli} ${n}`;
+  // A Moonshot-backed claude reads as "kimi" so it's distinguishable from an
+  // Anthropic-backed one sharing the same worktree.
+  const label = (cli: AgentCli, provider?: AgentProvider | null) => {
+    const base = cli === "claude" && provider === "moonshot" ? "kimi" : cli;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    return n === 1 ? base : `${base} ${n}`;
   };
   return [
-    { workspaceId: session.id, cli: session.cli, label: label(session.cli), companion: false },
+    {
+      workspaceId: session.id,
+      cli: session.cli,
+      label: label(session.cli, session.provider),
+      companion: false,
+    },
     ...companionsOf(session).map((a) => ({
       workspaceId: a.id,
       cli: a.cli,
-      label: label(a.cli),
+      label: label(a.cli, a.provider),
       companion: true,
     })),
   ];

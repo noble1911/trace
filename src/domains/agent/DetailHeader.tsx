@@ -3,13 +3,15 @@ import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 
 interface DetailHeaderProps {
   issue: Issue;
   status: SessionStatus;
   running: boolean;
   cli: AgentCli;
+  /** Model provider behind the Claude harness ("moonshot" = Kimi via API). */
+  provider: AgentProvider;
   openPr: PullRequest | null;
   busy: "raise" | "merge" | null;
   railOpen: boolean;
@@ -19,6 +21,7 @@ interface DetailHeaderProps {
   onStart: () => void;
   onStop: () => void;
   onChooseCli: (cli: AgentCli) => void;
+  onChooseProvider: (provider: AgentProvider) => void;
   onToggleRail: () => void;
 }
 
@@ -30,6 +33,7 @@ export function DetailHeader({
   status,
   running,
   cli,
+  provider,
   openPr,
   busy,
   railOpen,
@@ -39,6 +43,7 @@ export function DetailHeader({
   onStart,
   onStop,
   onChooseCli,
+  onChooseProvider,
   onToggleRail,
 }: DetailHeaderProps) {
   return (
@@ -92,8 +97,20 @@ export function DetailHeader({
               <option value="claude">Claude</option>
               <option value="codex">Codex</option>
             </select>
+            {cli === "claude" && (
+              <select
+                className="cli-select"
+                value={provider}
+                onChange={(e) => onChooseProvider(e.target.value as AgentProvider)}
+                title="Which model provider backs the Claude harness"
+              >
+                <option value="anthropic">Anthropic</option>
+                <option value="moonshot">Kimi (Moonshot)</option>
+              </select>
+            )}
             <button type="button" className="btn primary" onClick={onStart}>
-              <I.Bolt size={13} /> Start {cli}
+              <I.Bolt size={13} /> Start{" "}
+              {provider === "moonshot" && cli === "claude" ? "kimi" : cli}
             </button>
           </>
         )}

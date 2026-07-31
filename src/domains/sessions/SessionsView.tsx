@@ -1,8 +1,8 @@
 import { type DragEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
-import { agentCli, setAgentCli } from "@/domains/agent/defaults";
+import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "@/domains/agent/defaults";
 import { useBoardStore } from "@/domains/board/store";
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { ArchiveBin } from "./ArchiveBin";
 import { sessionNeedsYou, sessionStatus } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
@@ -76,10 +76,11 @@ export function SessionsView() {
     void saveGroups(patchSectionIn(groups, id, patch));
   const deleteSection = (id: string) => void saveGroups(withoutSection(groups, id)).then(load);
 
-  const onCreate = (title: string, cli: AgentCli, repo: string | null) => {
+  const onCreate = (title: string, cli: AgentCli, repo: string | null, provider: AgentProvider) => {
     setAgentCli(cli);
+    setAgentProvider(provider);
     setCreating(false);
-    void create(title, cli, repo).then((s) => {
+    void create(title, cli, repo, provider).then((s) => {
       if (activeTab) void assign(s.id, activeTab, null);
     });
   };
@@ -227,6 +228,7 @@ export function SessionsView() {
       {creating && (
         <NewSessionModal
           defaultCli={agentCli()}
+          defaultProvider={agentProvider()}
           onClose={() => setCreating(false)}
           onCreate={onCreate}
         />

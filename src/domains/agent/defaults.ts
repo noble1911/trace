@@ -1,9 +1,10 @@
 // Agent launch defaults configured in Settings, read from localStorage so the
 // start flows and the Settings UI share one source of truth.
 
-import type { AgentCli } from "@/ipc/agent";
+import type { AgentCli, AgentProvider } from "@/ipc/agent";
 
 const CLI_KEY = "trace.agentCli";
+const PROVIDER_KEY = "trace.agentProvider";
 const MODEL_KEY = "trace.agentModel";
 const ARGS_KEY = "trace.agentArgs";
 const NOTIFY_WAITING_KEY = "trace.notifyOnWaiting";
@@ -33,6 +34,15 @@ export function agentCli(): AgentCli {
 
 export function setAgentCli(next: AgentCli) {
   write(CLI_KEY, next);
+}
+
+/** The model provider behind the Claude harness ("moonshot" = Kimi via API). */
+export function agentProvider(): AgentProvider {
+  return read(PROVIDER_KEY) === "moonshot" ? "moonshot" : "anthropic";
+}
+
+export function setAgentProvider(next: AgentProvider) {
+  write(PROVIDER_KEY, next);
 }
 
 /** The default model, or undefined to use the CLI's own default. */

@@ -4,12 +4,18 @@ import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/jira/types";
-import { type AgentCli, agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
+import {
+  type AgentCli,
+  type AgentProvider,
+  agentRunning,
+  resetAgentSession,
+  stopAgent,
+} from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
 import { ContextRail } from "./ContextRail";
 import { DetailHeader } from "./DetailHeader";
-import { agentCli, setAgentCli } from "./defaults";
+import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "./defaults";
 import { FilesPane } from "./FilesPane";
 import { launchIssueAgent } from "./launch";
 import { PrPane } from "./PrPane";
@@ -58,6 +64,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(agentCli);
+  const [provider, setProvider] = useState<AgentProvider>(agentProvider);
   const [railOpen, setRailOpen] = useState(loadRailOpen);
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
@@ -123,6 +130,10 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     setCli(next);
     setAgentCli(next);
   };
+  const chooseProvider = (next: AgentProvider) => {
+    setProvider(next);
+    setAgentProvider(next);
+  };
 
   const start = async () => {
     // Guard against a re-entrant start: worktree creation takes a few seconds,
@@ -143,7 +154,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       // The terminal is already mounted (behind the StartPrompt overlay) and
       // fitted, so launch spawns the PTY at its exact size — no spawn-time
       // SIGWINCH double-painting the banner.
-      await launchIssueAgent(issue.key, { cli });
+      await launchIssueAgent(issue.key, { cli, provider });
     } catch (err) {
       setError(String(err));
     } finally {
@@ -215,6 +226,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
         status={status}
         running={running}
         cli={cli}
+        provider={provider}
         openPr={openPr}
         busy={busy}
         railOpen={railOpen}
@@ -224,6 +236,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
         onStart={start}
         onStop={stop}
         onChooseCli={chooseCli}
+        onChooseProvider={chooseProvider}
         onToggleRail={toggleRail}
       />
 
