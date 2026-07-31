@@ -4,13 +4,14 @@ import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
+import { agentLabel } from "./providerLabel";
 
 interface DetailHeaderProps {
   issue: Issue;
   status: SessionStatus;
   running: boolean;
   cli: AgentCli;
-  /** Model provider behind the Claude harness ("moonshot" = Kimi via API). */
+  /** Model provider behind the Claude harness (third-party Anthropic-compatible endpoint). */
   provider: AgentProvider;
   openPr: PullRequest | null;
   busy: "raise" | "merge" | null;
@@ -106,11 +107,11 @@ export function DetailHeader({
               >
                 <option value="anthropic">Anthropic</option>
                 <option value="moonshot">Kimi (Moonshot)</option>
+                <option value="fireworks">Kimi K3 Fast (Fireworks)</option>
               </select>
             )}
             <button type="button" className="btn primary" onClick={onStart}>
-              <I.Bolt size={13} /> Start{" "}
-              {provider === "moonshot" && cli === "claude" ? "kimi" : cli}
+              <I.Bolt size={13} /> Start {agentLabel(cli, provider)}
             </button>
           </>
         )}

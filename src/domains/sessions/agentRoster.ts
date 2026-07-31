@@ -1,3 +1,4 @@
+import { agentLabel } from "@/domains/agent/providerLabel";
 import type { SessionStatus } from "@/domains/board/store";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import type { ScratchSession, SessionAgent } from "./types";
@@ -90,10 +91,10 @@ export function workspaceTitle(sessions: ScratchSession[], workspaceId: string):
  */
 export function agentRoster(session: ScratchSession): RosterEntry[] {
   const seen = new Map<string, number>();
-  // A Moonshot-backed claude reads as "kimi" so it's distinguishable from an
-  // Anthropic-backed one sharing the same worktree.
+  // A third-party-backed claude reads as the model it runs (e.g. "kimi") so
+  // it's distinguishable from an Anthropic-backed one sharing the worktree.
   const label = (cli: AgentCli, provider?: AgentProvider | null) => {
-    const base = cli === "claude" && provider === "moonshot" ? "kimi" : cli;
+    const base = agentLabel(cli, provider);
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     return n === 1 ? base : `${base} ${n}`;

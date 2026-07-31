@@ -11,6 +11,7 @@ import {
   setAgentCli,
   setAgentProvider,
 } from "./defaults";
+import { agentLabel } from "./providerLabel";
 import { fitTerminal, resetTerminal } from "./terminalRegistry";
 
 const MAX_DESCRIPTION_CHARS = 2000;
@@ -26,7 +27,7 @@ export function kickoffPrompt(issue: Issue): string {
 
 interface LaunchOptions {
   cli?: AgentCli;
-  /** Model provider for the Claude harness ("moonshot" = Kimi via API). */
+  /** Model provider for the Claude harness (third-party Anthropic-compatible endpoint). */
   provider?: AgentProvider;
   /** Sent as the CLI's positional prompt — fresh conversations only. */
   prompt?: string;
@@ -71,6 +72,9 @@ export async function launchIssueAgent(
     chosenProvider
   );
   setAgentRunning(issueKey, true);
-  const label = chosenProvider === "moonshot" ? `${chosen} · kimi` : chosen;
-  activity.log({ kind: "agent-start", issueKey, title: `started ${label}` });
+  activity.log({
+    kind: "agent-start",
+    issueKey,
+    title: `started ${agentLabel(chosen, chosenProvider)}`,
+  });
 }

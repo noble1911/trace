@@ -99,6 +99,7 @@ export function NewSessionModal({
           >
             <option value="anthropic">Anthropic</option>
             <option value="moonshot">Kimi (Moonshot)</option>
+            <option value="fireworks">Kimi K3 Fast (Fireworks)</option>
           </select>
         </label>
       )}
