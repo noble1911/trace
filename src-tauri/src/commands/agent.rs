@@ -227,6 +227,16 @@ pub(crate) fn spawn_in(
                     "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS".to_string(),
                     "1".to_string(),
                 );
+                // Forcing tools upfront surfaces a third Fireworks failure:
+                // with the user's full MCP set loaded (Pipedrive alone is
+                // ~279 tools), the second turn 400s with "Failed to build a
+                // constrained-generation grammar". Fireworks' own error says
+                // to set disable_grammar:true; Claude Code forwards arbitrary
+                // request fields via CLAUDE_CODE_EXTRA_BODY.
+                env_overrides.insert(
+                    "CLAUDE_CODE_EXTRA_BODY".to_string(),
+                    r#"{"disable_grammar":true}"#.to_string(),
+                );
             }
         }
     }
