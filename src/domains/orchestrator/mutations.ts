@@ -3,7 +3,7 @@ import { activity } from "@/domains/activity/store";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { sendAgentInput } from "@/ipc/agent";
-import { commentOnIssue, transitionJiraIssue } from "@/ipc/jira";
+import { commentOnIssue, transitionIssue } from "@/ipc/issues";
 
 // Mutating tools. Every one passes through a human confirm-card before it runs
 // (the gate lives in agent.ts). Deliberately NO raise_pr / merge_pr: in this
@@ -13,11 +13,14 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "move_issue",
     description:
-      "Move a ticket to a different board column by transitioning its Jira status. Only legal workflow transitions succeed.",
+      "Move a ticket to a different board column by transitioning its status. On Jira, only legal workflow transitions succeed.",
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The Jira issue key, e.g. TRACE-12." },
+        issue_key: {
+          type: "string",
+          description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon).",
+        },
         target_status: {
           type: "string",
           description:
@@ -34,7 +37,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The Jira issue key to start an agent on." },
+        issue_key: { type: "string", description: "The issue key to start an agent on." },
       },
       required: ["issue_key"],
     },
@@ -46,7 +49,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The Jira issue key whose agent to message." },
+        issue_key: { type: "string", description: "The issue key whose agent to message." },
         message: { type: "string", description: "The text to send to the agent." },
       },
       required: ["issue_key", "message"],
@@ -55,11 +58,11 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "comment_on_issue",
     description:
-      "Add a comment to a Jira ticket. Use to record a decision or a summary on the issue itself.",
+      "Add a comment to a ticket. Use to record a decision or a summary on the issue itself.",
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The Jira issue key to comment on." },
+        issue_key: { type: "string", description: "The issue key to comment on." },
         body: {
           type: "string",
           description: "The comment text (plain text; newlines become paragraphs).",
@@ -162,7 +165,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
     const want = field(input, "target_status").trim().toLowerCase();
     // The model names what it sees in the snapshot — a COLUMN. Match that first;
     // fall back to a specific status name. Pass every candidate status id so
-    // transitionJiraIssue picks whichever transition the workflow allows.
+    // transitionIssue picks whichever transition the workflow allows.
     const column = data.columns.find((c) => c.name.toLowerCase() === want);
     const statuses = column
       ? column.statuses
@@ -177,8 +180,10 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
     }
     // Raw transition (not the board's optimistic moveIssue) so we report real
     // success/failure to the model, then resync the board.
+    if (!board.provider) return "No board is loaded.";
     try {
-      await transitionJiraIssue(
+      await transitionIssue(
+        board.provider,
         key,
         statuses.map((s) => s.id)
       );
@@ -204,7 +209,8 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
       const target = startOfWorkStatus(data.columns);
       if (target) {
         try {
-          await transitionJiraIssue(key, [target.id]);
+          if (!board.provider) throw new Error("no provider");
+          await transitionIssue(board.provider, key, [target.id]);
           activity.log({ kind: "transition", issueKey: key, title: `→ ${target.name}` });
           moved = ` and moved it to ${target.name}`;
         } catch (e) {
@@ -234,8 +240,9 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
   if (name === "comment_on_issue") {
     const body = field(input, "body");
     if (!body.trim()) return "Error: empty comment.";
+    if (!board.provider) return "No board is loaded.";
     try {
-      await commentOnIssue(key, body);
+      await commentOnIssue(board.provider, key, body);
       return `Commented on ${key}.`;
     } catch (e) {
       return `Couldn't comment on ${key}: ${e instanceof Error ? e.message : String(e)}`;

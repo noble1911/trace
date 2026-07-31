@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Modal } from "@/components/Modal";
 import { Switch } from "@/components/Switch";
 import {
   agentArgsRaw,
@@ -15,7 +16,9 @@ import {
   setKickoffPrompt,
   setNotifyOnWaiting,
 } from "@/domains/agent/defaults";
-import { useJiraStore } from "@/domains/jira/store";
+import { JiraForm, PylonForm } from "@/domains/issues/components/ProviderLogin";
+import { useIssuesStore } from "@/domains/issues/store";
+import type { ProviderKind } from "@/domains/issues/types";
 import type { AgentCli } from "@/ipc/agent";
 import { AssistantSettings } from "./AssistantSettings";
 import { RepoSettings } from "./RepoSettings";
@@ -32,11 +35,17 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: "updates", label: "Updates" },
 ];
 
-// Settings: the local repo agents run in, agent defaults, and the Jira connection.
+// Settings: the local repo agents run in, agent defaults, and the tracker connections.
 export function SettingsView() {
-  const session = useJiraStore((s) => s.session);
-  const user = useJiraStore((s) => s.user);
-  const disconnect = useJiraStore((s) => s.disconnect);
+  const sessions = useIssuesStore((s) => s.sessions);
+  const users = useIssuesStore((s) => s.users);
+  const disconnect = useIssuesStore((s) => s.disconnect);
+  const [connectingProvider, setConnectingProvider] = useState<ProviderKind | null>(null);
+
+  // Close the connect modal once its provider is live.
+  useEffect(() => {
+    if (connectingProvider && sessions[connectingProvider]) setConnectingProvider(null);
+  }, [connectingProvider, sessions]);
 
   const [cli, setCli] = useState<AgentCli>(agentCli);
   const [model, setModel] = useState(agentModelRaw);
@@ -191,32 +200,60 @@ export function SettingsView() {
 
             <section className="setting-group">
               <h2>Integrations</h2>
-              <div className="desc">Where the board comes from.</div>
-              <div className="integration-card">
-                <div className="ig-ic ig-ic-jira">J</div>
-                <div className="ig-body">
-                  <div className="ig-name">Jira{user ? ` · ${user.displayName}` : ""}</div>
-                  <div className="ig-sub">
-                    {session ? `${session.site} · ${session.email}` : "Not connected."}
+              <div className="desc">Where the board comes from — connect one or both.</div>
+              {(["jira", "pylon"] as const).map((kind) => {
+                const session = sessions[kind];
+                const user = users[kind];
+                return (
+                  <div className="integration-card" key={kind}>
+                    <div className="ig-ic ig-ic-jira">{kind === "pylon" ? "P" : "J"}</div>
+                    <div className="ig-body">
+                      <div className="ig-name">
+                        {kind === "pylon" ? "Pylon" : "Jira"}
+                        {session && user ? ` · ${user.displayName}` : ""}
+                      </div>
+                      <div className="ig-sub">
+                        {session
+                          ? kind === "pylon"
+                            ? "api.usepylon.com"
+                            : `${session.site} · ${session.email}`
+                          : "Not connected."}
+                      </div>
+                    </div>
+                    {session ? (
+                      <button
+                        type="button"
+                        className="ig-status connected"
+                        onClick={() => void disconnect(kind)}
+                        title="Disconnect"
+                      >
+                        connected
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ig-status disconnected"
+                        onClick={() => setConnectingProvider(kind)}
+                        title="Connect"
+                      >
+                        connect
+                      </button>
+                    )}
                   </div>
-                </div>
-                {session ? (
-                  <button
-                    type="button"
-                    className="ig-status connected"
-                    onClick={() => void disconnect()}
-                    title="Disconnect"
-                  >
-                    connected
-                  </button>
-                ) : (
-                  <span className="ig-status disconnected">connect</span>
-                )}
-              </div>
+                );
+              })}
             </section>
           </div>
         )}
       </div>
+      {connectingProvider && (
+        <Modal
+          title={connectingProvider === "jira" ? "Connect Jira" : "Connect Pylon"}
+          onClose={() => setConnectingProvider(null)}
+        >
+          {connectingProvider === "jira" ? <JiraForm /> : <PylonForm />}
+        </Modal>
+      )}
     </div>
   );
 }

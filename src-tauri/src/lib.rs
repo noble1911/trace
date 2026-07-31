@@ -7,7 +7,9 @@ pub mod claude;
 pub mod commands;
 pub mod git;
 pub mod helpers;
+pub mod issues;
 pub mod jira;
+pub mod pylon;
 pub mod state;
 
 use state::AppState;
@@ -16,9 +18,9 @@ use state::AppState;
 pub fn run() {
     let app_state = AppState::new();
 
-    // Reconnect from the keychain if a previous session was saved.
-    if let Some(conn) = jira::auth::load() {
-        *app_state.jira.write() = Some(conn);
+    // Reconnect every issue tracker with a saved session.
+    for provider in issues::session::restore_all() {
+        app_state.providers.write().insert(provider.kind(), provider);
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -27,15 +29,16 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
-            commands::jira::connect_jira,
-            commands::jira::jira_session,
-            commands::jira::jira_current_user,
-            commands::jira::disconnect_jira,
-            commands::jira::list_jira_boards,
-            commands::jira::get_jira_board,
-            commands::jira::get_issue_pull_requests,
-            commands::jira::transition_jira_issue,
-            commands::jira::comment_on_issue,
+            commands::issues::connect_jira,
+            commands::issues::connect_pylon,
+            commands::issues::provider_sessions,
+            commands::issues::provider_current_user,
+            commands::issues::disconnect_provider,
+            commands::issues::list_boards,
+            commands::issues::get_board,
+            commands::issues::get_issue_pull_requests,
+            commands::issues::transition_issue,
+            commands::issues::comment_on_issue,
             commands::repos::list_repos,
             commands::repos::add_repo,
             commands::repos::remove_repo,

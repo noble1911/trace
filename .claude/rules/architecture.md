@@ -32,8 +32,8 @@
 
 - **Client/session state:** Zustand stores, one slice per domain (`src/domains/<d>/store.ts`). No prop-drilling
   marathons, no 30-`useState` god component.
-- **Server (Jira) data:** fetch through the typed wrappers in `src/ipc/jira.ts`; cache in a store. Do **not**
-  keep fetched Jira data in ad-hoc `useState`.
+- **Server (issue-tracker) data:** fetch through the typed wrappers in `src/ipc/issues.ts`; cache in a store.
+  Do **not** keep fetched issue data in ad-hoc `useState`.
 - **No localStorage effect-pairs.** If something must persist, wrap it once in a hook — don't sprinkle
   `useEffect(() => localStorage.setItem(...))` (a documented anti-pattern from the old project).
 
@@ -41,7 +41,8 @@
 
 - `commands/*.rs` contain only `#[tauri::command]` functions that validate inputs, call into a domain module,
   and map errors to `Result<T, String>`. No business logic.
-- Domain logic lives in `claude/`, `jira/`, `git.rs`; shared mutable state in `state.rs` (`AppState`).
+- Domain logic lives in `claude/`, `issues/` (+ the `jira/` and `pylon/` provider modules), `git.rs`; shared
+  mutable state in `state.rs` (`AppState`).
 - Register every command in the single `invoke_handler!` list in `lib.rs`.
 - Rust concurrency (carried over from the old project's hard-won lessons):
   - Use `std::thread::spawn` for Claude/PTY pump threads, not `tokio::spawn` (avoids runtime conflicts).

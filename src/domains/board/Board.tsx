@@ -1,6 +1,6 @@
 import { type DragEvent, useRef } from "react";
-import { useJiraStore } from "@/domains/jira/store";
-import type { ColumnStatus, Issue } from "@/domains/jira/types";
+import { useIssuesStore } from "@/domains/issues/store";
+import type { ColumnStatus, Issue } from "@/domains/issues/types";
 import { AssigneeFilter } from "./AssigneeFilter";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
@@ -45,7 +45,10 @@ export function Board() {
   const openIssue = useBoardStore((s) => s.openIssue);
   const moveIssue = useBoardStore((s) => s.moveIssue);
   const repoPickFor = useBoardStore((s) => s.repoPickFor);
-  const currentUserId = useJiraStore((s) => s.user?.accountId ?? null);
+  const boardProvider = useBoardStore((s) => s.provider);
+  const currentUserId = useIssuesStore((s) =>
+    boardProvider ? (s.users[boardProvider]?.accountId ?? null) : null
+  );
 
   const draggingRef = useRef<string | null>(null);
   // Resolve the effective assignee: until the user picks, default to themselves.

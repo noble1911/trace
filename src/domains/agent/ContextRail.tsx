@@ -4,8 +4,8 @@ import { toast } from "@/app/toast";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { type SessionStatus, useBoardStore } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
-import { browseUrl } from "@/domains/jira/url";
+import type { Issue, PullRequest } from "@/domains/issues/types";
+import { jiraBrowseUrl } from "@/domains/issues/url";
 import { type Editor, openInEditor } from "@/ipc/editor";
 
 // Stable empty reference so the store selector doesn't return a fresh array
@@ -81,8 +81,10 @@ function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
 export function ContextRail({ issue, status, site, repo }: ContextRailProps) {
   const slug = issue.key.toLowerCase();
   const live = status !== "idle";
-  const issueUrl = browseUrl(site, issue.key);
-  const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
+  // Providers that carry a web URL on the issue (Pylon's `link`) win; Jira's
+  // browse URL is built from the site.
+  const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
+  const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
 
   const openEditor = (editor: Editor) => {

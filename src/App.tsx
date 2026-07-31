@@ -10,8 +10,8 @@ import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
-import { JiraLogin } from "@/domains/jira/components/JiraLogin";
-import { useJiraStore } from "@/domains/jira/store";
+import { ProviderLogin } from "@/domains/issues/components/ProviderLogin";
+import { useIssuesStore } from "@/domains/issues/store";
 import { OrchestratorFab } from "@/domains/orchestrator/Fab";
 import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
 import { useOrchestratorStore } from "@/domains/orchestrator/store";
@@ -29,17 +29,18 @@ import { toast } from "./app/toast";
 // Once per app run (module-level so StrictMode's double-mount can't re-check).
 let updateCheckDone = false;
 
-// Shell only — boot, the Jira login gate, nav routing, and the detail overlay.
+// Shell only — boot, the issue-tracker login gate, nav routing, and the detail overlay.
 // All feature logic lives in src/domains/*.
 export function App() {
   const [nav, setNav] = useState<NavId>("board");
 
-  const initialized = useJiraStore((s) => s.initialized);
-  const session = useJiraStore((s) => s.session);
-  const boards = useJiraStore((s) => s.boards);
-  const selectedBoardId = useJiraStore((s) => s.selectedBoardId);
-  const selectBoard = useJiraStore((s) => s.selectBoard);
-  const init = useJiraStore((s) => s.init);
+  const initialized = useIssuesStore((s) => s.initialized);
+  const trackerSessions = useIssuesStore((s) => s.sessions);
+  const boards = useIssuesStore((s) => s.boards);
+  const selectedBoardKey = useIssuesStore((s) => s.selectedBoardKey);
+  const selectBoard = useIssuesStore((s) => s.selectBoard);
+  const init = useIssuesStore((s) => s.init);
+  const hasSession = Object.keys(trackerSessions).length > 0;
 
   const data = useBoardStore((s) => s.data);
   const loadBoard = useBoardStore((s) => s.loadBoard);
@@ -103,8 +104,8 @@ export function App() {
 
   // Load the board whenever the selected board changes.
   useEffect(() => {
-    if (session && selectedBoardId != null) void loadBoard(selectedBoardId);
-  }, [session, selectedBoardId, loadBoard]);
+    if (hasSession && selectedBoardKey != null) void loadBoard(selectedBoardKey);
+  }, [hasSession, selectedBoardKey, loadBoard]);
 
   // Quiet update check shortly after launch — publishing a GitHub release IS
   // the rollout, so surface it without requiring a trip to Settings. Errors
@@ -178,7 +179,7 @@ export function App() {
     );
   }
 
-  if (!session) return <JiraLogin />;
+  if (!hasSession) return <ProviderLogin />;
 
   const openIssue = selectedIssueKey
     ? (data?.issues.find((i) => i.key === selectedIssueKey) ?? null)
@@ -186,7 +187,7 @@ export function App() {
   const openSession = selectedSessionId
     ? (sessions.find((s) => s.id === selectedSessionId) ?? null)
     : null;
-  const project = data?.boardName ?? session.site;
+  const project = data?.boardName ?? trackerSessions.jira?.site ?? "trace";
 
   // The rail stays visible inside a detail view; clicking a nav item there should
   // leave the detail and go to that view, not just swap the hidden content under it.
@@ -200,8 +201,8 @@ export function App() {
     <>
       {boards.length > 1 && (
         <select
-          value={selectedBoardId ?? ""}
-          onChange={(e) => selectBoard(Number(e.target.value))}
+          value={selectedBoardKey ?? ""}
+          onChange={(e) => selectBoard(e.target.value)}
           style={{
             background: "var(--bg-2)",
             border: "1px solid var(--border)",
@@ -213,7 +214,7 @@ export function App() {
           }}
         >
           {boards.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.key} value={b.key}>
               {b.name}
             </option>
           ))}
@@ -254,7 +255,11 @@ export function App() {
 
       {openIssue && (
         <ErrorBoundary label={`${openIssue.key} detail crashed`} onBack={closeIssue}>
-          <AgentDetail issue={openIssue} site={session.site} onBack={closeIssue} />
+          <AgentDetail
+            issue={openIssue}
+            site={trackerSessions.jira?.site ?? null}
+            onBack={closeIssue}
+          />
         </ErrorBoundary>
       )}
       {openSession && (

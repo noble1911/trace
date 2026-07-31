@@ -8,7 +8,7 @@ function hostOf(site: string): string {
 }
 
 /** A Jira browse URL for an issue/epic key, or undefined without a site. */
-export function browseUrl(site: string | null | undefined, key: string): string | undefined {
+export function jiraBrowseUrl(site: string | null | undefined, key: string): string | undefined {
   if (!site) return undefined;
   return `https://${hostOf(site)}/browse/${key}`;
 }

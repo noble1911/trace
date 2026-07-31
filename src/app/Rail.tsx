@@ -1,6 +1,6 @@
 import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
-import { useJiraStore } from "@/domains/jira/store";
+import { useIssuesStore } from "@/domains/issues/store";
 import type { NavId } from "./nav";
 
 interface RailProps {
@@ -10,7 +10,8 @@ interface RailProps {
 }
 
 export function Rail({ nav, onNav, waitingCount }: RailProps) {
-  const user = useJiraStore((s) => s.user);
+  // Prefer the Jira identity for the rail avatar; fall back to any provider.
+  const user = useIssuesStore((s) => s.users.jira ?? s.users.pylon ?? null);
 
   return (
     <aside className="rail">

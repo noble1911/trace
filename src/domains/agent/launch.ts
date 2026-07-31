@@ -1,6 +1,6 @@
 import { activity } from "@/domains/activity/store";
 import { useBoardStore } from "@/domains/board/store";
-import type { Issue } from "@/domains/jira/types";
+import type { Issue } from "@/domains/issues/types";
 import { type AgentCli, startAgent } from "@/ipc/agent";
 import { agentArgs, agentCli, agentModel, kickoffPromptTemplate, setAgentCli } from "./defaults";
 import { fitTerminal, resetTerminal } from "./terminalRegistry";

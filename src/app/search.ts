@@ -1,7 +1,7 @@
 import { decodePtyChunk, stripAnsi } from "@/domains/agent/transcript";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { type OutputChunk, useBoardStore } from "@/domains/board/store";
-import type { PullRequest } from "@/domains/jira/types";
+import type { PullRequest } from "@/domains/issues/types";
 import { useSessionsStore } from "@/domains/sessions/store";
 
 // Global search over everything the app already holds in memory: board

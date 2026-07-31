@@ -1,4 +1,4 @@
-import type { BoardColumn, ColumnStatus, Issue } from "@/domains/jira/types";
+import type { BoardColumn, ColumnStatus, Issue } from "@/domains/issues/types";
 
 // First column reads neutral, last reads "done" green, middle cycles amber/violet —
 // generalizes the design's 4-column palette to whatever columns the board has.

@@ -1,5 +1,5 @@
 import { type DragEvent, useState } from "react";
-import type { BoardColumn, ColumnStatus, Issue, PullRequest } from "@/domains/jira/types";
+import type { BoardColumn, ColumnStatus, Issue, PullRequest } from "@/domains/issues/types";
 import { Card } from "./Card";
 
 interface ColumnProps {

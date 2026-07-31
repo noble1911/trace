@@ -12,11 +12,11 @@ export const READ_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_ticket_details",
     description:
-      "Get the full description and metadata for one Jira ticket by key. Use when the one-line board summary isn't enough to reason about a ticket.",
+      "Get the full description and metadata for one ticket by key. Use when the one-line board summary isn't enough to reason about a ticket.",
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The Jira issue key, e.g. TRACE-12." },
+        issue_key: { type: "string", description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon)." },
       },
       required: ["issue_key"],
     },
@@ -30,7 +30,7 @@ export const READ_TOOLS: Anthropic.Tool[] = [
       properties: {
         issue_key: {
           type: "string",
-          description: "The Jira issue key whose agent transcript to read.",
+          description: "The issue key whose agent transcript to read.",
         },
       },
       required: ["issue_key"],

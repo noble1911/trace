@@ -6,10 +6,17 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::client;
-use super::models::{
-    parse_issue, BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue, Transition,
-};
+use super::parse::parse_issue;
 use super::JiraConnection;
+use crate::issues::models::{BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue};
+
+/// An available workflow transition (each carries its target status). Internal —
+/// only used to find the transition that lands on a target column.
+struct Transition {
+    id: String,
+    to_status_id: String,
+    to_status_name: String,
+}
 
 const ISSUE_FIELDS: &str =
     "summary,status,priority,issuetype,labels,assignee,description,reporter,epic,parent";
@@ -32,7 +39,7 @@ pub async fn list_boards(conn: &JiraConnection) -> Result<Vec<BoardSummary>, Str
         let page_len = values.len();
         out.extend(values.iter().filter_map(|b| {
             Some(BoardSummary {
-                id: b.get("id")?.as_i64()?,
+                id: b.get("id")?.as_i64()?.to_string(),
                 name: b.get("name")?.as_str()?.to_string(),
                 board_type: b.get("type").and_then(Value::as_str).unwrap_or("scrum").to_string(),
             })
@@ -219,7 +226,7 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
         .unwrap_or_else(|| format!("Board {board_id}"));
 
     Ok(BoardData {
-        board_id,
+        board_id: board_id.to_string(),
         board_name,
         sprint_name: None,
         columns,
@@ -228,7 +235,7 @@ pub async fn get_board(conn: &JiraConnection, board_id: i64) -> Result<BoardData
 }
 
 /// Available transitions for an issue (each carries its target status).
-pub async fn list_transitions(conn: &JiraConnection, key: &str) -> Result<Vec<Transition>, String> {
+async fn list_transitions(conn: &JiraConnection, key: &str) -> Result<Vec<Transition>, String> {
     let path = format!("/rest/api/3/issue/{key}/transitions");
     let v = client::get(conn, &path).await?;
     let transitions = v.get("transitions").and_then(Value::as_array).cloned().unwrap_or_default();
@@ -237,7 +244,6 @@ pub async fn list_transitions(conn: &JiraConnection, key: &str) -> Result<Vec<Tr
         .filter_map(|t| {
             Some(Transition {
                 id: t.get("id")?.as_str()?.to_string(),
-                name: t.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
                 to_status_id: t.get("to")?.get("id")?.as_str()?.to_string(),
                 to_status_name: t
                     .get("to")

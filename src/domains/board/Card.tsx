@@ -4,9 +4,9 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { epicColor } from "@/domains/board/epicColor";
 import { statusOf, useBoardStore } from "@/domains/board/store";
-import { useJiraStore } from "@/domains/jira/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
-import { browseUrl } from "@/domains/jira/url";
+import { useIssuesStore } from "@/domains/issues/store";
+import type { Issue, PullRequest } from "@/domains/issues/types";
+import { jiraBrowseUrl } from "@/domains/issues/url";
 
 interface CardProps {
   issue: Issue;
@@ -29,8 +29,9 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
     statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
   );
   const kickoff = useBoardStore((s) => s.kickoff);
-  const site = useJiraStore((s) => s.session?.site ?? null);
-  const epicUrl = issue.epicKey ? browseUrl(site, issue.epicKey) : undefined;
+  // Epic links are Jira-only (Pylon issues carry no epic).
+  const site = useIssuesStore((s) => s.sessions.jira?.site ?? null);
+  const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
 
   const onKickoff = (e: MouseEvent) => {
     e.stopPropagation();

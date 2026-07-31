@@ -1,5 +1,5 @@
 import { I } from "@/components/Icon";
-import type { Issue } from "@/domains/jira/types";
+import type { Issue } from "@/domains/issues/types";
 import { useTestsStore } from "./testsStore";
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;

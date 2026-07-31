@@ -2,9 +2,10 @@ import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
 import { autoStartOnMove } from "@/domains/agent/defaults";
-import type { BoardData, ColumnStatus, PullRequest } from "@/domains/jira/types";
+import { boardOptionFor } from "@/domains/issues/store";
+import type { BoardData, ColumnStatus, ProviderKind, PullRequest } from "@/domains/issues/types";
 import { useSessionsStore } from "@/domains/sessions/store";
-import { getIssuePullRequests, getJiraBoard, transitionJiraIssue } from "@/ipc/jira";
+import { getBoard, getIssuePullRequests, transitionIssue } from "@/ipc/issues";
 import { isStartOfWork } from "./columns";
 import { armWaitingNotify, cancelWaitingWatch, watchForQuiet } from "./waitingNotify";
 
@@ -66,7 +67,10 @@ export function statusOf(
 }
 
 interface BoardStore {
-  boardId: number | null;
+  /** The loaded board's switcher key (`${provider}:${boardId}`). */
+  boardKey: string | null;
+  /** Provider of the loaded board — transitions and PR lookups route through it. */
+  provider: ProviderKind | null;
   data: BoardData | null;
   loading: boolean;
   error: string | null;
@@ -110,7 +114,7 @@ interface BoardStore {
    */
   outputBuffers: Record<string, OutputChunk[]>;
 
-  loadBoard: (boardId: number) => Promise<void>;
+  loadBoard: (boardKey: string) => Promise<void>;
   refresh: () => Promise<void>;
   moveIssue: (key: string, status: ColumnStatus) => Promise<void>;
   openIssue: (key: string) => void;
@@ -132,7 +136,8 @@ interface BoardStore {
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
-  boardId: null,
+  boardKey: null,
+  provider: null,
   data: null,
   loading: false,
   error: null,
@@ -145,21 +150,26 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   pullRequests: {},
   outputBuffers: {},
 
-  async loadBoard(boardId) {
-    set({ boardId, loading: true, error: null, pullRequests: {} });
+  async loadBoard(boardKey) {
+    const option = boardOptionFor(boardKey);
+    if (!option) return;
+    set({ boardKey, provider: option.provider, loading: true, error: null, pullRequests: {} });
     try {
-      const data = await getJiraBoard(boardId);
+      const data = await getBoard(option.provider, option.boardId);
       set({ data, loading: false });
       // Fan out PR lookups in the background — cards render immediately and pop
       // a badge in as each issue's dev-status response lands. Failures are silent
-      // (no GitHub-for-Jira integration → no badge, not an error).
-      for (const issue of data.issues) {
-        getIssuePullRequests(issue.id)
-          .then((prs) => {
-            if (prs.length === 0) return;
-            set((s) => ({ pullRequests: { ...s.pullRequests, [issue.key]: prs } }));
-          })
-          .catch(() => {});
+      // (no GitHub-for-Jira integration → no badge, not an error). Only Jira has
+      // a dev-status integration; other providers would all return empty.
+      if (option.provider === "jira") {
+        for (const issue of data.issues) {
+          getIssuePullRequests(option.provider, issue.id)
+            .then((prs) => {
+              if (prs.length === 0) return;
+              set((s) => ({ pullRequests: { ...s.pullRequests, [issue.key]: prs } }));
+            })
+            .catch(() => {});
+        }
       }
     } catch (err) {
       set({ loading: false, error: String(err) });
@@ -167,8 +177,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   async refresh() {
-    const { boardId } = get();
-    if (boardId != null) await get().loadBoard(boardId);
+    const { boardKey } = get();
+    if (boardKey != null) await get().loadBoard(boardKey);
   },
 
   async moveIssue(key, status) {
@@ -187,7 +197,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     });
 
     try {
-      await transitionJiraIssue(key, [status.id]);
+      const provider = get().provider;
+      if (!provider) return;
+      await transitionIssue(provider, key, [status.id]);
       await get().refresh();
       toast.success(`Moved ${key} to ${status.name}`);
       activity.log({ kind: "transition", issueKey: key, title: `→ ${status.name}` });
@@ -326,18 +338,22 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     });
   },
   async refreshIssuePrs(issueKey, issueId) {
+    const { provider } = get();
+    if (provider !== "jira") return;
     try {
       // Targeted refresh → bust Jira's cache; this is the path that runs
       // right after something changed the PR's state.
-      const prs = await getIssuePullRequests(issueId, true);
+      const prs = await getIssuePullRequests(provider, issueId, true);
       set((s) => ({ pullRequests: { ...s.pullRequests, [issueKey]: prs } }));
     } catch {
       // Silent — dev-status unavailability isn't worth surfacing here.
     }
   },
   refreshAllPrs() {
-    const { data, pullRequests } = get();
+    const { data, pullRequests, provider } = get();
     if (!data) return;
+    // Only Jira has linked-PR data to refresh.
+    if (provider !== "jira") return;
     for (const issue of data.issues) {
       // Cache-bust only issues whose known PRs are still in a live state —
       // those are the ones Jira's cache can hold wrong in a way that matters.
@@ -345,7 +361,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const fresh =
         pullRequests[issue.key]?.some((pr) => pr.state !== "merged" && pr.state !== "declined") ??
         false;
-      getIssuePullRequests(issue.id, fresh)
+      getIssuePullRequests("jira", issue.id, fresh)
         .then((prs) => {
           set((s) => {
             // Skip no-op updates, but do clear an entry whose PRs vanished.

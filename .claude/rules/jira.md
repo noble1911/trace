@@ -1,6 +1,7 @@
 # Jira integration rules
 
-Jira Cloud is the **source of truth** for the board. We never hardcode columns or maintain a local ticket list.
+Jira Cloud is one issue provider behind `issues::IssueProvider` — see `.claude/rules/providers.md` for the
+abstraction. Jira specifics follow. We never hardcode columns or maintain a local ticket list.
 
 ## Auth
 
@@ -39,8 +40,8 @@ Jira Cloud is the **source of truth** for the board. We never hardcode columns o
 
 ## Conventions
 
-- All Jira HTTP lives in `src-tauri/src/jira/client.rs`; response shapes in `jira/models.rs`; board/sprint logic
-  in `jira/board.rs`; PR dev-status in `jira/dev.rs`. Frontend talks to it only through `commands/jira.rs` →
-  `src/ipc/jira.ts`.
+- All Jira HTTP lives in `src-tauri/src/jira/client.rs`; raw-JSON parsers in `jira/parse.rs` (producing the
+  shared `issues::models` shapes); board/sprint logic in `jira/board.rs`; PR dev-status in `jira/dev.rs`.
+  Frontend talks to it only through `commands/issues.rs` → `src/ipc/issues.ts`.
 - Treat the API as paginated: follow `startAt`/`isLast` on Agile endpoints and `nextPageToken` on
   `/search/jql` — a single-page fetch silently truncates large orgs.

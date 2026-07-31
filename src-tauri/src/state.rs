@@ -8,7 +8,7 @@ use parking_lot::{Mutex, RwLock};
 
 use crate::claude::pty::PtySession;
 use crate::claude::render_bridge::RenderBridge;
-use crate::jira::JiraConnection;
+use crate::issues::Provider;
 
 /// Rolling raw-output history for one workspace's PTY. The renderer's copy of
 /// the byte stream dies with every page reload (dev hot-reload, Cmd+R); this
@@ -32,9 +32,9 @@ pub const OUTPUT_HISTORY_CAP: usize = 2 * 1024 * 1024;
 
 #[derive(Default)]
 pub struct AppState {
-    /// The active Jira connection (site/email/token). `None` until the user
-    /// logs in. The token lives here and in the keychain — never sent to the UI.
-    pub jira: RwLock<Option<JiraConnection>>,
+    /// Connected issue trackers, one per provider kind. Tokens live here and in
+    /// `0600` config files — never sent to the UI.
+    pub providers: RwLock<HashMap<crate::issues::ProviderKind, Provider>>,
     /// Live interactive Claude sessions, keyed by issue key.
     pub pty_sessions: Mutex<HashMap<String, PtySession>>,
     /// Child PIDs for running agents (for SIGINT/stop), keyed by issue key.

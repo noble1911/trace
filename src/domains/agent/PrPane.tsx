@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/jira/types";
+import type { Issue, PullRequest } from "@/domains/issues/types";
 import { type PrDetails, prDetails } from "@/ipc/pr";
 
 const EMPTY_PRS: PullRequest[] = [];

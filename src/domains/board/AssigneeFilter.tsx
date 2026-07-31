@@ -1,5 +1,5 @@
 import { AgentAvatar } from "@/components/AgentAvatar";
-import type { Assignee, Issue } from "@/domains/jira/types";
+import type { Assignee, Issue } from "@/domains/issues/types";
 
 // Unique assignees across the board's issues, alphabetical.
 function uniqueAssignees(issues: Issue[]): Assignee[] {

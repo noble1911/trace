@@ -1,4 +1,4 @@
-import type { PullRequest } from "@/domains/jira/types";
+import type { PullRequest } from "@/domains/issues/types";
 
 // Jira's dev-status reports the same PR under every issue it closes, and the
 // per-issue caches can disagree (one stale "open", one fresh "merged"). When

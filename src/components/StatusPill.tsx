@@ -1,4 +1,4 @@
-import type { StatusCategory } from "@/domains/jira/types";
+import type { StatusCategory } from "@/domains/issues/types";
 
 const CATEGORY: Record<StatusCategory, { color: string; bg: string; border: string }> = {
   new: {
