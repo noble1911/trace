@@ -20,3 +20,12 @@ export function waferKeyConfigured(): Promise<boolean> {
 export function setWaferKey(key: string): Promise<void> {
   return invoke("set_wafer_key", { key });
 }
+
+export function deepseekKeyConfigured(): Promise<boolean> {
+  return invoke("deepseek_key_configured");
+}
+
+/** Save (or, with an empty string, clear) the DeepSeek API key. */
+export function setDeepseekKey(key: string): Promise<void> {
+  return invoke("set_deepseek_key", { key });
+}

@@ -109,6 +109,8 @@ export function DetailHeader({
                 <option value="moonshot">Kimi (Moonshot)</option>
                 <option value="wafer">Kimi (Wafer)</option>
                 <option value="wafer-fast">Kimi Fast (Wafer)</option>
+                <option value="deepseek">DeepSeek Flash</option>
+                <option value="deepseek-pro">DeepSeek Pro</option>
               </select>
             )}
             <button type="button" className="btn primary" onClick={onStart}>

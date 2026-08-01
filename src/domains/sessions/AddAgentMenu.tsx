@@ -13,6 +13,8 @@ const OPTIONS: AgentOption[] = [
   { cli: "claude", provider: "moonshot", label: "claude · kimi" },
   { cli: "claude", provider: "wafer", label: "claude · kimi wafer" },
   { cli: "claude", provider: "wafer-fast", label: "claude · kimi wafer fast" },
+  { cli: "claude", provider: "deepseek", label: "claude · deepseek flash" },
+  { cli: "claude", provider: "deepseek-pro", label: "claude · deepseek pro" },
   { cli: "codex", label: "codex" },
 ];
 
