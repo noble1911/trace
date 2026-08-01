@@ -24,8 +24,8 @@ pub struct ScratchSession {
     pub title: String,
     /// "claude" | "codex".
     pub cli: String,
-    /// Model provider for the Claude harness: Some("moonshot") = Kimi via
-    /// Moonshot's Anthropic-compatible endpoint. `None` = Anthropic.
+    /// Model provider for the Claude harness (`commands::providers` id —
+    /// "moonshot" / "wafer" / "wafer-fast"). `None` = Anthropic.
     #[serde(default)]
     pub provider: Option<String>,
     /// Unix epoch seconds at creation (display ordering on the frontend).
@@ -138,9 +138,13 @@ pub fn create_session(
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
     let cli = if cli == "codex" { "codex" } else { "claude" }.to_string();
-    // The provider only applies to the Claude harness — drop it for codex.
-    let provider = (cli == "claude" && provider.as_deref() == Some("moonshot"))
-        .then(|| "moonshot".to_string());
+    // The provider only applies to the Claude harness — keep registered
+    // Anthropic-compatible endpoints, drop unknown ids and anything on codex.
+    let provider = if cli == "claude" {
+        provider.filter(|p| crate::commands::providers::spec(p).is_some())
+    } else {
+        None
+    };
     // Only honor a repo that's actually configured; anything else falls back to
     // the default repo at start time (`None`).
     let repo = repo.and_then(|r| {

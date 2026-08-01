@@ -12,11 +12,11 @@ export function setMoonshotKey(key: string): Promise<void> {
   return invoke("set_moonshot_key", { key });
 }
 
-export function fireworksKeyConfigured(): Promise<boolean> {
-  return invoke("fireworks_key_configured");
+export function waferKeyConfigured(): Promise<boolean> {
+  return invoke("wafer_key_configured");
 }
 
-/** Save (or, with an empty string, clear) the Fireworks API key. */
-export function setFireworksKey(key: string): Promise<void> {
-  return invoke("set_fireworks_key", { key });
+/** Save (or, with an empty string, clear) the Wafer Serverless API key. */
+export function setWaferKey(key: string): Promise<void> {
+  return invoke("set_wafer_key", { key });
 }

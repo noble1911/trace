@@ -153,7 +153,8 @@ export function SettingsView() {
                   >
                     <option value="anthropic">Anthropic</option>
                     <option value="moonshot">Kimi (Moonshot)</option>
-                    <option value="fireworks">Kimi K3 Fast (Fireworks)</option>
+                    <option value="wafer">Kimi (Wafer)</option>
+                    <option value="wafer-fast">Kimi Fast (Wafer)</option>
                   </select>
                 </SettingRow>
               )}

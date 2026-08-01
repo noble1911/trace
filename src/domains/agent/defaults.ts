@@ -39,7 +39,8 @@ export function setAgentCli(next: AgentCli) {
 /** The model provider behind the Claude harness (third-party Anthropic-compatible endpoint). */
 export function agentProvider(): AgentProvider {
   const raw = read(PROVIDER_KEY);
-  return raw === "moonshot" || raw === "fireworks" ? raw : "anthropic";
+  const known: AgentProvider[] = ["moonshot", "wafer", "wafer-fast"];
+  return known.includes(raw as AgentProvider) ? (raw as AgentProvider) : "anthropic";
 }
 
 export function setAgentProvider(next: AgentProvider) {

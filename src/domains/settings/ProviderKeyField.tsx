@@ -1,31 +1,50 @@
 import { useEffect, useState } from "react";
 import type { AgentProvider } from "@/ipc/agent";
 import {
-  fireworksKeyConfigured,
   moonshotKeyConfigured,
-  setFireworksKey,
   setMoonshotKey,
+  setWaferKey,
+  waferKeyConfigured,
 } from "@/ipc/providers";
 
 // The masked API-key field for a third-party model provider. The key is stored
 // 0600 Rust-side and never read back — the UI only learns whether one exists.
+// Normal/fast variants of the same endpoint share one credential.
 
 interface ProviderKeyFieldProps {
   provider: Exclude<AgentProvider, "anthropic">;
 }
 
-const META: Record<ProviderKeyFieldProps["provider"], { label: string; origin: string }> = {
+/** Credential family — Wafer normal/fast share one key file. */
+type CredFamily = "moonshot" | "wafer";
+
+function credFamily(provider: ProviderKeyFieldProps["provider"]): CredFamily {
+  if (provider === "wafer" || provider === "wafer-fast") return "wafer";
+  return "moonshot";
+}
+
+const META: Record<CredFamily, { label: string; origin: string }> = {
   moonshot: { label: "Moonshot API key", origin: "platform.moonshot.ai" },
-  fireworks: { label: "Fireworks API key", origin: "fireworks.ai" },
+  wafer: { label: "Wafer API key", origin: "app.wafer.ai" },
+};
+
+const CHECK: Record<CredFamily, () => Promise<boolean>> = {
+  moonshot: moonshotKeyConfigured,
+  wafer: waferKeyConfigured,
+};
+
+const SAVE: Record<CredFamily, (key: string) => Promise<void>> = {
+  moonshot: setMoonshotKey,
+  wafer: setWaferKey,
 };
 
 export function ProviderKeyField({ provider }: ProviderKeyFieldProps) {
   const [saved, setSaved] = useState(false);
   const [draft, setDraft] = useState("");
-  const meta = META[provider];
-
-  const configured = provider === "moonshot" ? moonshotKeyConfigured : fireworksKeyConfigured;
-  const persist = provider === "moonshot" ? setMoonshotKey : setFireworksKey;
+  const family = credFamily(provider);
+  const meta = META[family];
+  const configured = CHECK[family];
+  const persist = SAVE[family];
 
   useEffect(() => {
     configured()
