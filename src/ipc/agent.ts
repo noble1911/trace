@@ -10,11 +10,17 @@ export type AgentCli = "claude" | "codex";
 
 /**
  * Model provider behind the Claude Code harness. Third-party Anthropic-
- * compatible endpoints (Moonshot, Wafer normal/fast) run the same `claude`
- * CLI with env overrides injected Rust-side; only meaningful with
- * cli === "claude".
+ * compatible endpoints (Moonshot, Wafer normal/fast, DeepSeek flash/pro) run
+ * the same `claude` CLI with env overrides injected Rust-side; only meaningful
+ * with cli === "claude".
  */
-export type AgentProvider = "anthropic" | "moonshot" | "wafer" | "wafer-fast";
+export type AgentProvider =
+  | "anthropic"
+  | "moonshot"
+  | "wafer"
+  | "wafer-fast"
+  | "deepseek"
+  | "deepseek-pro";
 
 export function startAgent(
   issueKey: string,

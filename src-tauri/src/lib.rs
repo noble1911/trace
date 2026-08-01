@@ -90,6 +90,8 @@ pub fn run() {
             commands::providers::set_moonshot_key,
             commands::providers::wafer_key_configured,
             commands::providers::set_wafer_key,
+            commands::providers::deepseek_key_configured,
+            commands::providers::set_deepseek_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

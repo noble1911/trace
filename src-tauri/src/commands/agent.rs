@@ -165,8 +165,9 @@ pub(crate) fn spawn_in(
     extra_args: Vec<String>,
     initial_prompt: Option<String>,
     // Model provider for the Claude harness: a registered Anthropic-compatible
-    // endpoint (commands::providers::spec — "moonshot", "wafer" / "wafer-fast").
-    // Only meaningful with cli == "claude"; ignored otherwise.
+    // endpoint (commands::providers::spec — "moonshot", "wafer" / "wafer-fast",
+    // "deepseek" / "deepseek-pro"). Only meaningful with cli == "claude";
+    // ignored otherwise.
     provider: Option<String>,
     cols: u16,
     rows: u16,

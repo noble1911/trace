@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { AgentProvider } from "@/ipc/agent";
 import {
+  deepseekKeyConfigured,
   moonshotKeyConfigured,
+  setDeepseekKey,
   setMoonshotKey,
   setWaferKey,
   waferKeyConfigured,
@@ -15,27 +17,31 @@ interface ProviderKeyFieldProps {
   provider: Exclude<AgentProvider, "anthropic">;
 }
 
-/** Credential family — Wafer normal/fast share one key file. */
-type CredFamily = "moonshot" | "wafer";
+/** Credential family — Wafer/DeepSeek normal+fast/flash share one key file each. */
+type CredFamily = "moonshot" | "wafer" | "deepseek";
 
 function credFamily(provider: ProviderKeyFieldProps["provider"]): CredFamily {
   if (provider === "wafer" || provider === "wafer-fast") return "wafer";
+  if (provider === "deepseek" || provider === "deepseek-pro") return "deepseek";
   return "moonshot";
 }
 
 const META: Record<CredFamily, { label: string; origin: string }> = {
   moonshot: { label: "Moonshot API key", origin: "platform.moonshot.ai" },
   wafer: { label: "Wafer API key", origin: "app.wafer.ai" },
+  deepseek: { label: "DeepSeek API key", origin: "platform.deepseek.com" },
 };
 
 const CHECK: Record<CredFamily, () => Promise<boolean>> = {
   moonshot: moonshotKeyConfigured,
   wafer: waferKeyConfigured,
+  deepseek: deepseekKeyConfigured,
 };
 
 const SAVE: Record<CredFamily, (key: string) => Promise<void>> = {
   moonshot: setMoonshotKey,
   wafer: setWaferKey,
+  deepseek: setDeepseekKey,
 };
 
 export function ProviderKeyField({ provider }: ProviderKeyFieldProps) {
@@ -64,7 +70,7 @@ export function ProviderKeyField({ provider }: ProviderKeyFieldProps) {
       <div className="hint">
         {saved
           ? "A key is saved. Enter a new one to replace it."
-          : `Required for Kimi agents via this provider — from ${meta.origin}.`}
+          : `Required for agents via this provider — from ${meta.origin}.`}
       </div>
       <div className="key-row">
         <input

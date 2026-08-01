@@ -25,7 +25,8 @@ pub struct ScratchSession {
     /// "claude" | "codex".
     pub cli: String,
     /// Model provider for the Claude harness (`commands::providers` id —
-    /// "moonshot" / "wafer" / "wafer-fast"). `None` = Anthropic.
+    /// "moonshot" / "wafer" / "wafer-fast" / "deepseek" / "deepseek-pro").
+    /// `None` = Anthropic.
     #[serde(default)]
     pub provider: Option<String>,
     /// Unix epoch seconds at creation (display ordering on the frontend).
