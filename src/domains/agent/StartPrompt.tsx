@@ -8,7 +8,7 @@ interface StartPromptProps {
   repos: string[];
   repoChoice: string;
   onRepoChange: (path: string) => void;
-  /** Display name of the agent about to launch (e.g. "claude", "kimi · fw"). */
+  /** Display name of the agent about to launch (e.g. "claude", "kimi · wafer"). */
   agentName: string;
   /** The harness CLI ("claude" | "codex") — names the TUI the user will get. */
   cliName: string;

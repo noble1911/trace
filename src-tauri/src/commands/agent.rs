@@ -165,8 +165,8 @@ pub(crate) fn spawn_in(
     extra_args: Vec<String>,
     initial_prompt: Option<String>,
     // Model provider for the Claude harness: a registered Anthropic-compatible
-    // endpoint (commands::providers::spec — "moonshot", "fireworks"). Only
-    // meaningful with cli == "claude"; ignored otherwise.
+    // endpoint (commands::providers::spec — "moonshot", "wafer" / "wafer-fast").
+    // Only meaningful with cli == "claude"; ignored otherwise.
     provider: Option<String>,
     cols: u16,
     rows: u16,
@@ -188,56 +188,23 @@ pub(crate) fn spawn_in(
         env_overrides.insert("TRACE_RENDER_TOKEN".to_string(), bridge.token.clone());
     }
     let mut model = model;
-    let mut extra_args = extra_args;
     if cli == "claude" {
         if let Some(spec) = provider.as_deref().and_then(crate::commands::providers::spec) {
-            env_overrides.extend(crate::commands::providers::env(spec)?);
             // The Settings default model targets Anthropic (e.g. "fable") and
             // doesn't resolve on a third-party endpoint — keep only models that
-            // clearly belong to this provider, else use its default.
+            // clearly belong to this provider, else use its default. Resolved
+            // before env injection so the DEFAULT_*/SUBAGENT aliases pin to the
+            // same id that `--model` receives.
             match model.as_deref() {
-                Some(m) if m.starts_with(spec.model_prefix) => {}
+                // Prefix match is case-insensitive so Wafer's `Kimi-K3` and a
+                // typed `kimi-k3-fast` both count as belonging to the provider.
+                Some(m)
+                    if m.to_ascii_lowercase()
+                        .starts_with(&spec.model_prefix.to_ascii_lowercase()) => {}
                 _ => model = Some(spec.default_model.to_string()),
             }
-            // Fireworks' Anthropic-compatible API rejects server-side tools
-            // (400 "Unexpected content chunk type tool_reference") — per
-            // docs.fireworks.ai/tools-sdks/anthropic-compatibility that
-            // covers web search and web fetch, which Claude Code exposes as
-            // WebSearch/WebFetch. Disable both for this provider. Client-side
-            // function calling (Bash, Edit, ...) is unaffected.
-            if spec.id == "fireworks" {
-                extra_args.extend([
-                    "--disallowedTools".to_string(),
-                    "WebSearch".to_string(),
-                    "WebFetch".to_string(),
-                ]);
-                // ToolSearch (deferred tool loading) is a second source of
-                // tool_reference blocks: its tool results carry tool_reference
-                // chunks Fireworks also 400s on. Claude Code auto-disables
-                // tool search on non-first-party base URLs, but a user-level
-                // settings.json `env.ENABLE_TOOL_SEARCH=true` wins over any
-                // process-env value we inject (docs: "settings file value
-                // applies"). CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS strips the
-                // beta headers/fields tool search needs and forces all tools
-                // upfront even when ENABLE_TOOL_SEARCH is set — so settings
-                // can't re-enable it. Keep ENABLE_TOOL_SEARCH=false as a
-                // belt-and-suspenders for CLIs that honour process env.
-                env_overrides.insert("ENABLE_TOOL_SEARCH".to_string(), "false".to_string());
-                env_overrides.insert(
-                    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS".to_string(),
-                    "1".to_string(),
-                );
-                // Forcing tools upfront surfaces a third Fireworks failure:
-                // with the user's full MCP set loaded (Pipedrive alone is
-                // ~279 tools), the second turn 400s with "Failed to build a
-                // constrained-generation grammar". Fireworks' own error says
-                // to set disable_grammar:true; Claude Code forwards arbitrary
-                // request fields via CLAUDE_CODE_EXTRA_BODY.
-                env_overrides.insert(
-                    "CLAUDE_CODE_EXTRA_BODY".to_string(),
-                    r#"{"disable_grammar":true}"#.to_string(),
-                );
-            }
+            let provider_model = model.as_deref().unwrap_or(spec.default_model);
+            env_overrides.extend(crate::commands::providers::env(spec, provider_model)?);
         }
     }
     let (session, pid) = spawn_agent_pty(

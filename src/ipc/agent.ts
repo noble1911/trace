@@ -10,11 +10,11 @@ export type AgentCli = "claude" | "codex";
 
 /**
  * Model provider behind the Claude Code harness. Third-party Anthropic-
- * compatible endpoints (Moonshot's Kimi, Fireworks' Kimi K3 Fast) run the
- * same `claude` CLI with env overrides injected Rust-side; only meaningful
- * with cli === "claude".
+ * compatible endpoints (Moonshot, Wafer normal/fast) run the same `claude`
+ * CLI with env overrides injected Rust-side; only meaningful with
+ * cli === "claude".
  */
-export type AgentProvider = "anthropic" | "moonshot" | "fireworks";
+export type AgentProvider = "anthropic" | "moonshot" | "wafer" | "wafer-fast";
 
 export function startAgent(
   issueKey: string,

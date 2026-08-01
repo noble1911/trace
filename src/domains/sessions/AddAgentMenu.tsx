@@ -11,7 +11,8 @@ interface AgentOption {
 const OPTIONS: AgentOption[] = [
   { cli: "claude", label: "claude" },
   { cli: "claude", provider: "moonshot", label: "claude · kimi" },
-  { cli: "claude", provider: "fireworks", label: "claude · kimi fast" },
+  { cli: "claude", provider: "wafer", label: "claude · kimi wafer" },
+  { cli: "claude", provider: "wafer-fast", label: "claude · kimi wafer fast" },
   { cli: "codex", label: "codex" },
 ];
 

@@ -88,8 +88,8 @@ pub fn run() {
             commands::orchestrator::orchestrator_cli,
             commands::providers::moonshot_key_configured,
             commands::providers::set_moonshot_key,
-            commands::providers::fireworks_key_configured,
-            commands::providers::set_fireworks_key,
+            commands::providers::wafer_key_configured,
+            commands::providers::set_wafer_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

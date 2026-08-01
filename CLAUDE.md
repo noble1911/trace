@@ -87,11 +87,16 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
   Never hardcoded.
 - **Agent:** an interactive `claude` (or `codex`) TUI hosted in a PTY, rooted in a git worktree created for one
   issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data). A
-  `provider` axis (`"anthropic"` | `"moonshot"` | `"fireworks"`) points the same Claude Code harness at a
-  third-party Anthropic-compatible endpoint (Moonshot's Kimi direct, or Fireworks' Kimi K3 Fast) via
-  `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` env injected at spawn. `commands/providers.rs` is the registry —
-  each provider's key lives Rust-side in a `0600` config file and never crosses to the renderer. A non-Anthropic
-  provider also overrides a foreign `--model` default (e.g. a Settings default like "fable") with its own.
+  `provider` axis (`"anthropic"` | `"moonshot"` | `"wafer"` | `"wafer-fast"`) points the same Claude
+  Code harness at a third-party Anthropic-compatible endpoint (Moonshot's Kimi direct, or Wafer
+  Serverless `Kimi-K3` / `kimi-k3-fast`) via `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` env injected
+  at spawn, plus `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL` pinned
+  to the provider model (so Claude Code's opus/sonnet/haiku aliases and subagent launches don't send
+  Anthropic ids the endpoint rejects). Wafer normal+fast share one API key and send
+  `Wafer-ZDR: required` via `ANTHROPIC_CUSTOM_HEADERS`. `commands/providers.rs` is the registry —
+  each provider's key lives Rust-side in a `0600` config file and never crosses to the renderer. A
+  non-Anthropic provider also overrides a foreign `--model` default (e.g. a Settings default like
+  "fable") with its own.
 - **Exploratory session:** the same agent transport without a tracker issue — a named scratch session in its
   own worktree (`domains/sessions/`, `commands/session.rs`).
 - **Lifecycle:** moving a card transitions the tracker's issue AND triggers the matching action — start agent
