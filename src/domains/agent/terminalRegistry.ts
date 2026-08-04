@@ -13,17 +13,18 @@ import { termFontFamily, termFontSize, termLineHeight } from "./terminalPrefs";
  * plugin — and only for http(s): terminal bytes are untrusted, and other
  * schemes (file:, custom app handlers) could do more than open a page.
  *
- * When the foreground app has mouse reporting on, it — not us — owns plain
- * clicks: xterm forwards the click and the app opens the URL itself, so opening
- * it here too gave two browser tabs per click. Claude Code's fullscreen TUI
- * turns reporting on (`?1000/1002/1003h` right after `?1049h`), which is why the
- * doubling appeared with fullscreen. Option-click stays ours, because xterm
- * treats alt-clicks as a selection gesture and never reports them to the app —
- * so links in a mouse-reporting TUI are still reachable from trace.
+ * When the foreground app has mouse reporting on, a plain click belongs to the
+ * app, not us: xterm forwards it, and Claude Code's fullscreen TUI (which turns
+ * reporting on — `?1000/1002/1003h` right after `?1049h`) uses clicks for its
+ * own selection/copy; opening here too once meant two tabs per click. Cmd- and
+ * Option-click stay ours, matching native terminals (Claude Code ≥ 2.1.181
+ * expects the emulator to own Cmd+click): the xterm mouse protocol has no meta
+ * bit, so the app can never even see a Cmd+click, and xterm treats alt-clicks
+ * as a selection gesture and never reports them.
  */
 function openLink(term: Terminal, event: MouseEvent, uri: string) {
   if (!/^https?:\/\//i.test(uri)) return;
-  if (term.modes.mouseTrackingMode !== "none" && !event.altKey) return;
+  if (term.modes.mouseTrackingMode !== "none" && !event.altKey && !event.metaKey) return;
   void openUrl(uri);
 }
 
