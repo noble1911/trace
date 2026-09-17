@@ -9,7 +9,7 @@
 
 use tauri::State;
 
-use crate::commands::agent::forget_session_id;
+use crate::claude::conversations::forget_session_id;
 use crate::commands::session::{load, save};
 use crate::commands::session_agents::discard_agents;
 use crate::state::AppState;
@@ -90,7 +90,7 @@ pub fn link_session_to_issue(
     }
 
     crate::commands::repos::adopt_workspace_dir(&issue_key, &dirname, &repo)?;
-    crate::commands::agent::move_session_id(&id, &issue_key)?;
+    crate::claude::conversations::move_session_id(&id, &issue_key)?;
 
     list.remove(pos);
     save(&list)

@@ -58,6 +58,11 @@ export interface ScheduleRun {
   needsInput: boolean;
   /** Firings skipped because this run was still going. */
   skipped: number;
+  /**
+   * Background tasks (agents, shells, workflows) Claude still had going when its
+   * last turn ended — the run waits for them.
+   */
+  backgroundTasks: number;
   error?: string | null;
   /** Output was saved to disk and can be replayed. */
   hasTranscript: boolean;

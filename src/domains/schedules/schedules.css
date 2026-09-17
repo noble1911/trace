@@ -395,6 +395,9 @@
 .sched-viewer-note.error {
   color: var(--c-danger);
 }
+.sched-viewer-note.muted {
+  color: var(--fg-3);
+}
 .sched-sent {
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-faint);

@@ -2,6 +2,7 @@ import { notifyOnWaiting } from "@/domains/agent/defaults";
 import { isScheduledRun } from "@/domains/schedules/ids";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
+import type { AgentTurn } from "@/ipc/events";
 import { notify } from "@/ipc/notify";
 import { useBoardStore } from "./store";
 
@@ -9,6 +10,10 @@ import { useBoardStore } from "./store";
  * Turn-boundary detection for a running agent: when its PTY output goes quiet,
  * flip the status pill to "waiting" and — at most once per turn — fire the
  * native notification.
+ *
+ * Claude agents also report their turns through hooks (`agent-turn`), which
+ * sharpen that guess: quiet while background agents/workflows are still running
+ * is "busy", not "needs you"; a permission prompt is "needs you" straight away.
  *
  * This lives beside the board store, not inside it: the store owns state, this
  * owns the timers and the "is this worth interrupting the user for?" policy.
@@ -38,6 +43,20 @@ const notifyTimers = new Map<string, ReturnType<typeof setTimeout>>();
  */
 const armed = new Set<string>();
 
+/**
+ * Background tasks (agents, shells, workflows) a workspace was still waiting on
+ * when its last turn ended. While any are pending, going quiet isn't the turn
+ * handing back to the user — the agent wakes itself as they report.
+ */
+const backgroundPending = new Map<string, number>();
+
+/** Workspaces blocked on a human (permission prompt, …) until the user acts. */
+const askingForHuman = new Set<string>();
+
+function busyInBackground(workspaceId: string): boolean {
+  return (backgroundPending.get(workspaceId) ?? 0) > 0 && !askingForHuman.has(workspaceId);
+}
+
 function clearTimer(timers: Map<string, ReturnType<typeof setTimeout>>, workspaceId: string) {
   const t = timers.get(workspaceId);
   if (t) {
@@ -49,11 +68,14 @@ function clearTimer(timers: Map<string, ReturnType<typeof setTimeout>>, workspac
 /** The user gave this workspace work — its next quiet stretch may notify. */
 export function armWaitingNotify(workspaceId: string): void {
   armed.add(workspaceId);
+  askingForHuman.delete(workspaceId);
 }
 
 /** Forget a workspace entirely (agent stopped or exited): arming + timers. */
 export function cancelWaitingWatch(workspaceId: string): void {
   armed.delete(workspaceId);
+  backgroundPending.delete(workspaceId);
+  askingForHuman.delete(workspaceId);
   clearTimer(waitingTimers, workspaceId);
   clearTimer(notifyTimers, workspaceId);
 }
@@ -68,7 +90,8 @@ export function watchForQuiet(workspaceId: string): void {
     workspaceId,
     setTimeout(() => {
       waitingTimers.delete(workspaceId);
-      useBoardStore.getState().markWaiting(workspaceId);
+      if (busyInBackground(workspaceId)) return;
+      useBoardStore.getState().setActivity(workspaceId, "waiting");
       refreshPrsFor(workspaceId);
     }, WAITING_AFTER_MS)
   );
@@ -78,8 +101,47 @@ export function watchForQuiet(workspaceId: string): void {
     workspaceId,
     setTimeout(() => {
       notifyTimers.delete(workspaceId);
+      // Checked before the arming is consumed: the notification belongs to the
+      // turn that finishes once the background work is done.
+      if (busyInBackground(workspaceId)) return;
       maybeNotifyWaiting(workspaceId);
     }, NOTIFY_AFTER_MS)
+  );
+}
+
+/** An agent's hook-reported turn event (see `AgentTurn`). */
+export function noteAgentTurn({ workspaceId, event, backgroundTasks }: AgentTurn): void {
+  if (event === "stop") {
+    const wasPending = backgroundPending.has(workspaceId);
+    if (backgroundTasks > 0) {
+      backgroundPending.set(workspaceId, backgroundTasks);
+      // A slow Stop hook can land after the pill already flipped: it's busy.
+      if (!askingForHuman.has(workspaceId)) {
+        useBoardStore.getState().setActivity(workspaceId, "working");
+      }
+    } else if (wasPending) {
+      backgroundPending.delete(workspaceId);
+      // The quiet timers may have lapsed (and been skipped) while the Stop hook
+      // ran — restart them so this finished turn still counts.
+      watchForQuiet(workspaceId);
+    }
+    return;
+  }
+  askingForHuman.add(workspaceId);
+  useBoardStore.getState().setActivity(workspaceId, "waiting");
+  maybeNotifyNeedsInput(workspaceId);
+}
+
+/** Claude is blocked on a permission prompt (its own or a background worker's). */
+function maybeNotifyNeedsInput(workspaceId: string) {
+  if (isScheduledRun(workspaceId)) return;
+  // News whether or not the user armed this turn — but it stands in for the
+  // turn's quiet-timer notification rather than adding a second one.
+  armed.delete(workspaceId);
+  notifyUnlessWatching(
+    workspaceId,
+    (title) => `${title} needs you`,
+    "The agent is asking for permission to continue."
   );
 }
 
@@ -93,6 +155,18 @@ function maybeNotifyWaiting(workspaceId: string) {
   // quiet below, so a turn the user already saw can't resurface on a later
   // repaint — it takes new input from them to arm the next one.
   if (!armed.delete(workspaceId)) return;
+  notifyUnlessWatching(
+    workspaceId,
+    (title) => `${title} is waiting`,
+    "The agent finished its turn and needs your input."
+  );
+}
+
+function notifyUnlessWatching(
+  workspaceId: string,
+  headline: (title: string) => string,
+  body: string
+) {
   if (!notifyOnWaiting()) return;
   const { runningAgents, selectedIssueKey } = useBoardStore.getState();
   if (!runningAgents.has(workspaceId)) return;
@@ -106,11 +180,7 @@ function maybeNotifyWaiting(workspaceId: string) {
   // Resolves companion agents too ("Refactor auth · codex"), which otherwise
   // would have announced themselves as a bare workspace id.
   const title = workspaceTitle(sessions.sessions, workspaceId) ?? workspaceId;
-  void notify(
-    `${title} is waiting`,
-    "The agent finished its turn and needs your input.",
-    workspaceId
-  );
+  void notify(headline(title), body, workspaceId);
 }
 
 /** An agent finishing its turn may have just raised or merged a PR via gh —

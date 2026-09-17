@@ -85,6 +85,10 @@ pub struct ScheduleRun {
     /// Firings skipped because this run was still going when they came due.
     #[serde(default)]
     pub skipped: u32,
+    /// Background tasks (agents, shells, workflows) Claude still had going when
+    /// its last turn ended — the run waits for them before finishing.
+    #[serde(default)]
+    pub background_tasks: u32,
     #[serde(default)]
     pub error: Option<String>,
     /// The terminal output was saved to disk (`transcript`) and can be replayed.

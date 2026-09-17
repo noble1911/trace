@@ -10,6 +10,12 @@
   does the same for the plain shell in the Terminal tab.
 - The frontend renders `pty-output` bytes in an **xterm.js** pane and forwards keystrokes/resize back through
   commands. Do not try to parse the byte stream for structured data — it's a screen, not JSON.
+- Turn boundaries come from Claude Code hooks, not the byte stream: `spawn_in` passes every claude agent
+  `--settings` with `Stop`/`Notification` hooks (`claude/hooks.rs`). `trace-hook` relays each event + its
+  JSON input over the render bridge (`!event` messages), and the backend emits `agent-turn`
+  (`backgroundTasks` pending at a Stop; `needsInput` for permission prompts). The renderer's quiet timer
+  (`board/waitingNotify.ts`) stays the fallback — and the only signal for codex, which has no hooks.
+  A turn that ends while background agents/workflows run is *not* "waiting on the user".
 
 ## Worktrees
 

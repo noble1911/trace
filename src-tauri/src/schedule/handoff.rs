@@ -50,6 +50,6 @@ pub fn continue_as_session(run_id: &str) -> Result<ScratchSession, String> {
         Some(repo.clone()),
     )?;
     crate::commands::repos::adopt_workspace_dir(&session.id, &dirname, &repo)?;
-    crate::commands::agent::upsert_session_id(&session.id, &claude_id)?;
+    crate::claude::conversations::upsert_session_id(&session.id, &claude_id)?;
     Ok(session)
 }

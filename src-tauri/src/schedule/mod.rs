@@ -9,14 +9,15 @@
 //!
 //! - `timing` / `cron`: when a schedule fires next.
 //! - `model` / `store` / `prompts`: the persisted shapes, their files, and CRUD.
-//! - `run`: launching and finishing one run (`hooks` tell us when it's done).
+//! - `run`: launching and finishing one run; `completion` decides when its work
+//!   (background tasks included) is done, from `claude::hooks` turn events.
 //! - `transcript`: a finished run's PTY bytes on disk, replayable after restart.
 //! - `template`: `{date}`-style variables substituted into the prompt.
 //! - `handoff`: continuing a finished run as an exploratory session.
 
+pub mod completion;
 pub mod cron;
 pub mod handoff;
-pub mod hooks;
 pub mod model;
 pub mod prompts;
 pub mod run;

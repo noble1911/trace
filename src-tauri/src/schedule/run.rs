@@ -2,22 +2,20 @@
 //!
 //! Start: reserve the prompt (one live run each), record the run, then — on a
 //! worker thread, since worktree creation takes seconds — render the prompt and
-//! spawn a fresh Claude conversation keyed `sched:<runId>` with the Stop /
-//! Notification hooks attached. Finish: whichever comes first of the Stop hook, a
-//! timeout, a stop, or the process exiting saves the transcript, frees the
-//! in-memory scrollback, kills the PTY and records the outcome.
-
-use std::time::Duration;
+//! spawn a fresh Claude conversation keyed `sched:<runId>`. Finish: whichever comes first of the work being
+//! done (`completion`), a timeout, a stop, or the process exiting saves the
+//! transcript, frees the in-memory scrollback, kills the PTY and records the
+//! outcome.
 
 use serde::Serialize;
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::hooks::{self, HookEvent};
 use super::model::{RunStatus, ScheduleRun, ScheduledPrompt, Trigger};
 use super::transcript::{self, Transcript};
 use super::{now_secs, run_workspace_id, store, template};
-use crate::commands::agent::{forget_session_id, session_id_for, spawn_in};
+use crate::claude::conversations::{forget_session_id, session_id_for};
+use crate::commands::agent::spawn_in;
 use crate::commands::session_agents::stop_agents;
 use crate::git;
 use crate::helpers::{new_id, slugify};
@@ -34,6 +32,9 @@ pub struct LiveRun {
     /// False while the worktree/spawn step is still going — until then a missing
     /// PTY means "not started yet", not "exited".
     pub spawned: bool,
+    /// Stop hooks seen so far. A pending "is it done?" check only acts if no
+    /// later Stop arrived meanwhile (`completion`).
+    pub stops: u64,
 }
 
 /// `schedule-run` event payload: a run started, changed, or finished.
@@ -45,10 +46,6 @@ struct RunEvent {
     status: RunStatus,
     needs_input: bool,
 }
-
-/// Between the Stop hook and teardown, so the TUI finishes painting the final
-/// answer into the transcript.
-const SETTLE_AFTER_STOP: Duration = Duration::from_millis(1500);
 
 /// The PTY size a run starts at; the renderer resizes it once someone watches.
 const COLS: u16 = 120;
@@ -71,6 +68,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
         claude_session_id: None,
         needs_input: false,
         skipped: 0,
+        background_tasks: 0,
         error: None,
         has_transcript: false,
     };
@@ -88,6 +86,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
             prompt_id: prompt.id.clone(),
             deadline,
             spawned: false,
+            stops: 0,
         };
         live.insert(ws.clone(), reservation);
     }
@@ -165,11 +164,9 @@ fn spawn(
         repo: &repo,
     };
     let rendered = template::render(&prompt.prompt, &vars);
-    // `--settings` goes last: it ends any variadic user flag (e.g.
-    // `--allowedTools Bash Edit`) that would otherwise swallow the prompt.
-    let mut args = prompt.extra_args.clone();
-    args.push("--settings".to_string());
-    args.push(hooks::settings_arg()?);
+    // `spawn_in` attaches the turn hooks (`claude::hooks`) that tell us when the
+    // run's work is done.
+    let args = prompt.extra_args.clone();
     let ws = run_workspace_id(&run.id);
     let state = app.state::<AppState>();
     spawn_in(
@@ -238,6 +235,7 @@ pub fn finish(app: &AppHandle, ws: &str, status: RunStatus, error: Option<String
         }
         if status == RunStatus::Succeeded {
             r.needs_input = false;
+            r.background_tasks = 0;
         }
     });
     if let Ok(Some(run)) = updated {
@@ -290,46 +288,8 @@ pub fn note_skipped(app: &AppHandle, ws: &str) {
     }
 }
 
-/// A hook event relayed by `trace-hook` through the render bridge. Ignores
-/// anything that isn't a live run — the token already proved it came from one
-/// of our agents, but not that it's a scheduled one.
-pub fn on_hook(app: &AppHandle, ws: &str, raw_event: &str) {
-    let Some(event) = HookEvent::parse(raw_event) else {
-        return;
-    };
-    let Some(run_id) = app
-        .state::<AppState>()
-        .live_runs
-        .lock()
-        .get(ws)
-        .map(|r| r.run_id.clone())
-    else {
-        return;
-    };
-    match event {
-        HookEvent::Stop => {
-            let app = app.clone();
-            let ws = ws.to_string();
-            std::thread::spawn(move || {
-                std::thread::sleep(SETTLE_AFTER_STOP);
-                finish(&app, &ws, RunStatus::Succeeded, None);
-            });
-        }
-        HookEvent::NeedsInput => {
-            let already = store::runs()
-                .iter()
-                .any(|r| r.id == run_id && r.needs_input);
-            if already {
-                return;
-            }
-            if let Ok(Some(run)) = store::update_run(&run_id, |r| r.needs_input = true) {
-                emit(app, &run);
-            }
-        }
-    }
-}
-
-fn emit(app: &AppHandle, run: &ScheduleRun) {
+/// Tell the renderer a run changed (it re-loads and may notify).
+pub(crate) fn emit(app: &AppHandle, run: &ScheduleRun) {
     let event = RunEvent {
         prompt_id: run.prompt_id.clone(),
         run_id: run.id.clone(),

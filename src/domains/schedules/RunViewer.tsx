@@ -53,6 +53,8 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
   };
 
   const elapsed = (run.endedAt ?? now) - run.startedAt;
+  const background = run.backgroundTasks;
+  const tasks = background === 1 ? "1 background task" : `${background} background tasks`;
   const facts = [
     `Started ${formatWhen(run.startedAt)}`,
     formatDuration(elapsed),
@@ -90,6 +92,17 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
       {needsYou && (
         <div className="sched-viewer-note">
           Claude is waiting on you — answer in the terminal below and the run carries on.
+        </div>
+      )}
+      {live && background > 0 && !needsYou && (
+        <div className="sched-viewer-note muted">
+          Waiting on {tasks} — the run finishes once they report back.
+        </div>
+      )}
+      {run.status === "timedOut" && background > 0 && (
+        <div className="sched-viewer-note error">
+          Timed out with {tasks} still going. Prompts that fan out to agents may need a longer
+          timeout (Edit).
         </div>
       )}
       {run.error && <div className="sched-viewer-note error">{run.error}</div>}

@@ -23,6 +23,18 @@ export interface RichHtml {
   html: string;
 }
 
+/**
+ * A Claude agent's turn event, from its Stop/Notification hooks (`claude::hooks`).
+ * Codex agents have no hooks and never send these.
+ */
+export interface AgentTurn {
+  workspaceId: string;
+  /** "stop": a turn ended. "needsInput": Claude is blocked on the user (e.g. a permission prompt). */
+  event: "stop" | "needsInput";
+  /** Background agents/shells/workflows still pending when the turn ended; 0 for needsInput. */
+  backgroundTasks: number;
+}
+
 /** A scheduled run started, changed (skips, needs input), or finished. */
 export interface ScheduleRunEvent {
   promptId: string;
@@ -50,4 +62,8 @@ export function onScheduleRun(cb: (payload: ScheduleRunEvent) => void): Promise<
 /** Prompts changed backend-side (saved, paused, or next-run times advanced). */
 export function onSchedulesChanged(cb: () => void): Promise<UnlistenFn> {
   return listen("schedules-changed", () => cb());
+}
+
+export function onAgentTurn(cb: (payload: AgentTurn) => void): Promise<UnlistenFn> {
+  return listen<AgentTurn>("agent-turn", (e) => cb(e.payload));
 }

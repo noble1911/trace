@@ -10,6 +10,7 @@ import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
 import { useBoardStore } from "@/domains/board/store";
+import { noteAgentTurn } from "@/domains/board/waitingNotify";
 import { ProviderLogin } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
 import { OrchestratorFab } from "@/domains/orchestrator/Fab";
@@ -25,7 +26,7 @@ import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
-import { onAgentRunState, onPtyOutput, onRichHtml } from "@/ipc/events";
+import { onAgentRunState, onAgentTurn, onPtyOutput, onRichHtml } from "@/ipc/events";
 import { consumeNotificationClick, setDockBadge } from "@/ipc/notify";
 import { checkAppUpdate } from "@/ipc/update";
 import { toast } from "./app/toast";
@@ -82,6 +83,7 @@ export function App() {
     let unlistenRun: (() => void) | undefined;
     let unlistenPty: (() => void) | undefined;
     let unlistenRich: (() => void) | undefined;
+    let unlistenTurn: (() => void) | undefined;
     void onAgentRunState((p) => setAgentRunning(p.workspaceId, p.running)).then((fn) => {
       if (cancelled) fn();
       else unlistenRun = fn;
@@ -96,11 +98,18 @@ export function App() {
       if (cancelled) fn();
       else unlistenRich = fn;
     });
+    // Claude agents' hook-reported turns: tells "busy with background work" from
+    // "needs you" (the quiet timer alone can't).
+    void onAgentTurn(noteAgentTurn).then((fn) => {
+      if (cancelled) fn();
+      else unlistenTurn = fn;
+    });
     return () => {
       cancelled = true;
       unlistenRun?.();
       unlistenPty?.();
       unlistenRich?.();
+      unlistenTurn?.();
     };
   }, [setAgentRunning, appendOutput]);
 

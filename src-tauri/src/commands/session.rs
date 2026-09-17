@@ -11,7 +11,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
-use crate::commands::agent::{forget_session_id, spawn_in};
+use crate::claude::conversations::forget_session_id;
+use crate::commands::agent::spawn_in;
 use crate::commands::session_agents::{discard_agents, stop_agents, SessionAgent};
 use crate::git;
 use crate::helpers::new_id;

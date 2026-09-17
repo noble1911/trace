@@ -101,8 +101,11 @@ interface BoardStore {
    * drops the acknowledgement so the finished turn counts as news again.
    */
   noteUserTurn: (workspaceId: string) => void;
-  /** Flip a running agent's activity to "waiting" (the quiet timer's callback). */
-  markWaiting: (workspaceId: string) => void;
+  /**
+   * Set a running agent's activity — "waiting" from the quiet timer or a
+   * permission prompt, "working" when its turn ended on background work.
+   */
+  setActivity: (workspaceId: string, activity: "working" | "waiting") => void;
   /** GitHub PRs linked to each issue, keyed by issue key. */
   pullRequests: Record<string, PullRequest[]>;
   /**
@@ -274,10 +277,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { ackedWaiting: next };
     });
   },
-  markWaiting(workspaceId) {
+  setActivity(workspaceId, activity) {
     set((s) => {
-      if (!s.runningAgents.has(workspaceId)) return {};
-      return { agentActivity: { ...s.agentActivity, [workspaceId]: "waiting" } };
+      if (!s.runningAgents.has(workspaceId) || s.agentActivity[workspaceId] === activity) return {};
+      return { agentActivity: { ...s.agentActivity, [workspaceId]: activity } };
     });
   },
   closeIssue() {
