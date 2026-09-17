@@ -1,4 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { RunStatus } from "@/domains/schedules/types";
 
 // Typed wrappers around backend events. The PTY pump emits raw bytes per issue.
 
@@ -22,6 +23,14 @@ export interface RichHtml {
   html: string;
 }
 
+/** A scheduled run started, changed (skips, needs input), or finished. */
+export interface ScheduleRunEvent {
+  promptId: string;
+  runId: string;
+  status: RunStatus;
+  needsInput: boolean;
+}
+
 export function onPtyOutput(cb: (payload: PtyOutput) => void): Promise<UnlistenFn> {
   return listen<PtyOutput>("pty-output", (e) => cb(e.payload));
 }
@@ -32,4 +41,13 @@ export function onAgentRunState(cb: (payload: AgentRunState) => void): Promise<U
 
 export function onRichHtml(cb: (payload: RichHtml) => void): Promise<UnlistenFn> {
   return listen<RichHtml>("rich-html", (e) => cb(e.payload));
+}
+
+export function onScheduleRun(cb: (payload: ScheduleRunEvent) => void): Promise<UnlistenFn> {
+  return listen<ScheduleRunEvent>("schedule-run", (e) => cb(e.payload));
+}
+
+/** Prompts changed backend-side (saved, paused, or next-run times advanced). */
+export function onSchedulesChanged(cb: () => void): Promise<UnlistenFn> {
+  return listen("schedules-changed", () => cb());
 }

@@ -2,6 +2,7 @@ import { decodePtyChunk, stripAnsi } from "@/domains/agent/transcript";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import { type OutputChunk, useBoardStore } from "@/domains/board/store";
 import type { PullRequest } from "@/domains/issues/types";
+import { isScheduledRun } from "@/domains/schedules/ids";
 import { useSessionsStore } from "@/domains/sessions/store";
 
 // Global search over everything the app already holds in memory: board
@@ -106,6 +107,9 @@ export function runSearch(query: string): SearchResults {
 
   for (const [workspaceId, chunks] of Object.entries(board.outputBuffers)) {
     if (out.chats.length >= PER_GROUP) break;
+    // A scheduled run's buffer only lives while it runs; its hit would open
+    // nothing useful — the Scheduled view is where runs are read.
+    if (isScheduledRun(workspaceId)) continue;
     const text = chatText(workspaceId, chunks);
     const sub = snippet(text, q);
     if (!sub) continue;

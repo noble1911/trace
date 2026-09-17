@@ -6,10 +6,12 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Extra class on the dialog, for a modal that needs a different width. */
+  className?: string;
 }
 
 // Shared centered modal: backdrop click and Escape both close it.
-export function Modal({ title, onClose, children, footer }: ModalProps) {
+export function Modal({ title, onClose, children, footer, className }: ModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -27,7 +29,12 @@ export function Modal({ title, onClose, children, footer }: ModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className={className ? `modal ${className}` : "modal"}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className="modal-head">
           <span className="modal-title">{title}</span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Close">

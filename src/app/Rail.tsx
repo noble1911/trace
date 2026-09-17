@@ -1,6 +1,7 @@
 import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
 import { useIssuesStore } from "@/domains/issues/store";
+import { useScheduledNeedsYou } from "@/domains/schedules/hooks/useScheduledNeedsYou";
 import type { NavId } from "./nav";
 
 interface RailProps {
@@ -12,6 +13,7 @@ interface RailProps {
 export function Rail({ nav, onNav, waitingCount }: RailProps) {
   // Prefer the Jira identity for the rail avatar; fall back to any provider.
   const user = useIssuesStore((s) => s.users.jira ?? s.users.pylon ?? null);
+  const scheduledNeedsYou = useScheduledNeedsYou();
 
   return (
     <aside className="rail">
@@ -35,6 +37,15 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
           title="Sessions"
         >
           <I.Agents size={16} />
+        </button>
+        <button
+          type="button"
+          className={`nav-btn${nav === "scheduled" ? " active" : ""}`}
+          onClick={() => onNav("scheduled")}
+          title="Scheduled prompts"
+        >
+          <I.Clock size={16} />
+          {scheduledNeedsYou && <span className="badge" />}
         </button>
         <button
           type="button"

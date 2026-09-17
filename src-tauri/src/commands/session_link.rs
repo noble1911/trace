@@ -42,6 +42,16 @@ pub fn link_session_to_issue(
         .or_else(crate::commands::repos::default_repo)
         .ok_or("Add a repository in Settings first.")?;
     let dirname = crate::commands::repos::workspace_dirname(&id);
+    // A session continuing a scheduled run adopted the prompt's worktree (and
+    // its branch). Handing that checkout to an issue would leave the prompt
+    // running in the issue's worktree — refuse before anything is torn down.
+    if dirname != crate::helpers::slugify(&id) {
+        return Err(
+            "This session continues a scheduled run and shares that prompt's worktree — it \
+             can't be bound to a ticket."
+                .to_string(),
+        );
+    }
     let dir = format!("{repo}/.worktrees/{dirname}");
     if !std::path::Path::new(&dir).exists() {
         return Err("Start this session once before linking — it has no worktree yet.".to_string());

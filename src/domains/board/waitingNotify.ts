@@ -1,4 +1,5 @@
 import { notifyOnWaiting } from "@/domains/agent/defaults";
+import { isScheduledRun } from "@/domains/schedules/ids";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { notify } from "@/ipc/notify";
@@ -84,8 +85,10 @@ export function watchForQuiet(workspaceId: string): void {
 
 /** Notify that an agent finished its turn — unless the user is watching it. */
 function maybeNotifyWaiting(workspaceId: string) {
-  // Plain shells (`term:`) are always "waiting"; only agents are news.
-  if (workspaceId.startsWith("term:")) return;
+  // Plain shells (`term:`) are always "waiting"; only agents are news. Scheduled
+  // runs announce their own outcome (`schedules/hooks/useScheduleEvents`) — their
+  // pauses between tool calls aren't news to anyone.
+  if (workspaceId.startsWith("term:") || isScheduledRun(workspaceId)) return;
   // One notification per turn. The arming is consumed even when we go on to stay
   // quiet below, so a turn the user already saw can't resurface on a later
   // repaint — it takes new input from them to arm the next one.

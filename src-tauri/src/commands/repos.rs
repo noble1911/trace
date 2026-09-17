@@ -204,6 +204,26 @@ pub(crate) fn adopt_workspace_dir(
     save(&cfg)
 }
 
+/// Workspace ids that adopted the worktree dir `dirname`.
+pub(crate) fn dir_adopters(dirname: &str) -> Vec<String> {
+    load()
+        .dir_overrides
+        .into_iter()
+        .filter(|(_, dir)| dir == dirname)
+        .map(|(id, _)| id)
+        .collect()
+}
+
+/// Drop a deleted workspace's adoption, so it no longer counts as a co-owner of
+/// the dir (see `worktrees::remove_for_workspace`). No-op when there is none.
+pub(crate) fn forget_dir_override(workspace_id: &str) -> Result<(), String> {
+    let mut cfg = load();
+    if cfg.dir_overrides.remove(workspace_id).is_some() {
+        save(&cfg)?;
+    }
+    Ok(())
+}
+
 /// All configured repos, in the order the user added them.
 pub(crate) fn all_repos() -> Vec<String> {
     load().repos

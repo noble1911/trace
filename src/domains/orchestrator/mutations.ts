@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { activity } from "@/domains/activity/store";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
+import { isScheduledRun } from "@/domains/schedules/ids";
 import { sendAgentInput } from "@/ipc/agent";
 import { commentOnIssue, transitionIssue } from "@/ipc/issues";
 
@@ -137,7 +138,11 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
   if (name === "broadcast_to_agents") {
     const message = field(input, "message");
     if (!message.trim()) return "Error: empty message.";
-    const agents = [...board.runningAgents].filter((k) => !k.startsWith("term:"));
+    // Scheduled runs are excluded: they're unattended one-shot jobs, and a
+    // message landing mid-run would change what the schedule asked for.
+    const agents = [...board.runningAgents].filter(
+      (k) => !k.startsWith("term:") && !isScheduledRun(k)
+    );
     if (agents.length === 0) return "No running agents to broadcast to.";
     // A broadcast starts a turn on every agent it reaches, so each one's
     // finished turn is worth a notification again.

@@ -1,0 +1,415 @@
+/* Scheduled prompts: list rows, the create/edit form, and the detail (run
+   history + run viewer). Colors and radii come from tokens.css only. */
+
+/* ============ List ============ */
+.sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  background: var(--bg-1);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.sched-row:hover {
+  border-color: var(--border);
+  background: var(--bg-2);
+}
+.sched-row:focus-visible {
+  outline: none;
+  border-color: var(--c-accent);
+}
+.sched-row.paused .sched-row-title,
+.sched-row.paused .sched-row-icon {
+  color: var(--fg-3);
+}
+.sched-row-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--c-review-bg);
+  color: var(--c-review);
+  flex-shrink: 0;
+}
+.sched-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.sched-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-0);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sched-row-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sched-row-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 132px;
+  flex-shrink: 0;
+}
+.sched-row-col .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-4);
+}
+.sched-row-col .v {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-1);
+}
+.sched-row-col .ago {
+  color: var(--fg-4);
+}
+.sched-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  cursor: default;
+}
+.sched-row-actions .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Finished-run status: a dot + label, colored per outcome. */
+.run-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+.run-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.run-badge.succeeded {
+  color: var(--c-done);
+}
+.run-badge.failed,
+.run-badge.timedOut {
+  color: var(--c-danger);
+}
+.run-badge.stopped {
+  color: var(--fg-3);
+}
+
+/* ============ Form ============ */
+.modal.sched-modal {
+  width: 580px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+.sched-modal .modal-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+.sched-textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 8px 10px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-0);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.sched-textarea:focus {
+  border-color: var(--c-accent);
+  outline: none;
+}
+.sched-mono,
+.sched-cron {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.field-note code,
+.sched-modal code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+.sched-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sched-form-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sched-form-error {
+  margin-right: auto;
+  align-self: center;
+  font-size: 12px;
+  color: var(--c-danger);
+}
+
+.sched-kinds {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  align-self: flex-start;
+}
+.sched-kind {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.sched-kind:hover {
+  color: var(--fg-1);
+}
+.sched-kind.active {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.sched-inputs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sched-word {
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+.sched-num {
+  width: 76px;
+}
+.sched-time {
+  width: 110px;
+  color-scheme: dark;
+}
+.sched-cron {
+  flex: 1;
+}
+.sched-days {
+  display: flex;
+  gap: 4px;
+}
+.sched-day {
+  width: 32px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+.sched-day:hover {
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+}
+.sched-day.on {
+  color: var(--c-review);
+  background: var(--c-review-bg);
+  border-color: var(--c-review);
+}
+.sched-preview {
+  min-height: 16px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+.sched-preview.error {
+  font-family: var(--font-sans);
+  color: var(--c-danger);
+}
+
+/* ============ Detail ============ */
+.sched-enabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-3);
+  margin-right: 4px;
+}
+.sched-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
+}
+.sched-runs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border-faint);
+  background: var(--bg-1);
+}
+.sched-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+}
+.sched-section-head .count {
+  font-family: var(--font-mono);
+  padding: 0 5px;
+  border: 1px solid var(--border-faint);
+  border-radius: 4px;
+  color: var(--fg-3);
+}
+.sched-prompt {
+  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: 12px;
+}
+.sched-prompt .sched-prompt-text {
+  margin: 0 14px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.sched-prompt-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-1);
+}
+.sched-prompt-meta {
+  margin: 8px 14px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  word-break: break-word;
+}
+.sched-run-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sched-run {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.sched-run:hover {
+  background: var(--bg-2);
+}
+.sched-run.active {
+  background: var(--bg-3);
+}
+.sched-run-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sched-run-top .when {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-2);
+}
+.sched-run-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-4);
+}
+
+.sched-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.sched-viewer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+.sched-viewer-bar .right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.sched-viewer-facts {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+.sched-viewer-note {
+  padding: 8px 16px;
+  font-size: 12.5px;
+  color: var(--c-warn);
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+.sched-viewer-note.error {
+  color: var(--c-danger);
+}
+.sched-sent {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+.sched-sent summary {
+  font-size: 12px;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.sched-sent summary:hover {
+  color: var(--fg-1);
+}
+.sched-sent .sched-prompt-text {
+  margin-top: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}

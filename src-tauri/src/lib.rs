@@ -1,7 +1,7 @@
 //! trace — Tauri shell.
 //!
 //! Thin by design: owns `AppState`, `run()`, and command registration only.
-//! Feature logic lives in `jira/`, `claude/`, `git`, and thin `commands/*`.
+//! Feature logic lives in `jira/`, `claude/`, `schedule/`, `git`, and thin `commands/*`.
 
 pub mod claude;
 pub mod commands;
@@ -10,6 +10,7 @@ pub mod helpers;
 pub mod issues;
 pub mod jira;
 pub mod pylon;
+pub mod schedule;
 pub mod state;
 
 use state::AppState;
@@ -28,6 +29,11 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .manage(app_state)
+        .setup(|app| {
+            // The scheduled-prompt engine fires from Rust, whatever the UI is doing.
+            schedule::runner::start(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::issues::connect_jira,
             commands::issues::connect_pylon,
@@ -52,7 +58,7 @@ pub fn run() {
             commands::agent::start_terminal,
             commands::agent::send_agent_input,
             commands::agent::resize_agent,
-            commands::agent::pty_snapshot,
+            commands::snapshot::pty_snapshot,
             commands::agent::stop_agent,
             commands::agent::reset_agent_session,
             commands::pr::raise_pr,
@@ -76,6 +82,15 @@ pub fn run() {
             commands::session_agents::add_session_agent,
             commands::session_agents::remove_session_agent,
             commands::session_agents::start_session_agent,
+            commands::schedules::list_scheduled_prompts,
+            commands::schedules::list_schedule_runs,
+            commands::schedules::save_scheduled_prompt,
+            commands::schedules::set_scheduled_prompt_enabled,
+            commands::schedules::delete_scheduled_prompt,
+            commands::schedules::run_scheduled_prompt_now,
+            commands::schedules::stop_scheduled_run,
+            commands::schedules::preview_schedule,
+            commands::schedules::continue_run_as_session,
             commands::groups::list_session_groups,
             commands::groups::save_session_groups,
             commands::tests::run_tests,

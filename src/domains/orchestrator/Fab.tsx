@@ -1,5 +1,6 @@
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
+import { isScheduledRun } from "@/domains/schedules/ids";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { useOrchestratorStore } from "./store";
 
@@ -15,7 +16,11 @@ export function OrchestratorFab() {
   const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
 
   const waiting = [...runningAgents].filter(
-    (k) => !k.startsWith("term:") && agentActivity[k] === "waiting" && !ackedWaiting.has(k)
+    (k) =>
+      !k.startsWith("term:") &&
+      !isScheduledRun(k) &&
+      agentActivity[k] === "waiting" &&
+      !ackedWaiting.has(k)
   );
 
   if (open) return null;

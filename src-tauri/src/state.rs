@@ -48,6 +48,10 @@ pub struct AppState {
     /// duplicated terminal output and a `--session-id`/`--resume` collision. This
     /// reserves the id for the duration of a start so the second request no-ops.
     pub starting: Mutex<HashSet<String>>,
+    /// Scheduled runs with a live (or starting) PTY, keyed by their `sched:`
+    /// workspace id. Enforces one live run per prompt and tracks timeouts
+    /// (`schedule::run`).
+    pub live_runs: Mutex<HashMap<String, crate::schedule::run::LiveRun>>,
     /// Loopback HTML bridge (port + token), started lazily on the first agent
     /// spawn and shared by all agents. `OnceLock` so it binds once and lives for
     /// the app's lifetime. See `claude::render_bridge`.

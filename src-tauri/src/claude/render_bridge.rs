@@ -122,6 +122,12 @@ fn handle_conn(stream: TcpStream, app: &AppHandle, token: &str) {
     if !constant_time_eq(got_token.as_bytes(), token.as_bytes()) {
         return;
     }
+    // Hook events from a scheduled run's `trace-hook` (`schedule::hooks`) —
+    // '!' can't start a base64 payload, so the two message kinds can't collide.
+    if let Some(event) = b64.strip_prefix('!') {
+        crate::schedule::run::on_hook(app, issue_key, event);
+        return;
+    }
     let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64) else {
         return;
     };

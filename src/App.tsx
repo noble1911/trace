@@ -16,6 +16,10 @@ import { OrchestratorFab } from "@/domains/orchestrator/Fab";
 import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
 import { useOrchestratorStore } from "@/domains/orchestrator/store";
 import { PrsView } from "@/domains/prs/PrsView";
+import { useScheduleEvents } from "@/domains/schedules/hooks/useScheduleEvents";
+import { isScheduledRun, runIdOf } from "@/domains/schedules/ids";
+import { SchedulesView } from "@/domains/schedules/SchedulesView";
+import { useSchedulesStore } from "@/domains/schedules/store";
 import { RecentSessions } from "@/domains/sessions/RecentSessions";
 import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
@@ -59,6 +63,9 @@ export function App() {
   useEffect(() => {
     void init();
   }, [init]);
+
+  // Scheduled runs start and finish backend-side; keep their store live app-wide.
+  useScheduleEvents();
 
   // App-level listeners. We capture pty-output here (not in PtyTerminal) so the
   // buffer keeps growing even when the agent detail isn't mounted — that's what
@@ -130,7 +137,11 @@ export function App() {
       // A focus right after a waiting notification ≈ the user clicked it:
       // jump straight to that workspace's detail (issue card or session).
       const target = consumeNotificationClick();
-      if (target) {
+      const runId = target ? runIdOf(target) : null;
+      if (runId) {
+        setNav("scheduled");
+        useSchedulesStore.getState().openRun(runId);
+      } else if (target) {
         const isIssue = useBoardStore.getState().data?.issues.some((i) => i.key === target);
         if (isIssue) useBoardStore.getState().openIssue(target);
         else useSessionsStore.getState().select(target);
@@ -149,7 +160,11 @@ export function App() {
   // Agents waiting on input that the user hasn't looked at yet (shells
   // excluded — they're always "waiting"; viewing a session acknowledges it).
   const waitingCount = [...runningAgents].filter(
-    (k) => !k.startsWith("term:") && agentActivity[k] === "waiting" && !ackedWaiting.has(k)
+    (k) =>
+      !k.startsWith("term:") &&
+      !isScheduledRun(k) &&
+      agentActivity[k] === "waiting" &&
+      !ackedWaiting.has(k)
   ).length;
   useEffect(() => {
     setDockBadge(waitingCount);
@@ -194,6 +209,7 @@ export function App() {
   const handleNav = (id: NavId) => {
     closeIssue();
     closeSession();
+    useSchedulesStore.getState().close();
     setNav(id);
   };
 
@@ -247,6 +263,7 @@ export function App() {
         <main className="main">
           {nav === "board" && <Board />}
           {nav === "sessions" && <SessionsView />}
+          {nav === "scheduled" && <SchedulesView />}
           {nav === "pr" && <PrsView />}
           {nav === "activity" && <ActivityView />}
           {nav === "settings" && <SettingsView />}

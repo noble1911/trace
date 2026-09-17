@@ -73,12 +73,12 @@ fn save_sessions(map: &std::collections::HashMap<String, String>) -> Result<(), 
     Ok(())
 }
 
-fn session_id_for(issue_key: &str) -> Option<String> {
+pub(crate) fn session_id_for(issue_key: &str) -> Option<String> {
     let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     load_sessions().get(issue_key).cloned()
 }
 
-fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
+pub(crate) fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
     let _guard = SESSIONS_FILE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let mut map = load_sessions();
     map.insert(issue_key.to_string(), id.to_string());
@@ -384,34 +384,6 @@ pub fn resize_agent(
         Some(session) => session.resize(cols, rows),
         None => Ok(()),
     }
-}
-
-/// Everything needed to rebuild a terminal after a renderer reload: the
-/// rolling output history plus the PTY size it was painted at. `None` when
-/// the workspace never produced output (or its history was torn down).
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PtySnapshot {
-    pub chunks: Vec<String>,
-    /// Highest seq included — live chunks at or below this are already here.
-    pub seq: u64,
-    pub cols: u16,
-    pub rows: u16,
-}
-
-#[tauri::command]
-pub fn pty_snapshot(state: State<'_, AppState>, workspace_id: String) -> Option<PtySnapshot> {
-    let histories = state.output_history.lock();
-    let h = histories.get(&workspace_id)?;
-    if h.chunks.is_empty() {
-        return None;
-    }
-    Some(PtySnapshot {
-        chunks: h.chunks.iter().map(|(_, c)| c.clone()).collect(),
-        seq: h.seq,
-        cols: h.cols,
-        rows: h.rows,
-    })
 }
 
 /// Stop an agent: take it out of state and kill the child (its EOF triggers the

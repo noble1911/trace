@@ -79,14 +79,25 @@ fn is_dirty(worktree: &str) -> bool {
     git_out(worktree, &["status", "--porcelain"]).is_none_or(|s| !s.trim().is_empty())
 }
 
-/// Worktree dir names with a live PTY (board agents + their `term:` shells).
-/// Resolved through the dirname helper so adopted dirs match correctly.
+/// Worktree dir names with a live PTY (board agents + their `term:` shells, and
+/// scheduled runs — which live in their *prompt's* worktree). Resolved through
+/// the dirname helper so adopted dirs match correctly.
 fn running_slugs(state: &AppState) -> Vec<String> {
-    state
-        .pty_sessions
+    let keys: Vec<String> = state.pty_sessions.lock().keys().cloned().collect();
+    let run_prompts: std::collections::HashMap<String, String> = state
+        .live_runs
         .lock()
-        .keys()
-        .map(|k| crate::commands::repos::workspace_dirname(k.strip_prefix("term:").unwrap_or(k)))
+        .iter()
+        .map(|(ws, run)| (ws.clone(), run.prompt_id.clone()))
+        .collect();
+    keys.iter()
+        .map(|k| {
+            let owner = run_prompts
+                .get(k)
+                .map(String::as_str)
+                .unwrap_or_else(|| k.strip_prefix("term:").unwrap_or(k));
+            crate::commands::repos::workspace_dirname(owner)
+        })
         .collect()
 }
 
@@ -99,20 +110,46 @@ pub(crate) fn remove_for_workspace(workspace_id: &str) {
     if dirname.is_empty() {
         return;
     }
+    // A checkout can back two workspaces — a scheduled prompt and a session
+    // continuing one of its runs (`schedule::handoff`). Only the last one
+    // standing takes it along.
+    let shared = dir_shared(workspace_id, &dirname);
+    let _ = crate::commands::repos::forget_dir_override(workspace_id);
+    if shared {
+        return;
+    }
     for repo in crate::commands::repos::all_repos() {
         let path = format!("{repo}/.worktrees/{dirname}");
         if !std::path::Path::new(&path).exists() {
             continue;
         }
+        // Delete the branch actually checked out there: an adopted worktree's
+        // branch is named after its original owner, not `workspace_id`.
+        let branch = git_out(&path, &["symbolic-ref", "--short", "HEAD"])
+            .map(|b| b.trim().to_string())
+            .filter(|b| b.starts_with("workspace/"))
+            .unwrap_or_else(|| format!("workspace/{slug}"));
         let _ = Command::new("git")
             .args(["worktree", "remove", "--force", &path])
             .current_dir(&repo)
             .output();
         let _ = Command::new("git")
-            .args(["branch", "-D", &format!("workspace/{slug}")])
+            .args(["branch", "-D", &branch])
             .current_dir(&repo)
             .output();
     }
+}
+
+/// Whether worktree dir `dirname` also backs a workspace other than
+/// `workspace_id`: one that adopted it, or the scheduled prompt it's named for.
+fn dir_shared(workspace_id: &str, dirname: &str) -> bool {
+    let adopted = crate::commands::repos::dir_adopters(dirname)
+        .iter()
+        .any(|id| id != workspace_id);
+    adopted
+        || crate::schedule::store::prompts()
+            .iter()
+            .any(|p| p.id != workspace_id && slugify(&p.id) == dirname)
 }
 
 /// Every `.worktrees/` checkout across the configured repos, with status.

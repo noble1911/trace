@@ -51,6 +51,7 @@ src/
     ├── board/              # Board, Column, Card, filters; store also tracks agent run-state + PTY buffers
     ├── agent/              # AgentDetail + tabs (chat/ticket/files/terminal/tests/PR), xterm registry, defaults
     ├── sessions/           # exploratory (non-Jira) Claude sessions
+    ├── schedules/          # scheduled prompts: list, form, run history + run viewer
     ├── prs/                # pull-request list view
     ├── activity/           # activity feed
     └── settings/           # repos, agent defaults, integrations
@@ -67,7 +68,8 @@ src-tauri/src/
 ├── issues/                 # IssueProvider trait, Provider enum, shared models, active-provider session
 ├── jira/                   # Jira provider: auth, client, parse, board, dev  (Jira Cloud REST)
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
-└── commands/               # thin wrappers: agent, session, issues, pr, diff, tests, repos, editor
+├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
+└── commands/               # thin wrappers: agent, session, schedules, issues, pr, diff, tests, repos, editor
 ```
 
 Detailed rules live in `.claude/rules/` — read the one relevant to your change:
@@ -103,6 +105,12 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
   its own.
 - **Exploratory session:** the same agent transport without a tracker issue — a named scratch session in its
   own worktree (`domains/sessions/`, `commands/session.rs`).
+- **Scheduled prompt:** a prompt that fires on a schedule (interval / daily / weekly / monthly / cron) from
+  a Rust runner thread (`schedule/runner.rs`, only while trace is open; one process leads via a `flock`).
+  Each prompt owns a worktree; each run is a fresh conversation in a PTY keyed `sched:<runId>`. Run
+  completion comes from Claude Code `Stop`/`Notification` hooks injected via `--settings`, relayed by
+  `trace-hook` over the render bridge (`!event` messages). Finished runs' output is saved to disk and
+  replayed through `pty_snapshot`; "Continue as session" adopts the prompt's worktree + conversation.
 - **Lifecycle:** moving a card transitions the tracker's issue AND triggers the matching action — start agent
   (→ in progress), raise PR (→ review), merge (→ done).
 - **Agent workspace tabs:** beyond the chat PTY, each agent has a ticket view, a diff/file viewer
