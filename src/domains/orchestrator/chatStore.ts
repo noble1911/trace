@@ -26,6 +26,8 @@ Ground rules:
 - When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done. When a SPRINT GOAL is set, weight your recommendations toward it.`;
 
 export interface ChatMessage {
+  /** Stable React key — assigned once when the message is added. */
+  id: number;
   role: "user" | "assistant";
   text: string;
   /** Name of the tool the assistant is mid-call on, for a live status line. */
@@ -61,6 +63,7 @@ function systemPrompt(): string {
 let confirmResolver: ((ok: boolean) => void) | null = null;
 let abortController: AbortController | null = null;
 let sendGen = 0;
+let nextMessageId = 0;
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
@@ -94,7 +97,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     const myGen = ++sendGen;
     set((s) => ({
-      messages: [...s.messages, { role: "user", text: trimmed }, { role: "assistant", text: "" }],
+      messages: [
+        ...s.messages,
+        { id: nextMessageId++, role: "user", text: trimmed },
+        { id: nextMessageId++, role: "assistant", text: "" },
+      ],
       busy: true,
       error: null,
     }));

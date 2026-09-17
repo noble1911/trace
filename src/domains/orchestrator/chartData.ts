@@ -8,6 +8,8 @@ import { computeBoardStats } from "./stats";
 // can't fabricate one. Pure data; rendering lives in Chart.tsx.
 
 export interface ChartBar {
+  /** Stable React key. Labels can repeat (weekday names across two weeks). */
+  key: string;
   label: string;
   value: number;
   color: string;
@@ -57,6 +59,8 @@ export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
       title: "Tickets by column",
       orientation: "h",
       bars: stats.columns.map((c, i) => ({
+        // A column's identity is its position in the board config.
+        key: `column-${i}`,
         label: c.name,
         value: c.count,
         color: columnColor(i, n),
@@ -73,7 +77,7 @@ export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
     const bars = [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
-      .map(([label, value]) => ({ label, value, color: "var(--c-accent)" }));
+      .map(([label, value]) => ({ key: label, label, value, color: "var(--c-accent)" }));
     return { type: "bars", title: "Tickets by assignee", orientation: "h", bars };
   }
 
@@ -87,6 +91,7 @@ export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
       if (idx >= 0 && idx < days) buckets[idx] += 1;
     }
     const bars = buckets.map((value, i) => ({
+      key: String(start + i * DAY),
       label: WEEKDAYS[new Date(start + i * DAY).getDay()] ?? "",
       value,
       color: "var(--c-done)",

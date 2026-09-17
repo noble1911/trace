@@ -32,7 +32,9 @@ export function ChatView() {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Keep the newest content in view as it streams in.
+  // Keep the newest content in view as it streams in. `messages` isn't read in
+  // the body — it's the trigger: each streamed delta is a new array.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on every message update to follow the stream
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -70,9 +72,7 @@ export function ChatView() {
             </div>
           </div>
         ) : (
-          messages.map((m, i) => (
-            <Message key={`${m.role}-${i}`} msg={m} streaming={busy && i === last} />
-          ))
+          messages.map((m, i) => <Message key={m.id} msg={m} streaming={busy && i === last} />)
         )}
       </div>
 

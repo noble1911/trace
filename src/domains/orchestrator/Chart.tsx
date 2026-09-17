@@ -55,8 +55,8 @@ function HBars({ model }: { model: Extract<ChartModel, { type: "bars" }> }) {
     <figure className="chart">
       <figcaption className="chart-title">{model.title}</figcaption>
       <div className="chart-hbars">
-        {model.bars.map((b, i) => (
-          <div key={`${b.label}-${i}`} className="chart-hbar">
+        {model.bars.map((b) => (
+          <div key={b.key} className="chart-hbar">
             <span className="chart-hbar-label" title={b.label}>
               {b.label}
             </span>
@@ -80,8 +80,8 @@ function VBars({ model }: { model: Extract<ChartModel, { type: "bars" }> }) {
     <figure className="chart">
       <figcaption className="chart-title">{model.title}</figcaption>
       <div className="chart-vbars">
-        {model.bars.map((b, i) => (
-          <div key={`${b.label}-${i}`} className="chart-vbar">
+        {model.bars.map((b) => (
+          <div key={b.key} className="chart-vbar">
             <span className="chart-vbar-val">{b.value}</span>
             <span className="chart-vbar-track">
               <span
