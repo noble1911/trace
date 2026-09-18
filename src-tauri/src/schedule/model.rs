@@ -89,6 +89,10 @@ pub struct ScheduleRun {
     /// its last turn ended — the run waits for them before finishing.
     #[serde(default)]
     pub background_tasks: u32,
+    /// Claude's closing message for the run's latest turn (from the Stop hook) —
+    /// the answer, without replaying a terminal.
+    #[serde(default)]
+    pub summary: String,
     #[serde(default)]
     pub error: Option<String>,
     /// The terminal output was saved to disk (`transcript`) and can be replayed.

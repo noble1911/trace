@@ -83,19 +83,23 @@ pub(crate) fn forget_session_id(issue_key: &str) -> Result<(), String> {
 /// Claude stores each conversation at `~/.claude/projects/<cwd-slug>/<id>.jsonl`,
 /// where the slug is the cwd with every `/` and `.` replaced by `-`.
 pub(crate) fn claude_conversation_exists(cwd: &str, session_id: &str) -> bool {
+    conversation_path(cwd, session_id).is_some_and(|p| p.exists())
+}
+
+/// Where Claude keeps a conversation: `~/.claude/projects/<cwd-slug>/<id>.jsonl`,
+/// the slug being the cwd with every `/` and `.` replaced by `-`.
+pub(crate) fn conversation_path(cwd: &str, session_id: &str) -> Option<PathBuf> {
     let slug: String = cwd
         .chars()
         .map(|c| if c == '/' || c == '.' { '-' } else { c })
         .collect();
-    dirs::home_dir()
-        .map(|home| {
-            home.join(".claude")
-                .join("projects")
-                .join(slug)
-                .join(format!("{session_id}.jsonl"))
-                .exists()
-        })
-        .unwrap_or(false)
+    Some(
+        dirs::home_dir()?
+            .join(".claude")
+            .join("projects")
+            .join(slug)
+            .join(format!("{session_id}.jsonl")),
+    )
 }
 
 /// Resolve the Claude `--resume`/`--session-id` args for a workspace: resume a

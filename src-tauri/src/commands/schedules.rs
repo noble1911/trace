@@ -3,6 +3,7 @@
 
 use tauri::{AppHandle, Emitter};
 
+use crate::claude::conversation_log::{self, LogEntry};
 use crate::commands::session::ScratchSession;
 use crate::schedule::model::{PromptInput, ScheduleRun, ScheduledPrompt, Trigger};
 use crate::schedule::timing::Schedule;
@@ -93,6 +94,29 @@ pub fn preview_schedule(schedule: Schedule, anchor_at: Option<i64>) -> Result<Ve
         after = next;
     }
     Ok(out)
+}
+
+/// A run's conversation, for reading: the PTY recording only replays the TUI's
+/// last screen (no scrollback on the alternate screen), so the turns come from
+/// Claude's own conversation file instead.
+#[tauri::command]
+pub fn run_conversation(run_id: String) -> Result<Vec<LogEntry>, String> {
+    let run = store::runs()
+        .into_iter()
+        .find(|r| r.id == run_id)
+        .ok_or("That run no longer exists.")?;
+    let session_id = run
+        .claude_session_id
+        .ok_or("This run never started a conversation.")?;
+    let prompt = store::prompt(&run.prompt_id).ok_or("That scheduled prompt no longer exists.")?;
+    let repo = prompt
+        .repo
+        .clone()
+        .or_else(crate::commands::repos::default_repo)
+        .ok_or("Add a repository in Settings first.")?;
+    let cwd = crate::commands::repos::workspace_dir(&repo, &prompt.id);
+    conversation_log::read(&cwd, &session_id)
+        .ok_or_else(|| "Claude no longer has this conversation on disk.".to_string())
 }
 
 /// Turn a finished run into an exploratory session that resumes its conversation.

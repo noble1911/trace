@@ -90,6 +90,7 @@ pub fn run() {
             commands::schedules::run_scheduled_prompt_now,
             commands::schedules::stop_scheduled_run,
             commands::schedules::preview_schedule,
+            commands::schedules::run_conversation,
             commands::schedules::continue_run_as_session,
             commands::groups::list_session_groups,
             commands::groups::save_session_groups,

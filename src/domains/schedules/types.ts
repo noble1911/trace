@@ -63,6 +63,8 @@ export interface ScheduleRun {
    * last turn ended — the run waits for them.
    */
   backgroundTasks: number;
+  /** Claude's closing message for the run's latest turn; "" until it has one. */
+  summary: string;
   error?: string | null;
   /** Output was saved to disk and can be replayed. */
   hasTranscript: boolean;
@@ -80,4 +82,14 @@ export interface PromptInput {
   schedule: Schedule;
   timeoutMins: number;
   notify: boolean;
+}
+
+/** One displayable part of a run's conversation (`claude::conversation_log`). */
+export interface ConversationEntry {
+  kind: "prompt" | "reply" | "tool" | "notice";
+  text: string;
+  /** Tool name, for `tool` entries. */
+  tool?: string | null;
+  /** RFC3339 timestamp as Claude recorded it. */
+  at?: string | null;
 }

@@ -77,6 +77,8 @@ impl HookEvent {
 #[derive(Deserialize, Default)]
 pub struct HookInput {
     pub background_tasks: Option<Vec<serde_json::Value>>,
+    /// Claude's closing message for the turn that just ended.
+    pub last_assistant_message: Option<String>,
     pub transcript_path: Option<String>,
     pub notification_type: Option<String>,
 }

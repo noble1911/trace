@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  ConversationEntry,
   PromptInput,
   Schedule,
   ScheduledPrompt,
@@ -50,6 +51,15 @@ export function stopScheduledRun(runId: string): Promise<void> {
  */
 export function previewSchedule(schedule: Schedule, anchorAt?: number): Promise<number[]> {
   return invoke("preview_schedule", { schedule, anchorAt: anchorAt ?? null });
+}
+
+/**
+ * A run's turns, read from Claude's conversation file — the readable view. The
+ * PTY recording only replays the TUI's last screen. Rejects when Claude no
+ * longer has the conversation on disk.
+ */
+export function runConversation(runId: string): Promise<ConversationEntry[]> {
+  return invoke("run_conversation", { runId });
 }
 
 /** Turn a finished run into an exploratory session resuming its conversation. */

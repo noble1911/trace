@@ -16,6 +16,25 @@ const FINISHED_BODY = {
   timedOut: "The scheduled run timed out.",
 } as const;
 
+/** Longest notification body — a notification is a headline, not the report. */
+const BODY_CHARS = 160;
+
+/** The run's closing message as one plain line, for a notification body. */
+function summaryLine(runId: string): string | null {
+  const run = useSchedulesStore.getState().runs.find((r) => r.id === runId);
+  const line = run?.summary
+    .split("\n")
+    .map((l) =>
+      l
+        .replace(/^[#>\-*\s]+/, "")
+        .replace(/[*`_]/g, "")
+        .trim()
+    )
+    .find((l) => l.length > 0);
+  if (!line) return null;
+  return line.length > BODY_CHARS ? `${line.slice(0, BODY_CHARS - 1)}…` : line;
+}
+
 /** Tell the user a run finished / failed / needs them — unless they're watching it. */
 function announce(e: ScheduleRunEvent) {
   const { prompts, openRunId } = useSchedulesStore.getState();
@@ -36,7 +55,7 @@ function announce(e: ScheduleRunEvent) {
   announcedNeedsInput.delete(e.runId);
   // Stopping is the user's own doing — nothing to announce.
   if (e.status === "stopped") return;
-  void notify(prompt.title, FINISHED_BODY[e.status], ws);
+  void notify(prompt.title, summaryLine(e.runId) ?? FINISHED_BODY[e.status], ws);
 }
 
 /**
@@ -73,24 +92,26 @@ export function useScheduleEvents(): void {
         else unlisteners.push(fn);
       });
     };
-    const load = () =>
+    // Re-load, then run `after` — announcing only once the store holds the run's
+    // closing line, so a notification can quote it.
+    const sync = (after?: () => void) =>
       void useSchedulesStore
         .getState()
         .load()
         .then(reconcileLiveRuns)
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => after?.());
 
-    load();
+    sync();
     track(
       onScheduleRun((e) => {
-        load();
-        announce(e);
+        sync(() => announce(e));
         // A finished run's history now lives on disk (replayed on demand), so
         // the renderer's copy of its byte stream is dead weight.
         if (e.status !== "running") useBoardStore.getState().clearOutput(runWorkspaceId(e.runId));
       })
     );
-    track(onSchedulesChanged(load));
+    track(onSchedulesChanged(() => sync()));
     return () => {
       cancelled = true;
       for (const fn of unlisteners) fn();

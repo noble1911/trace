@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
+import { Markdown } from "@/components/Markdown";
 import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { disposeTerminal, fitTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
@@ -9,12 +10,14 @@ import { formatDuration, formatWhen } from "./describe";
 import { useNow } from "./hooks/useNow";
 import { runWorkspaceId } from "./ids";
 import { RunBadge, useRunNeedsYou } from "./RunBadge";
+import { RunConversation } from "./RunConversation";
 import { useSchedulesStore } from "./store";
 import type { ScheduleRun } from "./types";
 
-// One run's conversation. A live run is the real terminal — you can type into it,
-// e.g. to answer a permission prompt. A finished one replays its saved transcript
-// (served by `pty_snapshot`) and can be picked up as a session.
+// One run, two ways: its conversation as scrollable text (the default — read from
+// Claude's own log, since the PTY recording can only replay the TUI's last
+// screen), or the terminal itself, which a live run can be typed into, e.g. to
+// answer a permission prompt.
 export function RunViewer({ run }: { run: ScheduleRun }) {
   const ws = runWorkspaceId(run.id);
   const live = run.status === "running";
@@ -23,6 +26,11 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
   const continueAsSession = useSchedulesStore((s) => s.continueAsSession);
   const needsYou = useRunNeedsYou(run);
   const now = useNow(live ? 1000 : null);
+  // A live run you may need to answer opens on the terminal; anything else reads
+  // better as the conversation.
+  const [view, setView] = useState<"log" | "terminal">(
+    live && !run.claudeSessionId ? "terminal" : "log"
+  );
 
   // The backend spawns runs at a default size. If this pane was already open
   // while the run was starting, its size went nowhere — push it once the PTY
@@ -112,25 +120,55 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
           run was going.
         </div>
       )}
-      {run.prompt && (
-        <details className="sched-sent">
-          <summary>Prompt as sent</summary>
-          <div className="sched-prompt-text">{run.prompt}</div>
+      {run.summary && (
+        <details className="sched-sent" open>
+          <summary>Summary</summary>
+          <Markdown text={run.summary} />
         </details>
       )}
 
-      {live || run.hasTranscript ? (
-        <div className="pty-host-wrap">
-          <PtyTerminal issueKey={ws} />
-        </div>
-      ) : (
+      <div className="sched-views">
+        <button
+          type="button"
+          className={`sched-view${view === "log" ? " active" : ""}`}
+          onClick={() => setView("log")}
+        >
+          <I.Chat size={12} /> Conversation
+        </button>
+        <button
+          type="button"
+          className={`sched-view${view === "terminal" ? " active" : ""}`}
+          onClick={() => setView("terminal")}
+          title={
+            live ? "Type here to answer the agent" : "The recorded terminal (last screen only)"
+          }
+        >
+          <I.Terminal size={12} /> Terminal
+        </button>
+      </div>
+
+      {view === "log" && run.claudeSessionId && <RunConversation run={run} />}
+      {view === "log" && !run.claudeSessionId && (
         <div className="empty-state">
           <div className="inner">
-            <div className="title">No output recorded</div>
-            <div className="hint">This run ended before its agent printed anything.</div>
+            <div className="title">No conversation</div>
+            <div className="hint">This run never got as far as starting one.</div>
           </div>
         </div>
       )}
+      {view === "terminal" &&
+        (live || run.hasTranscript ? (
+          <div className="pty-host-wrap">
+            <PtyTerminal issueKey={ws} />
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="inner">
+              <div className="title">No output recorded</div>
+              <div className="hint">This run ended before its agent printed anything.</div>
+            </div>
+          </div>
+        ))}
     </div>
   );
 }

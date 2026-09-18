@@ -31,6 +31,9 @@ use crate::state::AppState;
 /// a queued result to open a new turn, and for the TUI to paint the answer.
 const SETTLE: Duration = Duration::from_secs(5);
 
+/// Cap on the stored closing message — it's a summary, not the transcript.
+const MAX_SUMMARY: usize = 4_000;
+
 /// A turn event from a scheduled run's agent (already filtered and decoded by
 /// `claude::hooks`). Ignores runs that aren't live.
 pub fn on_turn(app: &AppHandle, ws: &str, event: HookEvent, input: HookInput) {
@@ -53,7 +56,20 @@ pub fn on_turn(app: &AppHandle, ws: &str, event: HookEvent, input: HookInput) {
 
 fn on_stop(app: &AppHandle, ws: &str, live: &run::LiveRun, input: HookInput) {
     let pending = input.pending_tasks();
-    if let Ok(Some(run)) = store::update_run(&live.run_id, |r| r.background_tasks = pending) {
+    // The closing message of each turn, so the latest is the run's answer.
+    let summary = input
+        .last_assistant_message
+        .as_deref()
+        .map(|m| m.trim().chars().take(MAX_SUMMARY).collect::<String>());
+    let updated = store::update_run(&live.run_id, |r| {
+        r.background_tasks = pending;
+        if let Some(summary) = summary {
+            if !summary.is_empty() {
+                r.summary = summary;
+            }
+        }
+    });
+    if let Ok(Some(run)) = updated {
         run::emit(app, &run);
     }
     if pending > 0 {

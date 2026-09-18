@@ -84,7 +84,10 @@ pub fn start(app: AppHandle) -> std::io::Result<RenderBridge> {
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
     let port = listener.local_addr()?.port();
     let token = new_id();
-    let bridge = RenderBridge { port, token: token.clone() };
+    let bridge = RenderBridge {
+        port,
+        token: token.clone(),
+    };
 
     // Best-effort: a missing script just means agents lack the convenience CLI.
     let _ = write_producer_script();
@@ -114,8 +117,7 @@ fn handle_conn(stream: TcpStream, app: &AppHandle, token: &str) {
         return;
     }
     let mut parts = line.trim_end().splitn(3, ' ');
-    let (Some(got_token), Some(issue_key), Some(b64)) =
-        (parts.next(), parts.next(), parts.next())
+    let (Some(got_token), Some(issue_key), Some(b64)) = (parts.next(), parts.next(), parts.next())
     else {
         return;
     };
@@ -134,7 +136,13 @@ fn handle_conn(stream: TcpStream, app: &AppHandle, token: &str) {
     let Ok(html) = String::from_utf8(bytes) else {
         return;
     };
-    let _ = app.emit("rich-html", RichHtml { issue_key: issue_key.to_string(), html });
+    let _ = app.emit(
+        "rich-html",
+        RichHtml {
+            issue_key: issue_key.to_string(),
+            html,
+        },
+    );
 }
 
 /// Constant-time byte comparison so a token check can't be timed. (The length is

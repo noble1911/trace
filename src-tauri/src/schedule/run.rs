@@ -69,6 +69,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
         needs_input: false,
         skipped: 0,
         background_tasks: 0,
+        summary: String::new(),
         error: None,
         has_transcript: false,
     };
