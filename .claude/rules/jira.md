@@ -21,12 +21,25 @@ abstraction. Jira specifics follow. We never hardcode columns or maintain a loca
 3. A card's column = the column whose `statuses` contains the issue's current status id. This is what makes the
    board mirror *their* workflow (TODO/IN PROGRESS/DONE, or whatever they actually have).
 
-## Cards come from the board's open sprints
+## Cards are exactly what the board shows
 
 - Issues are fetched with the Platform search API (`GET /rest/api/3/search/jql`), not the Agile board
-  endpoint — the Agile endpoint hides epics. The query ANDs the board's saved filter (resolved from the board
-  configuration's `filter.id`) with `sprint in openSprints()`, so the result mirrors exactly what the user's
-  board shows minus backlog/closed sprints (`jira/board.rs::fetch_board_issues`).
+  endpoint — the Agile endpoint hides epics, which would empty an epic board. `jira/scope.rs` builds the
+  query so the result matches the board view card for card (verified against `xboard/work/allData.json` on
+  every board of the dev instance):
+  - the board's **saved filter** (from the configuration's `filter.id`), ANDed with
+  - a Kanban board's **sub-filter** (`subQuery`, e.g. unreleased versions),
+  - `sprint in openSprints()` **only** on a sprint board that has one running — a Scrum board between
+    sprints shows its filter rather than an empty board,
+  - `status not in (…)` for the **Kanban backlog column**, which Jira keeps on its separate Backlog screen
+    (that column is dropped from the board's columns too, as is any column with no statuses),
+  - the board's **"hide completed issues older than"** cutoff, as
+    `(statusCategory != Done OR statusCategoryChangedDate >= -1w)`. Without it a long-lived Kanban board
+    returns thousands of done issues (PM Delivery: 3026 → 205).
+- The cutoff, the backlog column and sprint support are **not in the public Agile API**: they come from the
+  board-config screen Jira's own UI uses (`/rest/greenhopper/1.0/rapidviewconfig/editmodel.json`), which
+  needs board-admin rights. Every read is best-effort — on failure `scope::BoardSettings::defaults` applies
+  Jira's own defaults per board type (scrum: no cutoff; kanban: `-2w`; team-managed: `-14d`).
 - All assignees are fetched; the frontend filters by assignee (avatar picker, defaulting to the current user).
 - Map each issue → the card model: `key`→id, `summary`→title, priority, labels, status, assignee→avatar,
   description → the Ticket tab.

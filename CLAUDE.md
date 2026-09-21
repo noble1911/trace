@@ -84,9 +84,10 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
 
 - **Issue ⇄ card:** every board card is an issue from a connected tracker (several can be connected at
   once — the board switcher merges their boards, namespaced `provider:boardId`). There is no local ticket
-  store — the tracker is the source of truth. On Jira, cards come from the user's active sprint and columns
-  from the user's *board configuration*; on Pylon, from a rolling 30-day window with state-derived columns.
-  Never hardcoded.
+  store — the tracker is the source of truth. On Jira, a board shows exactly what its Jira board shows —
+  saved filter + sub-filter, open sprints only while one runs, minus the Kanban backlog column and anything
+  finished before the board's done cutoff (`jira/scope.rs`); columns come from the user's *board
+  configuration*. On Pylon, from a rolling 30-day window with state-derived columns. Never hardcoded.
 - **Agent:** an interactive `claude` (or `codex`) TUI hosted in a PTY, rooted in a git worktree created for one
   issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data). A
   `provider` axis (`"anthropic"` | `"moonshot"` | `"wafer"` | `"wafer-fast"` | `"deepseek"` |

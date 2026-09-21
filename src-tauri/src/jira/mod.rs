@@ -7,6 +7,7 @@ pub mod client;
 pub mod comments;
 pub mod dev;
 pub mod parse;
+pub mod scope;
 
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 use crate::issues::{IssueProvider, ProviderKind, ProviderSession};
