@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useBoardStore } from "@/domains/board/store";
+import { playAlertSound } from "@/domains/board/waitingNotify";
 import { agentRunning } from "@/ipc/agent";
 import { onScheduleRun, onSchedulesChanged, type ScheduleRunEvent } from "@/ipc/events";
 import { notify } from "@/ipc/notify";
@@ -45,6 +46,7 @@ function announce(e: ScheduleRunEvent) {
   if (e.status === "running") {
     if (!e.needsInput || announcedNeedsInput.has(e.runId)) return;
     announcedNeedsInput.add(e.runId);
+    playAlertSound();
     void notify(
       `${prompt.title} needs input`,
       "A scheduled run is waiting on you — probably a permission prompt.",
@@ -55,6 +57,7 @@ function announce(e: ScheduleRunEvent) {
   announcedNeedsInput.delete(e.runId);
   // Stopping is the user's own doing — nothing to announce.
   if (e.status === "stopped") return;
+  playAlertSound();
   void notify(prompt.title, summaryLine(e.runId) ?? FINISHED_BODY[e.status], ws);
 }
 

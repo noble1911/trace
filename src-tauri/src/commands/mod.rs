@@ -15,6 +15,7 @@ pub mod schedules;
 pub mod session;
 pub mod session_agents;
 pub mod session_link;
+pub mod sound;
 pub mod snapshot;
 pub mod tests;
 pub mod update;

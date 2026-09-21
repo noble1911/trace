@@ -336,3 +336,18 @@ button.ig-status.connected:hover {
   font-size: 12px;
   color: var(--c-done);
 }
+
+/* Notification sound: picker + preview, on one row. */
+.sound-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sound-picker select {
+  min-width: 160px;
+}
+.setting-note.error {
+  padding: 4px 0 0;
+  font-size: 12px;
+  color: var(--c-danger);
+}

@@ -8,6 +8,8 @@ const PROVIDER_KEY = "trace.agentProvider";
 const MODEL_KEY = "trace.agentModel";
 const ARGS_KEY = "trace.agentArgs";
 const NOTIFY_WAITING_KEY = "trace.notifyOnWaiting";
+const NOTIFY_SOUND_KEY = "trace.notifySound";
+const NOTIFY_SOUND_ON_KEY = "trace.notifySoundOn";
 
 function read(key: string): string {
   try {
@@ -118,4 +120,29 @@ export function agentArgsRaw(): string {
 
 export function setAgentArgs(next: string) {
   write(ARGS_KEY, next.trim());
+}
+
+/**
+ * Whether a sound plays when an agent needs you. Off by default — a noise
+ * nobody asked for is worse than no noise.
+ */
+export function notifySoundOn(): boolean {
+  return read(NOTIFY_SOUND_ON_KEY) === "1";
+}
+
+export function setNotifySoundOn(on: boolean) {
+  write(NOTIFY_SOUND_ON_KEY, on ? "1" : "");
+}
+
+/**
+ * The sound file to play: an absolute path, from the macOS sound folders or one
+ * the user picked (`commands::sound`). Kept even while the sound is off, so
+ * turning it back on returns to their choice.
+ */
+export function notifySoundPath(): string {
+  return read(NOTIFY_SOUND_KEY).trim();
+}
+
+export function setNotifySoundPath(path: string) {
+  write(NOTIFY_SOUND_KEY, path.trim());
 }

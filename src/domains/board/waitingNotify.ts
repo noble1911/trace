@@ -1,9 +1,10 @@
-import { notifyOnWaiting } from "@/domains/agent/defaults";
+import { notifyOnWaiting, notifySoundOn, notifySoundPath } from "@/domains/agent/defaults";
 import { isScheduledRun } from "@/domains/schedules/ids";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
 import type { AgentTurn } from "@/ipc/events";
 import { notify } from "@/ipc/notify";
+import { playNotifySound } from "@/ipc/sound";
 import { useBoardStore } from "./store";
 
 /**
@@ -138,7 +139,7 @@ function maybeNotifyNeedsInput(workspaceId: string) {
   // News whether or not the user armed this turn — but it stands in for the
   // turn's quiet-timer notification rather than adding a second one.
   armed.delete(workspaceId);
-  notifyUnlessWatching(
+  alertUnlessWatching(
     workspaceId,
     (title) => `${title} needs you`,
     "The agent is asking for permission to continue."
@@ -155,19 +156,24 @@ function maybeNotifyWaiting(workspaceId: string) {
   // quiet below, so a turn the user already saw can't resurface on a later
   // repaint — it takes new input from them to arm the next one.
   if (!armed.delete(workspaceId)) return;
-  notifyUnlessWatching(
+  alertUnlessWatching(
     workspaceId,
     (title) => `${title} is waiting`,
     "The agent finished its turn and needs your input."
   );
 }
 
-function notifyUnlessWatching(
+/**
+ * Ping the user about `workspaceId` — unless they're already watching it. The
+ * notification and the sound are separate switches for the same moment, so
+ * either can be on alone.
+ */
+function alertUnlessWatching(
   workspaceId: string,
   headline: (title: string) => string,
   body: string
 ) {
-  if (!notifyOnWaiting()) return;
+  if (!notifyOnWaiting() && !notifySoundOn()) return;
   const { runningAgents, selectedIssueKey } = useBoardStore.getState();
   if (!runningAgents.has(workspaceId)) return;
   const sessions = useSessionsStore.getState();
@@ -177,10 +183,19 @@ function notifyUnlessWatching(
     document.hasFocus() &&
     (selectedIssueKey === workspaceId || sessions.selectedAgentId === workspaceId);
   if (watching) return;
+  playAlertSound();
+  if (!notifyOnWaiting()) return;
   // Resolves companion agents too ("Refactor auth · codex"), which otherwise
   // would have announced themselves as a bare workspace id.
   const title = workspaceTitle(sessions.sessions, workspaceId) ?? workspaceId;
   void notify(headline(title), body, workspaceId);
+}
+
+/** The configured sound, if any. Best-effort: silence never breaks an alert. */
+export function playAlertSound(): void {
+  if (!notifySoundOn()) return;
+  const path = notifySoundPath();
+  if (path) void playNotifySound(path).catch(() => {});
 }
 
 /** An agent finishing its turn may have just raised or merged a PR via gh —

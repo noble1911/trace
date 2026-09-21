@@ -94,6 +94,8 @@ pub fn run() {
             commands::schedules::continue_run_as_session,
             commands::groups::list_session_groups,
             commands::groups::save_session_groups,
+            commands::sound::list_notify_sounds,
+            commands::sound::play_notify_sound,
             commands::tests::run_tests,
             commands::update::check_app_update,
             commands::update::install_app_update,

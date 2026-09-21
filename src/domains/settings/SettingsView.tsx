@@ -9,20 +9,19 @@ import {
   autoStartOnMove,
   DEFAULT_KICKOFF_PROMPT,
   kickoffPromptRaw,
-  notifyOnWaiting,
   setAgentArgs,
   setAgentCli,
   setAgentModel,
   setAgentProvider,
   setAutoStartOnMove,
   setKickoffPrompt,
-  setNotifyOnWaiting,
 } from "@/domains/agent/defaults";
 import { JiraForm, PylonForm } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { AssistantSettings } from "./AssistantSettings";
+import { NotificationSettings } from "./NotificationSettings";
 import { ProviderKeyField } from "./ProviderKeyField";
 import { RepoSettings } from "./RepoSettings";
 import { SettingRow } from "./SettingRow";
@@ -54,7 +53,6 @@ export function SettingsView() {
   const [provider, setProvider] = useState<AgentProvider>(agentProvider);
   const [model, setModel] = useState(agentModelRaw);
   const [args, setArgs] = useState(agentArgsRaw);
-  const [notifyWaiting, setNotifyWaiting] = useState(notifyOnWaiting);
   const [kickoff, setKickoff] = useState(kickoffPromptRaw);
   const [autoStart, setAutoStart] = useState(autoStartOnMove);
   const [tab, setTab] = useState<SettingsTab>("general");
@@ -74,10 +72,6 @@ export function SettingsView() {
   const chooseArgs = (next: string) => {
     setArgs(next);
     setAgentArgs(next);
-  };
-  const chooseNotifyWaiting = (next: boolean) => {
-    setNotifyWaiting(next);
-    setNotifyOnWaiting(next);
   };
   const chooseKickoff = (next: string) => {
     setKickoff(next);
@@ -212,20 +206,7 @@ export function SettingsView() {
               </div>
             </section>
 
-            <section className="setting-group">
-              <h2>Notifications</h2>
-              <div className="desc">How trace gets your attention outside the app.</div>
-              <SettingRow
-                label="When an agent needs me"
-                hint="Native notification when a session finishes its turn while you're elsewhere."
-              >
-                <Switch
-                  on={notifyWaiting}
-                  onChange={chooseNotifyWaiting}
-                  label="Notify when waiting"
-                />
-              </SettingRow>
-            </section>
+            <NotificationSettings />
 
             <AssistantSettings />
 
