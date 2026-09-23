@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
+import { relTime } from "@/domains/prs/relTime";
 import { type PrDetails, prDetails } from "@/ipc/pr";
 
 const EMPTY_PRS: PullRequest[] = [];
@@ -11,17 +12,6 @@ const CHECK_ICON: Record<string, (p: { size?: number }) => ReactNode> = {
   fail: I.X,
   pending: I.Clock,
 };
-
-function relTime(iso: string): string {
-  if (!iso) return "";
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const diff = (Date.now() - t) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 function stateClass(state: string, isDraft: boolean): string {
   if (isDraft) return "draft";

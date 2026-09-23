@@ -13,6 +13,7 @@ import "@/domains/agent/rail.css";
 import "@/domains/agent/files.css";
 import "@/domains/agent/panes.css";
 import "@/domains/prs/prs.css";
+import "@/domains/prs/rail.css";
 import "@/domains/sessions/sessions.css";
 import "@/domains/sessions/recents.css";
 import "@/domains/schedules/schedules.css";

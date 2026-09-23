@@ -7,6 +7,8 @@ import { agentLabel } from "@/domains/agent/providerLabel";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
+import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
+import { PrRailSection } from "@/domains/prs/PrRailSection";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { type Editor, openInEditor } from "@/ipc/editor";
 import { startSession, startSessionAgent } from "@/ipc/session";
@@ -62,6 +64,10 @@ export function SessionDetail({
   const openIssue = useBoardStore((s) => s.openIssue);
 
   const roster = useMemo(() => agentRoster(session), [session]);
+  // PRs any of this session's agents raised. The rail only appears once there
+  // is one — until then the terminal keeps the full width.
+  const turnIds = useMemo(() => roster.map((r) => r.workspaceId), [roster]);
+  const prUrls = usePrWatch(session.id, turnIds);
   // Falls back to the session's own agent, which also self-heals the selection
   // when the companion whose tab was open is removed.
   const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
@@ -229,7 +235,7 @@ export function SessionDetail({
         </div>
       )}
 
-      <div className="detail-body no-rail">
+      <div className={`detail-body${prUrls.length > 0 ? "" : " no-rail"}`}>
         <div className="detail-left">
           <div className="detail-tabs">
             {roster.map((entry) => {
@@ -285,6 +291,11 @@ export function SessionDetail({
           {pane === "terminal" && <TerminalPane issueKey={session.id} />}
           {linking && <LinkTicketModal onClose={() => setLinking(false)} onPick={onPickIssue} />}
         </div>
+        {prUrls.length > 0 && (
+          <div className="detail-right">
+            <PrRailSection urls={prUrls} />
+          </div>
+        )}
       </div>
     </div>
   );

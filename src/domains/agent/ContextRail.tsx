@@ -1,25 +1,18 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { toast } from "@/app/toast";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { type SessionStatus, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
+import { canonicalPrUrl } from "@/domains/prs/commentBody";
+import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
+import { PrRailSection } from "@/domains/prs/PrRailSection";
 import { type Editor, openInEditor } from "@/ipc/editor";
 
 // Stable empty reference so the store selector doesn't return a fresh array
 // each render (which would churn re-renders).
 const EMPTY_PRS: PullRequest[] = [];
-
-/** Map a dev-status PR state to the `.pr-pill` colour variant. */
-function pillClass(state: string): string {
-  const s = state.toLowerCase();
-  if (s === "merged") return "merged";
-  if (s === "draft") return "draft";
-  if (s === "declined" || s === "closed") return "closed";
-  return "open";
-}
 
 const EDITORS: { id: Editor; label: string }[] = [
   { id: "vscode", label: "VS Code" },
@@ -86,6 +79,13 @@ export function ContextRail({ issue, status, site, repo }: ContextRailProps) {
   const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
   const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
+  // Jira's dev-status PRs, plus whatever the agent raised that Jira hasn't
+  // linked (or can't — no dev integration): the branch's PRs and conversation.
+  const devUrls = useMemo(
+    () => prs.map((pr) => canonicalPrUrl(pr.url)).filter((u): u is string => u !== null),
+    [prs]
+  );
+  const prUrls = usePrWatch(issue.key, [issue.key], devUrls);
 
   const openEditor = (editor: Editor) => {
     void openInEditor(issue.key, editor).catch((e) => toast.error(String(e)));
@@ -153,26 +153,7 @@ export function ContextRail({ issue, status, site, repo }: ContextRailProps) {
         </div>
       </div>
 
-      {prs.length > 0 && (
-        <div className="ctx-section">
-          <div className="label">Pull requests</div>
-          <div className="linked-list">
-            {prs.map((pr) => (
-              <button
-                type="button"
-                key={pr.url}
-                className="pr-rail-row"
-                onClick={() => void openUrl(pr.url)}
-                title={pr.title || `Open PR #${pr.number} on GitHub`}
-              >
-                <I.GitPR size={13} style={{ color: "var(--fg-3)" }} />
-                <span className="num">#{pr.number}</span>
-                <span className={`pr-pill ${pillClass(pr.state)}`}>{pr.state}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <PrRailSection urls={prUrls} />
 
       <div className="ctx-section" style={{ flex: 1 }}>
         <div className="label">Linked</div>

@@ -6,6 +6,7 @@
 pub mod claude;
 pub mod commands;
 pub mod git;
+pub mod github;
 pub mod helpers;
 pub mod issues;
 pub mod jira;
@@ -64,6 +65,8 @@ pub fn run() {
             commands::pr::raise_pr,
             commands::pr::merge_pr,
             commands::pr::pr_details,
+            commands::pr_watch::workspace_prs,
+            commands::pr_watch::pr_thread,
             commands::diff::git_diff_summary,
             commands::diff::git_diff_file,
             commands::diff::read_workspace_file,

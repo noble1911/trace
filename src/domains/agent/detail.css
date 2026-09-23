@@ -139,7 +139,7 @@
   grid-template-columns: minmax(0, 1fr) 420px;
   min-height: 0;
 }
-/* Exploratory sessions have no Jira context rail — left pane spans full width. */
+/* No rail (hidden, or a session with no PR yet) — left pane spans full width. */
 .detail-body.no-rail {
   grid-template-columns: minmax(0, 1fr);
 }
