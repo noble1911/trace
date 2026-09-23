@@ -1,13 +1,17 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
+import { jiraBrowseUrl } from "@/domains/issues/url";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { agentLabel } from "./providerLabel";
 
 interface DetailHeaderProps {
   issue: Issue;
+  /** Jira site, for the key's browse link (providers with `browseUrl` don't need it). */
+  site: string | null;
   status: SessionStatus;
   running: boolean;
   cli: AgentCli;
@@ -31,6 +35,7 @@ interface DetailHeaderProps {
 // AgentDetail.
 export function DetailHeader({
   issue,
+  site,
   status,
   running,
   cli,
@@ -47,6 +52,7 @@ export function DetailHeader({
   onChooseProvider,
   onToggleRail,
 }: DetailHeaderProps) {
+  const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
   return (
     <div className="detail-top">
       <button type="button" className="back" onClick={onBack}>
@@ -55,7 +61,18 @@ export function DetailHeader({
       <AgentAvatar assignee={issue.assignee} size="lg" />
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="id">{issue.key}</span>
+          {issueUrl ? (
+            <button
+              type="button"
+              className="id id-link"
+              onClick={() => void openUrl(issueUrl)}
+              title={`Open ${issue.key} in the browser`}
+            >
+              {issue.key}
+            </button>
+          ) : (
+            <span className="id">{issue.key}</span>
+          )}
           <StatusPill name={issue.statusName} category={issue.statusCategory} />
         </div>
         <div className="ttl">{issue.summary}</div>

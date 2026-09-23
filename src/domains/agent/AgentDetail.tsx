@@ -226,6 +226,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     <div className="detail">
       <DetailHeader
         issue={issue}
+        site={site}
         status={status}
         running={running}
         cli={cli}

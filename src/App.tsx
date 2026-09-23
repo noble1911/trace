@@ -9,6 +9,7 @@ import { ActivityView } from "@/domains/activity/ActivityView";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
+import { useBoardAutoRefresh } from "@/domains/board/hooks/useBoardAutoRefresh";
 import { useBoardStore } from "@/domains/board/store";
 import { noteAgentTurn } from "@/domains/board/waitingNotify";
 import { ProviderLogin } from "@/domains/issues/components/ProviderLogin";
@@ -138,6 +139,8 @@ export function App() {
     }, 5000);
     return () => clearTimeout(t);
   }, []);
+
+  useBoardAutoRefresh();
 
   const refreshAllPrs = useBoardStore((s) => s.refreshAllPrs);
   useEffect(() => {
