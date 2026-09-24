@@ -56,7 +56,7 @@ pub fn raise_pr(issue_key: String, title: String, body: String) -> Result<Raised
 
     // Create the PR. `gh` reads the title/body via stdin to avoid shell quoting
     // headaches for multi-line bodies.
-    let create = Command::new("gh")
+    let create = crate::claude::discovery::command("gh")
         .args(["pr", "create", "--title", &title, "--body", &body, "--head", &branch])
         .current_dir(&worktree)
         .output()
@@ -70,7 +70,7 @@ pub fn raise_pr(issue_key: String, title: String, body: String) -> Result<Raised
     // Common case: PR already exists for this branch — look it up.
     let stderr = String::from_utf8_lossy(&create.stderr);
     if stderr.contains("already exists") {
-        let view = Command::new("gh")
+        let view = crate::claude::discovery::command("gh")
             .args(["pr", "view", "--head", &branch, "--json", "url", "--jq", ".url"])
             .current_dir(&worktree)
             .output()
@@ -98,7 +98,7 @@ pub fn merge_pr(
         "rebase" => "--rebase",
         _ => "--squash",
     };
-    let out = Command::new("gh")
+    let out = crate::claude::discovery::command("gh")
         .args(["pr", "merge", &pr_url, flag, "--delete-branch"])
         .current_dir(&repo)
         .output()

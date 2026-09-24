@@ -55,6 +55,17 @@ pub fn find_cli_with_env(name: &str, env_map: Option<&HashMap<String, String>>) 
     .find(|p| std::path::Path::new(p).exists())
 }
 
+/// A `Command` for a helper CLI (`gh`, …) at its resolved absolute path.
+///
+/// Spawning a bare name searches the *process* `PATH`, and a macOS app opened
+/// from Finder or the Dock gets a minimal one (`/usr/bin:/bin:/usr/sbin:/sbin`)
+/// — no Homebrew. So `Command::new("gh")` works under `tauri dev` (launched
+/// from a shell) and fails in the shipped app with "No such file or directory".
+/// Falls back to the bare name, so a missing tool still reports as missing.
+pub fn command(name: &str) -> std::process::Command {
+    std::process::Command::new(find_cli_with_env(name, None).unwrap_or_else(|| name.to_string()))
+}
+
 /// Backwards-compatible alias kept so the PTY runner's older call sites still resolve.
 pub fn find_claude_cli_with_env(env_map: Option<&HashMap<String, String>>) -> Option<String> {
     find_cli_with_env("claude", env_map)

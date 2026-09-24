@@ -10,7 +10,7 @@
 //! logged, returned or stored.
 
 use std::collections::HashMap;
-use std::process::{Command, Output};
+use std::process::Output;
 use std::sync::Mutex;
 
 use serde_json::Value;
@@ -40,7 +40,7 @@ fn remember(owner: &str, login: &str) {
 
 /// Signed-in github.com logins, the active one first.
 fn logins() -> Vec<String> {
-    let Ok(out) = Command::new("gh")
+    let Ok(out) = crate::claude::discovery::command("gh")
         .args(["auth", "status", "--json", "hosts"])
         .output()
     else {
@@ -66,7 +66,7 @@ fn logins() -> Vec<String> {
 }
 
 fn token_for(login: &str) -> Option<String> {
-    let out = Command::new("gh")
+    let out = crate::claude::discovery::command("gh")
         .args(["auth", "token", "--user", login])
         .output()
         .ok()?;
@@ -76,7 +76,7 @@ fn token_for(login: &str) -> Option<String> {
 
 /// `gh args` in `cwd`, as `login` (or the active account when `None`).
 fn run_as(cwd: &str, args: &[String], login: Option<&str>) -> Result<Output, String> {
-    let mut cmd = Command::new("gh");
+    let mut cmd = crate::claude::discovery::command("gh");
     cmd.args(args).current_dir(cwd);
     if let Some(login) = login {
         let token = token_for(login).ok_or_else(|| format!("no gh token for {login}"))?;
