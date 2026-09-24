@@ -4,10 +4,10 @@ import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
-import { canonicalPrUrl } from "@/domains/prs/commentBody";
 import { discoverPrs, usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
 import { primaryPr } from "@/domains/prs/primaryPr";
+import { canonicalPrUrl } from "@/domains/prs/prUrl";
 import { usePrWatchStore } from "@/domains/prs/watchStore";
 import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import {

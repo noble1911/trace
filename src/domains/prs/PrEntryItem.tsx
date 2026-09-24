@@ -1,9 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState } from "react";
 import { I } from "@/components/Icon";
-import { Markdown } from "@/components/Markdown";
 import type { PrComment, PrEntry } from "@/ipc/prWatch";
-import { tidyBody } from "./commentBody";
+import { GithubMarkdown } from "./GithubMarkdown";
 import { relTime } from "./relTime";
 import type { EntryFlag } from "./watchStore";
 
@@ -32,12 +31,12 @@ function Author({ c }: { c: PrComment }) {
 /** A comment body clamped to a few lines, expandable in place. */
 function Body({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
-  const tidy = tidyBody(text);
-  if (!tidy) return null;
-  const long = tidy.length > 280 || tidy.split("\n").length > 6;
+  const body = text.trim();
+  if (!body) return null;
+  const long = body.length > 280 || body.split("\n").length > 6;
   return (
     <div className={`pr-entry-body${long && !open ? " clamped" : ""}`}>
-      <Markdown text={tidy} />
+      <GithubMarkdown text={body} />
       {long && (
         <button type="button" className="pr-more" onClick={() => setOpen(!open)}>
           {open ? "Show less" : "Show more"}

@@ -180,6 +180,7 @@ pub(super) fn parse(root: &Value) -> Option<PrThread> {
         deletions: pr.get("deletions").and_then(Value::as_u64).unwrap_or(0),
         review_decision: review_decision.map(str::to_string),
         checks: checks_rollup(pr),
+        check_runs: super::checks::parse(pr),
         updated_at: s(pr, "updatedAt"),
         entries,
     })

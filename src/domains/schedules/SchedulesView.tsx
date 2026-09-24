@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
-import { useNow } from "./hooks/useNow";
+import { useNow } from "@/hooks/useNow";
 import { ScheduleDetail } from "./ScheduleDetail";
 import { ScheduleModal } from "./ScheduleModal";
 import { ScheduleRow } from "./ScheduleRow";

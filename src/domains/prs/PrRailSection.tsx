@@ -3,11 +3,11 @@ import { useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import type { PrThread } from "@/ipc/prWatch";
+import { PrChecks } from "./PrChecks";
 import { PrConversation } from "./PrConversation";
 import { relTime } from "./relTime";
 import { usePrWatchStore } from "./watchStore";
 
-const CHECKS_TEXT = { ok: "Checks passing", fail: "Checks failing", pending: "Checks running" };
 const DECISION_TEXT = {
   approved: "Approved",
   changes: "Changes requested",
@@ -43,11 +43,6 @@ function Summary({ pr }: { pr: PrThread }) {
         <span className="diffstat">
           <b className="add">+{pr.additions}</b> <b className="del">−{pr.deletions}</b>
         </span>
-        {pr.checks && (
-          <span className={`pr-status ${pr.checks}`}>
-            <span className="dot" /> {CHECKS_TEXT[pr.checks]}
-          </span>
-        )}
         {pr.reviewDecision && (
           <span className={`pr-status ${pr.reviewDecision}`}>
             {DECISION_TEXT[pr.reviewDecision]}
@@ -116,6 +111,7 @@ export function PrRailSection({ urls }: { urls: string[] }) {
       {pr ? (
         <>
           <Summary pr={pr} />
+          <PrChecks checks={pr.checkRuns} />
           <PrConversation pr={pr} />
         </>
       ) : errors[selected] ? (

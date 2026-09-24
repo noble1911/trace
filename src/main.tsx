@@ -15,6 +15,8 @@ import "@/domains/agent/files.css";
 import "@/domains/agent/panes.css";
 import "@/domains/prs/prs.css";
 import "@/domains/prs/rail.css";
+import "@/domains/prs/checks.css";
+import "@/domains/prs/github-md.css";
 import "@/domains/sessions/sessions.css";
 import "@/domains/sessions/session-list.css";
 import "@/domains/sessions/recents.css";

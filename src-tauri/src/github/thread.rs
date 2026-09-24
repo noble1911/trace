@@ -64,6 +64,8 @@ pub struct PrThread {
     pub review_decision: Option<String>,
     /// CI rollup on the head commit: "ok" | "fail" | "pending" | None (no checks).
     pub checks: Option<String>,
+    /// Every check on the head commit, most urgent first (`checks::parse`).
+    pub check_runs: Vec<super::checks::PrCheck>,
     pub updated_at: String,
     /// Newest activity first.
     pub entries: Vec<PrEntry>,
@@ -76,7 +78,12 @@ query($owner: String!, $name: String!, $number: Int!) {
       url number title state isDraft headRefName baseRefName additions deletions
       reviewDecision updatedAt
       author { login __typename }
-      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+      commits(last: 1) { nodes { commit { statusCheckRollup { state
+        contexts(first: 80) { nodes {
+          __typename
+          ... on CheckRun { name status conclusion detailsUrl startedAt completedAt
+            checkSuite { workflowRun { workflow { name } } } }
+          ... on StatusContext { context state description targetUrl createdAt } } } } } } }
       comments(last: 60) { nodes {
         id body url createdAt lastEditedAt isMinimized author { login __typename } } }
       reviews(last: 40) { nodes {

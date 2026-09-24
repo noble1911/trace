@@ -3,8 +3,10 @@ import { onAgentTurn } from "@/ipc/events";
 import { prThread, workspacePrs } from "@/ipc/prWatch";
 import { usePrWatchStore } from "../watchStore";
 
-/** Re-read comments this often while the view is visible. */
+/** Re-read comments/checks this often while the view is visible… */
 const THREAD_POLL_MS = 45_000;
+/** …and this often while any check is still queued or running. */
+const LIVE_POLL_MS = 15_000;
 /** Re-scan the conversation/branch for new PRs this often (turn ends also trigger it). */
 const DISCOVER_POLL_MS = 120_000;
 
@@ -63,6 +65,14 @@ export function usePrWatch(
   }, [discover, turnKey]);
 
   const urlKey = urls.join("\n");
+  // Checks change by the minute while CI runs; comments don't — poll faster
+  // only while some watched PR has a check in flight.
+  const checksLive = usePrWatchStore((s) =>
+    urls.some((u) =>
+      s.threads[u]?.checkRuns.some((c) => c.state === "running" || c.state === "queued")
+    )
+  );
+  const pollMs = checksLive ? LIVE_POLL_MS : THREAD_POLL_MS;
   useEffect(() => {
     if (!urlKey) return;
     const list = urlKey.split("\n");
@@ -75,13 +85,13 @@ export function usePrWatch(
       }
     };
     refresh();
-    const timer = window.setInterval(refresh, THREAD_POLL_MS);
+    const timer = window.setInterval(refresh, pollMs);
     window.addEventListener("focus", refresh);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [workspaceId, urlKey]);
+  }, [workspaceId, urlKey, pollMs]);
 
   return urls;
 }

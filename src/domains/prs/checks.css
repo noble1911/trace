@@ -1,0 +1,135 @@
+/* ============ PR Checks section (PrChecks) ============ */
+
+.pr-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pr-checks-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.pr-checks-head .label {
+  margin-bottom: 0;
+}
+.pr-checks-sum {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.pr-checks-sum b {
+  font-weight: 500;
+}
+.pr-checks-sum .fail {
+  color: var(--c-danger);
+}
+.pr-checks-sum .live {
+  color: var(--c-warn);
+}
+
+/* Overall progress: passed | failed | in flight, as one thin segmented bar. */
+.chk-bar {
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bg-3);
+}
+.chk-bar span {
+  transition: width 0.4s ease;
+}
+.chk-bar .passed {
+  background: var(--c-done);
+}
+.chk-bar .failed {
+  background: var(--c-danger);
+}
+.chk-bar .live {
+  background: var(--c-warn);
+}
+
+.chk-list {
+  display: flex;
+  flex-direction: column;
+}
+.chk-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 12px;
+  color: var(--fg-1);
+}
+.chk-row:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+.chk-row:disabled {
+  cursor: default;
+}
+.chk-ic {
+  display: inline-flex;
+  justify-content: center;
+}
+.chk-row.passed .chk-ic {
+  color: var(--c-done);
+}
+.chk-row.failed .chk-ic,
+.chk-row.cancelled .chk-ic {
+  color: var(--c-danger);
+}
+.chk-row.queued .chk-ic {
+  color: var(--fg-3);
+}
+.chk-row.skipped,
+.chk-row.neutral {
+  color: var(--fg-3);
+}
+.chk-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chk-sub {
+  font-size: 11px;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chk-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  white-space: nowrap;
+}
+.chk-row.running .chk-time {
+  color: var(--c-warn);
+}
+
+/* In-flight: a small spinning ring; skipped/neutral: a dash. */
+.chk-spin {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--c-warn) 30%, transparent);
+  border-top-color: var(--c-warn);
+  animation: chk-spin 0.8s linear infinite;
+}
+@keyframes chk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.chk-dash {
+  width: 8px;
+  height: 1.5px;
+  background: var(--fg-4);
+}

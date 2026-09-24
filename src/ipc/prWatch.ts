@@ -31,6 +31,19 @@ export interface PrEntry extends PrComment {
   activityAt: string;
 }
 
+/** One check on the PR's head commit (Actions job, app check, or commit status). */
+export interface PrCheck {
+  name: string;
+  /** The Actions workflow it belongs to, when there is one. */
+  workflow: string | null;
+  state: "queued" | "running" | "passed" | "failed" | "cancelled" | "skipped" | "neutral";
+  /** A commit status's one-liner ("Coverage 87%"). */
+  detail: string | null;
+  url: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
 export interface PrThread {
   url: string;
   number: number;
@@ -44,6 +57,8 @@ export interface PrThread {
   reviewDecision: "approved" | "changes" | "review" | null;
   /** CI rollup on the head commit; null when the PR has no checks. */
   checks: "ok" | "fail" | "pending" | null;
+  /** Every check on the head commit, most urgent first. */
+  checkRuns: PrCheck[];
   updatedAt: string;
   /** Newest activity first. */
   entries: PrEntry[];

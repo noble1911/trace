@@ -1,0 +1,80 @@
+/* ============ GitHub comment bodies (GithubMarkdown) ============
+   Layered on the shared `.md` styles: the extra elements GitHub comments use
+   (bot headings, <details>, badges, diagrams) scaled for a narrow rail. */
+
+.gh-md h1,
+.gh-md h2,
+.gh-md h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+  margin: 10px 0 6px;
+}
+.gh-md h4,
+.gh-md h5,
+.gh-md h6 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+.gh-md img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+/* Badge rows (shields, "retrigger" buttons) sit inline and small. */
+.gh-md a img,
+.gh-md picture img {
+  max-height: 20px;
+}
+.gh-md details {
+  margin: 6px 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+}
+.gh-md details[open] {
+  padding-bottom: 8px;
+}
+.gh-md summary {
+  cursor: pointer;
+  color: var(--fg-2);
+  font-weight: 500;
+}
+.gh-md summary:hover {
+  color: var(--fg-0);
+}
+.gh-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.gh-md th,
+.gh-md td {
+  padding: 3px 8px;
+  border: 1px solid var(--border-faint);
+}
+.gh-md blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--fg-3);
+}
+
+/* Mermaid diagrams (MermaidDiagram), scaled to the rail. */
+.mermaid-diagram {
+  margin: 8px 0;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+}
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-pending {
+  opacity: 0.5;
+}
