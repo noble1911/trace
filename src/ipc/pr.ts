@@ -17,34 +17,3 @@ export function mergePr(
 ): Promise<void> {
   return invoke("merge_pr", { issueKey, prUrl, method: method ?? null });
 }
-
-export interface PrCheck {
-  name: string;
-  /** ok | fail | pending */
-  status: string;
-  meta: string;
-}
-
-export interface PrReview {
-  who: string;
-  /** approved | changes | commented */
-  action: string;
-  /** ISO timestamp */
-  when: string;
-}
-
-export interface PrDetails {
-  number: number;
-  title: string;
-  /** OPEN | MERGED | CLOSED */
-  state: string;
-  isDraft: boolean;
-  additions: number;
-  deletions: number;
-  checks: PrCheck[];
-  reviews: PrReview[];
-}
-
-export function prDetails(issueKey: string, prUrl: string): Promise<PrDetails> {
-  return invoke("pr_details", { issueKey, prUrl });
-}

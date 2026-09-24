@@ -1,34 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
+import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { agentArgs } from "@/domains/agent/defaults";
+import { editorItems } from "@/domains/agent/editorItems";
 import { FilesPane } from "@/domains/agent/FilesPane";
+import { useWorkspaceInfo } from "@/domains/agent/hooks/useWorkspaceInfo";
 import { agentLabel } from "@/domains/agent/providerLabel";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
+import { WorkspaceSection } from "@/domains/agent/WorkspaceSection";
 import { useBoardStore } from "@/domains/board/store";
 import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
-import { type Editor, openInEditor } from "@/ipc/editor";
 import { startSession, startSessionAgent } from "@/ipc/session";
 import { AddAgentMenu } from "./AddAgentMenu";
 import { AgentPane } from "./AgentPane";
 import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
 import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
+import { useReportPrRail } from "./recentsLayout";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
 
+const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
+
 /** Which pane the body shows. Agent tabs all share the "agent" pane. */
 type PaneId = "agent" | "files" | "terminal";
-
-const EDITORS: { id: Editor; label: string }[] = [
-  { id: "vscode", label: "VS Code" },
-  { id: "intellij", label: "IntelliJ" },
-  { id: "cursor", label: "Cursor" },
-];
 
 // Full-screen detail for one exploratory session. Reuses the agent detail shell
 // (`.detail`), the live terminal, and the Files/Diff pane — all keyed by workspace
@@ -68,6 +69,9 @@ export function SessionDetail({
   // is one — until then the terminal keeps the full width.
   const turnIds = useMemo(() => roster.map((r) => r.workspaceId), [roster]);
   const prUrls = usePrWatch(session.id, turnIds);
+  const [prRailOpen, togglePrRail] = usePersistedFlag("trace.sessionPrRailOpen", true);
+  const showRail = prUrls.length > 0 && prRailOpen;
+  useReportPrRail(showRail);
   // Falls back to the session's own agent, which also self-heals the selection
   // when the companion whose tab was open is removed.
   const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
@@ -81,6 +85,8 @@ export function SessionDetail({
     [session.id, active.companion, active.workspaceId]
   );
   const run = useAgentRun(active.workspaceId, spawn);
+  // Repo + live branch for the header (the tab bar already names the agent).
+  const info = useWorkspaceInfo(session.id, turnIds, run.running);
   const waiting = agentActivity[active.workspaceId] === "waiting";
 
   // Viewing a waiting agent acknowledges it — see AgentDetail.
@@ -107,11 +113,8 @@ export function SessionDetail({
   };
 
   const onRemoveAgent = () => {
-    // Two clicks: removing an agent kills its PTY and forgets its conversation.
-    if (!confirmRemove) {
-      setConfirmRemove(true);
-      return;
-    }
+    // Reached from the header's confirm button (the ⋯ menu only arms it):
+    // removing an agent kills its PTY and forgets its conversation.
     setConfirmRemove(false);
     const removed = active.workspaceId;
     selectAgent(session.id);
@@ -138,12 +141,6 @@ export function SessionDetail({
       .catch((err) => toast.error(String(err)));
   };
 
-  // The session id is the workspace the backend opens (its worktree, or the repo
-  // root before it's ever started) — same contract as a board agent.
-  const openEditor = (editor: Editor) => {
-    void openInEditor(session.id, editor).catch((e) => toast.error(String(e)));
-  };
-
   const startHint = active.companion
     ? "Runs in this session's worktree — it sees everything the other agents here have written."
     : session.worktree
@@ -160,7 +157,9 @@ export function SessionDetail({
           <I.Sparkles size={18} />
         </span>
         <div>
-          <span className="id">{active.label}</span>
+          <span className="id" title={info?.cwd}>
+            {info ? [basename(info.repo), info.branch].filter(Boolean).join(" · ") : "\u00a0"}
+          </span>
           {renaming ? (
             <TitleEditor
               initial={session.title}
@@ -184,38 +183,20 @@ export function SessionDetail({
         </div>
         <div className="right">
           {run.running && <span className="thinking">working</span>}
-          <div className="open-in" title="Open this session's worktree in an editor">
-            {EDITORS.map((ed) => (
-              <button
-                key={ed.id}
-                type="button"
-                className="open-btn"
-                onClick={() => openEditor(ed.id)}
-                title={`Open the worktree in ${ed.label}`}
-              >
-                <I.Code size={12} /> {ed.label}
+          {confirmRemove && (
+            <>
+              <button type="button" className="btn ghost" onClick={() => setConfirmRemove(false)}>
+                Cancel
               </button>
-            ))}
-          </div>
-          {active.companion && (
-            <button
-              type="button"
-              className={`btn${confirmRemove ? " danger" : ""}`}
-              onClick={onRemoveAgent}
-              title="Stop this agent and remove it from the session (its conversation is forgotten; the worktree stays)"
-            >
-              <I.X size={13} /> {confirmRemove ? "Confirm remove" : `Remove ${active.label}`}
-            </button>
-          )}
-          {session.worktree && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setLinking(true)}
-              title="Bind this session's worktree, branch, and conversation to a Jira ticket"
-            >
-              <I.Ticket size={13} /> Link to ticket
-            </button>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={onRemoveAgent}
+                title="Stops this agent and forgets its conversation; the worktree stays"
+              >
+                <I.X size={13} /> Confirm remove {active.label}
+              </button>
+            </>
           )}
           {run.running ? (
             <button type="button" className="btn" onClick={() => void run.stop()}>
@@ -224,6 +205,40 @@ export function SessionDetail({
           ) : (
             <button type="button" className="btn primary" onClick={() => void run.start()}>
               <I.Bolt size={13} /> Start {active.label}
+            </button>
+          )}
+          <PopMenu
+            trigger={({ toggle }) => <MoreTrigger toggle={toggle} label="More actions" />}
+            sections={[
+              { title: "Worktree", items: editorItems(session.id) },
+              {
+                title: "Session",
+                items: [
+                  ...(session.worktree
+                    ? [{ label: "Link to ticket…", onSelect: () => setLinking(true) }]
+                    : []),
+                  ...(active.companion
+                    ? [
+                        {
+                          label: `Remove ${active.label} agent…`,
+                          danger: true,
+                          onSelect: () => setConfirmRemove(true),
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            ]}
+          />
+          {prUrls.length > 0 && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={togglePrRail}
+              title={prRailOpen ? "Hide pull requests" : "Show pull requests"}
+              aria-label={prRailOpen ? "Hide pull requests panel" : "Show pull requests panel"}
+            >
+              {prRailOpen ? <I.Chevron size={14} /> : <I.GitPR size={14} />}
             </button>
           )}
         </div>
@@ -235,7 +250,7 @@ export function SessionDetail({
         </div>
       )}
 
-      <div className={`detail-body${prUrls.length > 0 ? "" : " no-rail"}`}>
+      <div className={`detail-body${showRail ? "" : " no-rail"}`}>
         <div className="detail-left">
           <div className="detail-tabs">
             {roster.map((entry) => {
@@ -291,9 +306,10 @@ export function SessionDetail({
           {pane === "terminal" && <TerminalPane issueKey={session.id} />}
           {linking && <LinkTicketModal onClose={() => setLinking(false)} onPick={onPickIssue} />}
         </div>
-        {prUrls.length > 0 && (
+        {showRail && (
           <div className="detail-right">
             <PrRailSection urls={prUrls} />
+            <WorkspaceSection workspaceId={session.id} turnIds={turnIds} refreshKey={run.running} />
           </div>
         )}
       </div>

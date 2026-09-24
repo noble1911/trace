@@ -13,7 +13,7 @@ import {
   setAgentProvider,
 } from "./defaults";
 import { agentLabel } from "./providerLabel";
-import { fitTerminal, resetTerminal } from "./terminalRegistry";
+import { fitTerminal, resetTerminal, syncPtySize } from "./terminalRegistry";
 
 const MAX_DESCRIPTION_CHARS = 2000;
 const MAX_COMMENTS_CHARS = 3000;
@@ -116,6 +116,8 @@ export async function launchIssueAgent(
     chosenProvider
   );
   setAgentRunning(issueKey, true);
+  // The pane may have resized while the spawn was in flight.
+  syncPtySize(issueKey);
   activity.log({
     kind: "agent-start",
     issueKey,

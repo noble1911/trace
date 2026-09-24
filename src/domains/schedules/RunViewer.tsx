@@ -14,10 +14,13 @@ import { RunConversation } from "./RunConversation";
 import { useSchedulesStore } from "./store";
 import type { ScheduleRun } from "./types";
 
-// One run, two ways: its conversation as scrollable text (the default — read from
-// Claude's own log, since the PTY recording can only replay the TUI's last
-// screen), or the terminal itself, which a live run can be typed into, e.g. to
-// answer a permission prompt.
+type RunView = "summary" | "log" | "terminal";
+
+// One run, three ways, one tab at a time so each gets the full height: Claude's
+// closing summary (the default for a finished run — it's the answer), the whole
+// conversation as scrollable text (read from Claude's own log, since the PTY
+// recording can only replay the TUI's last screen), or the terminal itself,
+// which a live run can be typed into, e.g. to answer a permission prompt.
 export function RunViewer({ run }: { run: ScheduleRun }) {
   const ws = runWorkspaceId(run.id);
   const live = run.status === "running";
@@ -26,11 +29,13 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
   const continueAsSession = useSchedulesStore((s) => s.continueAsSession);
   const needsYou = useRunNeedsYou(run);
   const now = useNow(live ? 1000 : null);
-  // A live run you may need to answer opens on the terminal; anything else reads
-  // better as the conversation.
-  const [view, setView] = useState<"log" | "terminal">(
-    live && !run.claudeSessionId ? "terminal" : "log"
+  // A live run you may need to answer opens on the terminal; a finished one on
+  // its summary; otherwise the conversation.
+  const [picked, setView] = useState<RunView>(
+    live && !run.claudeSessionId ? "terminal" : run.summary ? "summary" : "log"
   );
+  // The Summary tab only exists once there is one.
+  const view: RunView = picked === "summary" && !run.summary ? "log" : picked;
 
   // The backend spawns runs at a default size. If this pane was already open
   // while the run was starting, its size went nowhere — push it once the PTY
@@ -120,14 +125,17 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
           run was going.
         </div>
       )}
-      {run.summary && (
-        <details className="sched-sent" open>
-          <summary>Summary</summary>
-          <Markdown text={run.summary} />
-        </details>
-      )}
-
       <div className="sched-views">
+        {run.summary && (
+          <button
+            type="button"
+            className={`sched-view${view === "summary" ? " active" : ""}`}
+            onClick={() => setView("summary")}
+            title="Claude's closing message for this run"
+          >
+            <I.Sparkles size={12} /> Summary
+          </button>
+        )}
         <button
           type="button"
           className={`sched-view${view === "log" ? " active" : ""}`}
@@ -147,6 +155,11 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
         </button>
       </div>
 
+      {view === "summary" && run.summary && (
+        <div className="sched-summary">
+          <Markdown text={run.summary} />
+        </div>
+      )}
       {view === "log" && run.claudeSessionId && <RunConversation run={run} />}
       {view === "log" && !run.claudeSessionId && (
         <div className="empty-state">

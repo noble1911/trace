@@ -23,6 +23,7 @@ import { isScheduledRun, runIdOf } from "@/domains/schedules/ids";
 import { SchedulesView } from "@/domains/schedules/SchedulesView";
 import { useSchedulesStore } from "@/domains/schedules/store";
 import { RecentSessions } from "@/domains/sessions/RecentSessions";
+import { useRecentsCollapsed } from "@/domains/sessions/recentsLayout";
 import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
@@ -141,6 +142,7 @@ export function App() {
   }, []);
 
   useBoardAutoRefresh();
+  const [recentsCollapsed] = useRecentsCollapsed();
 
   const refreshAllPrs = useBoardStore((s) => s.refreshAllPrs);
   useEffect(() => {
@@ -267,7 +269,9 @@ export function App() {
   // the app grid AND the fixed orchestrator FAB/panel — siblings of `.app` —
   // away from the right-docked recents column.
   return (
-    <div className={`app-root${showRecents ? " has-recents" : ""}`}>
+    <div
+      className={`app-root${showRecents ? " has-recents" : ""}${recentsCollapsed ? " recents-collapsed" : ""}`}
+    >
       <div className="app">
         <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
         {showRecents && <RecentSessions />}

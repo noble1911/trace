@@ -1,12 +1,13 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
-import { agentLabel } from "./providerLabel";
+import { editorItems } from "./editorItems";
+import { StartSplitButton } from "./StartSplitButton";
 
 interface DetailHeaderProps {
   issue: Issue;
@@ -28,6 +29,50 @@ interface DetailHeaderProps {
   onChooseCli: (cli: AgentCli) => void;
   onChooseProvider: (provider: AgentProvider) => void;
   onToggleRail: () => void;
+}
+
+const isLive = (state: string) => state === "open" || state === "draft";
+
+interface PrActionProps {
+  openPr: PullRequest | null;
+  busy: "raise" | "merge" | null;
+  onRaisePr: () => void;
+  onMergePr: () => void;
+}
+
+// The header's PR button follows the PR's real state: merge an open one, view a
+// finished one, and only offer "Raise PR" when the workspace has none at all.
+function PrAction({ openPr, busy, onRaisePr, onMergePr }: PrActionProps) {
+  if (openPr && isLive(openPr.state)) {
+    return (
+      <button type="button" className="btn success" onClick={onMergePr} disabled={busy === "merge"}>
+        <I.Check size={13} /> {busy === "merge" ? "Merging…" : `Merge #${openPr.number}`}
+      </button>
+    );
+  }
+  if (openPr) {
+    return (
+      <button
+        type="button"
+        className="btn"
+        onClick={() => void openUrl(openPr.url)}
+        title={openPr.title || "Open on GitHub"}
+      >
+        <I.GitPR size={13} /> #{openPr.number} {openPr.state}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="btn"
+      onClick={onRaisePr}
+      disabled={busy === "raise"}
+      title="Push branch and open a pull request via gh"
+    >
+      <I.GitPR size={13} /> {busy === "raise" ? "Raising…" : "Raise PR"}
+    </button>
+  );
 }
 
 // The agent workspace top bar: issue identity, live agent status, and the
@@ -58,7 +103,6 @@ export function DetailHeader({
       <button type="button" className="back" onClick={onBack}>
         <I.Back size={14} /> Board
       </button>
-      <AgentAvatar assignee={issue.assignee} size="lg" />
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {issueUrl ? (
@@ -80,61 +124,26 @@ export function DetailHeader({
       <div className="right">
         {status === "working" && <span className="thinking">working</span>}
         {status === "waiting" && <span className="waiting">waiting</span>}
-        {openPr && openPr.state !== "merged" ? (
-          <button
-            type="button"
-            className="btn success"
-            onClick={onMergePr}
-            disabled={busy === "merge"}
-          >
-            <I.Check size={13} /> {busy === "merge" ? "Merging…" : `Merge #${openPr.number}`}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn"
-            onClick={onRaisePr}
-            disabled={busy === "raise"}
-            title="Push branch and open a pull request via gh"
-          >
-            <I.GitPR size={13} /> {busy === "raise" ? "Raising…" : "Raise PR"}
-          </button>
-        )}
+        <PrAction openPr={openPr} busy={busy} onRaisePr={onRaisePr} onMergePr={onMergePr} />
         {running ? (
           <button type="button" className="btn" onClick={onStop}>
             <I.X size={13} /> Stop session
           </button>
         ) : (
-          <>
-            <select
-              className="cli-select"
-              value={cli}
-              onChange={(e) => onChooseCli(e.target.value as AgentCli)}
-              title="Which coding agent to launch"
-            >
-              <option value="claude">Claude</option>
-              <option value="codex">Codex</option>
-            </select>
-            {cli === "claude" && (
-              <select
-                className="cli-select"
-                value={provider}
-                onChange={(e) => onChooseProvider(e.target.value as AgentProvider)}
-                title="Which model provider backs the Claude harness"
-              >
-                <option value="anthropic">Anthropic</option>
-                <option value="moonshot">Kimi (Moonshot)</option>
-                <option value="wafer">Kimi (Wafer)</option>
-                <option value="wafer-fast">Kimi Fast (Wafer)</option>
-                <option value="deepseek">DeepSeek Flash</option>
-                <option value="deepseek-pro">DeepSeek Pro</option>
-              </select>
-            )}
-            <button type="button" className="btn primary" onClick={onStart}>
-              <I.Bolt size={13} /> Start {agentLabel(cli, provider)}
-            </button>
-          </>
+          <StartSplitButton
+            cli={cli}
+            provider={provider}
+            onStart={onStart}
+            onChoose={(nextCli, nextProvider) => {
+              onChooseCli(nextCli);
+              onChooseProvider(nextProvider);
+            }}
+          />
         )}
+        <PopMenu
+          trigger={({ toggle }) => <MoreTrigger toggle={toggle} label="More actions" />}
+          sections={[{ title: "Worktree", items: editorItems(issue.key) }]}
+        />
         <button
           type="button"
           className="btn ghost"

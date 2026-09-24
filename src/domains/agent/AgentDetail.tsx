@@ -1,9 +1,15 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
+import { canonicalPrUrl } from "@/domains/prs/commentBody";
+import { discoverPrs, usePrWatch } from "@/domains/prs/hooks/usePrWatch";
+import { PrRailSection } from "@/domains/prs/PrRailSection";
+import { primaryPr } from "@/domains/prs/primaryPr";
+import { usePrWatchStore } from "@/domains/prs/watchStore";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import {
   type AgentCli,
   type AgentProvider,
@@ -18,7 +24,6 @@ import { DetailHeader } from "./DetailHeader";
 import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "./defaults";
 import { FilesPane } from "./FilesPane";
 import { launchIssueAgent } from "./launch";
-import { PrPane } from "./PrPane";
 import { PtyTerminal } from "./PtyTerminal";
 import { agentLabel } from "./providerLabel";
 import { RichOutputPanel } from "./RichOutputPanel";
@@ -50,23 +55,13 @@ interface AgentDetailProps {
 // empty array on every render (which would churn re-renders).
 const EMPTY_PRS: PullRequest[] = [];
 
-const RAIL_STORAGE_KEY = "trace.railOpen";
-
-function loadRailOpen(): boolean {
-  try {
-    return localStorage.getItem(RAIL_STORAGE_KEY) !== "0";
-  } catch {
-    return true;
-  }
-}
-
 export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [tab, setTab] = useState<TabId>("chat");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(agentCli);
   const [provider, setProvider] = useState<AgentProvider>(agentProvider);
-  const [railOpen, setRailOpen] = useState(loadRailOpen);
+  const [railOpen, toggleRail] = usePersistedFlag("trace.railOpen", true);
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
@@ -82,7 +77,15 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
 
-  const openPr = prs.find((p) => p.state !== "merged" && p.state !== "declined") ?? prs[0] ?? null;
+  // Jira's dev-status PRs, plus whatever the agent raised that Jira hasn't
+  // linked (or can't — no dev integration): the branch's PRs and conversation.
+  const devUrls = useMemo(
+    () => prs.map((pr) => canonicalPrUrl(pr.url)).filter((u): u is string => u !== null),
+    [prs]
+  );
+  const prUrls = usePrWatch(issue.key, [issue.key], devUrls);
+  const threads = usePrWatchStore((s) => s.threads);
+  const openPr = primaryPr(prUrls, threads, prs);
 
   // Load the configured repos and this issue's saved assignment, defaulting the
   // picker to the assignment (or the first repo).
@@ -178,17 +181,6 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
     await resetAgentSession(issue.key).catch(() => {});
     await start();
   };
-  const toggleRail = () => {
-    setRailOpen((open) => {
-      const next = !open;
-      try {
-        localStorage.setItem(RAIL_STORAGE_KEY, next ? "1" : "0");
-      } catch {
-        // persistence is best-effort
-      }
-      return next;
-    });
-  };
 
   const onRaisePr = async () => {
     setError(null);
@@ -197,7 +189,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       const title = `[${issue.key}] ${issue.summary}`;
       const body = `Closes ${issue.key}${issue.description ? `\n\n${issue.description}` : ""}`;
       const { url } = await raisePr(issue.key, title, body);
-      await refreshIssuePrs(issue.key, issue.id);
+      await Promise.all([refreshIssuePrs(issue.key, issue.id), discoverPrs(issue.key)]);
       activity.log({ kind: "pr-raised", issueKey: issue.key, title: "raised a PR" });
       void openUrl(url);
     } catch (err) {
@@ -291,10 +283,21 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "files" && <FilesPane workspaceId={issue.key} />}
           {tab === "terminal" && <TerminalPane issueKey={issue.key} />}
           {tab === "tests" && <TestsPane issue={issue} />}
-          {tab === "pr" && <PrPane issue={issue} />}
+          {tab === "pr" && (
+            <div className="tab-pane pr-tab">
+              {prUrls.length > 0 ? (
+                <PrRailSection urls={prUrls} />
+              ) : (
+                <div className="pr-muted">
+                  No pull request yet — raise one from the header, or it appears here as soon as the
+                  agent opens one.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {railOpen && <ContextRail issue={issue} status={status} site={site} repo={repoChoice} />}
+        {railOpen && <ContextRail issue={issue} site={site} prUrls={prUrls} running={running} />}
       </div>
     </div>
   );

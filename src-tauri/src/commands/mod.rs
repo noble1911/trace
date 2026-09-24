@@ -20,4 +20,5 @@ pub mod sound;
 pub mod snapshot;
 pub mod tests;
 pub mod update;
+pub mod workspace;
 pub mod worktrees;

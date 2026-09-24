@@ -1,0 +1,95 @@
+/* ============ PopMenu (header split button, ⋯ overflow, + agent) ============ */
+
+.pop-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pop-menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 200px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.pop-menu-pop.right {
+  right: 0;
+}
+.pop-menu-pop.left {
+  left: 0;
+}
+.pop-menu-section + .pop-menu-section {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-faint);
+}
+.pop-menu-head {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-4);
+  padding: 4px 8px 3px;
+}
+.pop-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px 6px 4px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--fg-1);
+  white-space: nowrap;
+}
+.pop-menu-item:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+.pop-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pop-menu-item.danger {
+  color: var(--c-danger);
+}
+.pop-menu-item .check {
+  display: inline-flex;
+  width: 14px;
+  justify-content: center;
+  color: var(--c-accent);
+}
+
+/* Square icon-only header button (the ⋯ trigger). */
+.btn.icon {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Split button: the action, plus a caret that opens its choices. */
+.split-btn {
+  display: inline-flex;
+}
+.split-btn > .btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.split-btn .pop-menu > .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid color-mix(in oklch, var(--bg-0) 35%, transparent);
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+}
+.split-btn .caret {
+  display: inline-flex;
+  transform: rotate(90deg);
+}

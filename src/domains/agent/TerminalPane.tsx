@@ -3,7 +3,7 @@ import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
 import { startTerminal, stopAgent } from "@/ipc/agent";
 import { PtyTerminal } from "./PtyTerminal";
-import { fitTerminal, resetTerminal } from "./terminalRegistry";
+import { fitTerminal, resetTerminal, syncPtySize } from "./terminalRegistry";
 
 // The "Terminal" tab — a plain shell in the issue's worktree, distinct from the
 // Claude agent in Chat. Keyed `term:<issue>` so the two PTYs coexist. Reuses the
@@ -26,6 +26,8 @@ export function TerminalPane({ issueKey }: { issueKey: string }) {
     try {
       await startTerminal(issueKey, size.cols, size.rows);
       setAgentRunning(termKey, true);
+      // The pane may have resized while the spawn was in flight.
+      syncPtySize(termKey);
     } catch (e) {
       setError(String(e));
     } finally {

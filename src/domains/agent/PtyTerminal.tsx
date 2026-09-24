@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { useBoardStore } from "@/domains/board/store";
-import { resizeAgent } from "@/ipc/agent";
-import { disposeTerminal, fitAndDiff, getTerminal } from "./terminalRegistry";
+import { disposeTerminal, getTerminal, syncPtySize } from "./terminalRegistry";
 
 // Renders the interactive Claude/Codex TUI for one issue. The actual xterm lives
 // in `terminalRegistry` and stays alive for the whole session — this component
@@ -33,10 +32,7 @@ export function PtyTerminal({ issueKey }: { issueKey: string }) {
     // Fit to the visible host and tell the PTY the new geometry — but only when
     // the size actually changed (a same-size resize still raises SIGWINCH and
     // makes the TUI repaint over its banner).
-    const reportSize = () => {
-      const r = fitAndDiff(issueKey);
-      if (r?.changed) void resizeAgent(issueKey, r.cols, r.rows);
-    };
+    const reportSize = () => syncPtySize(issueKey);
     reportSize();
 
     // A re-attached terminal keeps its buffer but the renderer doesn't repaint

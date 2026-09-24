@@ -4,30 +4,8 @@
 //! Both shell out to `gh`/`git` and are polled, so they run off the main thread
 //! (`spawn_blocking`) — a sync command would stall the UI for every `gh` call.
 
-use crate::claude::conversations::session_id_for;
+use crate::commands::workspace::locate;
 use crate::github::{links, thread::PrThread};
-
-/// Where a workspace runs and which Claude conversations belong to it. A
-/// session's companions share its worktree, so all their conversations count.
-fn locate(workspace_id: &str) -> Option<(String, Vec<String>)> {
-    if let Some(session) = crate::commands::session::owning_session(workspace_id) {
-        let cwd = crate::commands::session::session_cwd(&session.id, false).ok()?;
-        let mut owners = vec![session.id.clone()];
-        owners.extend(session.agents.iter().map(|a| a.id.clone()));
-        return Some((
-            cwd,
-            owners.iter().filter_map(|o| session_id_for(o)).collect(),
-        ));
-    }
-    let repo = crate::commands::repos::repo_for(workspace_id).ok()?;
-    let worktree = crate::commands::repos::workspace_dir(&repo, workspace_id);
-    let cwd = if std::path::Path::new(&worktree).exists() {
-        worktree
-    } else {
-        repo
-    };
-    Some((cwd, session_id_for(workspace_id).into_iter().collect()))
-}
 
 /// PR URLs a workspace's agent raised or mentioned, most relevant first. Empty
 /// (not an error) when the workspace has no repo yet.

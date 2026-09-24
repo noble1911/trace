@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/app/toast";
-import { fitTerminal, resetTerminal } from "@/domains/agent/terminalRegistry";
+import { fitTerminal, resetTerminal, syncPtySize } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { agentRunning, resetAgentSession, stopAgent } from "@/ipc/agent";
 
@@ -45,6 +45,8 @@ export function useAgentRun(
       if (cancelled) return;
       if (alive && !useBoardStore.getState().runningAgents.has(workspaceId)) {
         setAgentRunning(workspaceId, true);
+        // The pane may have resized while the spawn was in flight.
+        syncPtySize(workspaceId);
       }
     });
     return () => {

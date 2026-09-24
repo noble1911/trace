@@ -5,6 +5,7 @@ import { App } from "@/App";
 // so the cascade order is explicit in one place.
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
+import "@/components/menu.css";
 import "@/app/shell.css";
 import "@/domains/board/board.css";
 import "@/domains/board/card.css";

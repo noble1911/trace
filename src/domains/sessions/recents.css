@@ -51,6 +51,9 @@
 }
 
 .rs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -67,30 +70,28 @@
 .rs-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* A recents card — a compact echo of the main session card (same CLI badge and
-   working/needs-you pills) so the sidebar and grid read as one design. */
+/* A recents card — two lines: status dot · title · time, then where it's filed
+   and its diff. Dense on purpose: the column is for hopping, not reading. */
 .rs-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
   width: 100%;
   text-align: left;
-  padding: 10px 11px;
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius);
-  background: var(--bg-1);
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   transition:
     border-color 0.15s,
     background 0.15s;
 }
 .rs-card:hover {
-  border-color: var(--border);
   background: var(--bg-2);
 }
 .rs-card.active {
@@ -100,7 +101,27 @@
 .rs-card-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  min-width: 0;
+}
+.rs-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.rs-dot.working {
+  background: var(--c-prog);
+}
+.rs-dot.attention {
+  background: var(--c-warn);
+  animation: rs-blink 1.2s ease-in-out infinite;
+}
+@keyframes rs-blink {
+  50% {
+    opacity: 0.3;
+  }
 }
 .rs-time {
   margin-left: auto;
@@ -110,16 +131,14 @@
   color: var(--fg-4);
 }
 .rs-name {
-  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: var(--fg-1);
-  line-height: 1.35;
-  /* Two-line clamp: titles wrap once, then ellipsize — no mid-word cut-off. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rs-card:hover .rs-name,
 .rs-card.active .rs-name {
@@ -129,6 +148,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-left: 13px;
 }
 .rs-where {
   flex: 1;
@@ -152,4 +172,37 @@
 }
 .rs-diff .del {
   color: var(--c-danger);
+}
+
+/* Collapsed to a slim strip: shrinking the width variable re-flows everything
+   that insets around the column (topbar, main, session overlay, orchestrator). */
+.app-root.recents-collapsed {
+  --recents-w: 40px;
+}
+.session-recents.collapsed {
+  padding: 60px 0 16px;
+  align-items: center;
+}
+.rs-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-3);
+}
+.rs-toggle:hover {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+.rs-attn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-warn);
 }

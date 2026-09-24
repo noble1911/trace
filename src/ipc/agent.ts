@@ -55,7 +55,8 @@ export function sendAgentInput(issueKey: string, data: string): Promise<void> {
   return invoke("send_agent_input", { issueKey, data });
 }
 
-export function resizeAgent(issueKey: string, cols: number, rows: number): Promise<void> {
+/** Resize a PTY; resolves false when there's no PTY (yet) to take it. */
+export function resizeAgent(issueKey: string, cols: number, rows: number): Promise<boolean> {
   return invoke("resize_agent", { issueKey, cols, rows });
 }
 

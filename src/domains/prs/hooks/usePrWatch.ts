@@ -10,6 +10,15 @@ const DISCOVER_POLL_MS = 120_000;
 
 const NO_URLS: string[] = [];
 
+/** Re-scan a workspace for PRs now (e.g. right after raising one). */
+export function discoverPrs(workspaceId: string): Promise<void> {
+  return workspacePrs(workspaceId)
+    .then((found) => usePrWatchStore.getState().setLinks(workspaceId, found))
+    .catch(() => {
+      // Discovery is best-effort (no repo yet, gh missing) — keep what we had.
+    });
+}
+
 /**
  * Keep a workspace's PRs fresh while the calling view is mounted: discover them
  * (branch + conversation), then poll each PR's discussion. Discovery re-runs
@@ -31,13 +40,7 @@ export function usePrWatch(
     [discovered, extraKey]
   );
 
-  const discover = useCallback(() => {
-    workspacePrs(workspaceId)
-      .then((found) => usePrWatchStore.getState().setLinks(workspaceId, found))
-      .catch(() => {
-        // Discovery is best-effort (no repo yet, gh missing) — keep what we had.
-      });
-  }, [workspaceId]);
+  const discover = useCallback(() => void discoverPrs(workspaceId), [workspaceId]);
 
   const turnKey = turnIds.join("\n");
   useEffect(() => {

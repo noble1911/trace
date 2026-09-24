@@ -261,13 +261,17 @@ pub fn send_agent_input(
         .map_err(|e| format!("Failed to write to agent: {e}"))
 }
 
+/// Resize a workspace's PTY. Returns whether a PTY was there to take it: an
+/// agent that's still starting (worktree creation takes seconds) has none yet,
+/// and the renderer must not count that size as delivered, or the PTY spawns at
+/// the old size and the TUI stays a column wider than the grid for good.
 #[tauri::command]
 pub fn resize_agent(
     state: State<'_, AppState>,
     issue_key: String,
     cols: u16,
     rows: u16,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let (cols, rows) = (cols.max(20), rows.max(4));
     // Track the new dimensions on the output history — a snapshot replay must
     // happen at the size the bytes were painted for.
@@ -277,8 +281,8 @@ pub fn resize_agent(
     }
     let sessions = state.pty_sessions.lock();
     match sessions.get(&issue_key) {
-        Some(session) => session.resize(cols, rows),
-        None => Ok(()),
+        Some(session) => session.resize(cols, rows).map(|()| true),
+        None => Ok(false),
     }
 }
 

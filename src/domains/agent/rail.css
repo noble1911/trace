@@ -1,4 +1,4 @@
-/* Agent context rail: ticket refs, editor buttons — extracted from globals.css; class names match the design handoff. */
+/* Agent context rail: PRs, workspace, ticket refs — extracted from globals.css; class names match the design handoff. */
 
 /* Right pane (context) */
 .detail-right {
@@ -49,13 +49,7 @@
   font-family: var(--font-sans);
 }
 
-/* Open-in-editor buttons */
-.open-in {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
+/* Small outline buttons (PR summary links) */
 .open-btn {
   display: inline-flex;
   align-items: center;
@@ -176,4 +170,35 @@
 }
 .pr-rail-row .pr-pill {
   margin-left: auto;
+}
+
+/* Ticket section: assignee line above the linked keys */
+.ticket-assignee {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ticket-assignee .name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.ticket-assignee .sub {
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+/* Long branch / worktree values truncate instead of widening the rail. */
+.ctx-row .v {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The ticket's Pull request tab: the rail's PR view at a readable width. */
+.pr-tab .pr-rail {
+  max-width: 760px;
+  padding: 0;
+  border-bottom: 0;
 }

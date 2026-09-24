@@ -84,18 +84,49 @@ fn branch_prs(cwd: &str) -> Vec<String> {
     if branch == "HEAD" || branch == crate::git::get_default_branch(cwd) {
         return Vec::new();
     }
-    let limit = MAX_PRS.to_string();
-    let args = [
-        "pr", "list", "--head", &branch, "--state", "all", "--limit", &limit, "--json", "url",
-        "--jq", ".[].url",
-    ];
-    git_stdout(cwd, "gh", &args)
-        .map(|s| {
-            s.lines()
-                .filter_map(|l| parse_pr_url(l).map(|_| l.to_string()))
+    // The owner keys which signed-in account `gh::run` uses; a non-GitHub
+    // remote has no PRs to find.
+    let Some(owner) = git_stdout(cwd, "git", &["remote", "get-url", "origin"])
+        .and_then(|remote| remote_owner(&remote))
+    else {
+        return Vec::new();
+    };
+    let args: Vec<String> = [
+        "pr",
+        "list",
+        "--head",
+        &branch,
+        "--state",
+        "all",
+        "--limit",
+        &MAX_PRS.to_string(),
+        "--json",
+        "url",
+        "--jq",
+        ".[].url",
+    ]
+    .iter()
+    .map(|a| a.to_string())
+    .collect();
+    super::gh::run(cwd, &owner, &args)
+        .map(|out| {
+            String::from_utf8_lossy(&out)
+                .lines()
+                .filter(|l| parse_pr_url(l).is_some())
+                .map(str::to_string)
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// The owner in a GitHub remote — `git@github.com:acme/web.git`, an ssh host
+/// alias like `git@github.com-work:acme/web.git`, or `https://github.com/acme/web`.
+fn remote_owner(remote: &str) -> Option<String> {
+    let rest = remote.split_once("github.com")?.1;
+    // Skip an ssh alias suffix (`-work`) up to the `:` or `/` before the owner.
+    let rest = &rest[rest.find([':', '/'])? + 1..];
+    let owner = rest.split('/').next()?.trim();
+    (!owner.is_empty()).then(|| owner.to_string())
 }
 
 /// Trimmed stdout of a successful `tool args` run in `cwd`.
@@ -113,7 +144,20 @@ fn git_stdout(cwd: &str, tool: &str, args: &[&str]) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_pr_url, urls_in};
+    use super::{parse_pr_url, remote_owner, urls_in};
+
+    #[test]
+    fn reads_the_owner_from_any_github_remote_form() {
+        for remote in [
+            "git@github.com:acme/web.git",
+            "git@github.com-work:acme/web.git",
+            "https://github.com/acme/web",
+            "ssh://git@github.com/acme/web.git",
+        ] {
+            assert_eq!(remote_owner(remote).as_deref(), Some("acme"), "{remote}");
+        }
+        assert_eq!(remote_owner("git@gitlab.com:acme/web.git"), None);
+    }
 
     #[test]
     fn finds_pr_urls_latest_mention_first_and_dedupes_variants() {

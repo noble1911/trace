@@ -1,34 +1,20 @@
-import { type CSSProperties, type ReactNode, useMemo } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { toast } from "@/app/toast";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
-import { type SessionStatus, useBoardStore } from "@/domains/board/store";
-import type { Issue, PullRequest } from "@/domains/issues/types";
+import type { Issue } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
-import { canonicalPrUrl } from "@/domains/prs/commentBody";
-import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
-import { type Editor, openInEditor } from "@/ipc/editor";
-
-// Stable empty reference so the store selector doesn't return a fresh array
-// each render (which would churn re-renders).
-const EMPTY_PRS: PullRequest[] = [];
-
-const EDITORS: { id: Editor; label: string }[] = [
-  { id: "vscode", label: "VS Code" },
-  { id: "intellij", label: "IntelliJ" },
-  { id: "cursor", label: "Cursor" },
-];
+import { WorkspaceSection } from "./WorkspaceSection";
 
 interface ContextRailProps {
   issue: Issue;
-  status: SessionStatus;
   site: string | null;
-  /** The repo this ticket is assigned to (absolute path). */
-  repo?: string;
+  /** The workspace's PRs (`usePrWatch`, owned by AgentDetail — the header uses them too). */
+  prUrls: string[];
+  /** Re-reads the checkout when the agent starts (that's when the worktree appears). */
+  running: boolean;
 }
-
-const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
 function copy(text: string) {
   void navigator.clipboard.writeText(text).then(
@@ -44,8 +30,8 @@ interface LinkedRowProps {
   url?: string;
 }
 
-// One linked reference (the issue, its epic): a key that opens in Jira, an
-// optional sub-label, and a copy button for pasting the key into the chat.
+// One linked reference (the issue, its epic): a key that opens in the tracker,
+// an optional sub-label, and a copy button for pasting the key into the chat.
 function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
   return (
     <div className="linked-row">
@@ -71,94 +57,31 @@ function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
   );
 }
 
-export function ContextRail({ issue, status, site, repo }: ContextRailProps) {
-  const slug = issue.key.toLowerCase();
-  const live = status !== "idle";
+// The ticket detail's right rail, ordered by how often it's looked at: the PRs
+// (they change constantly), where the agent is working, then the ticket's own
+// facts. Live agent status lives in the header only.
+export function ContextRail({ issue, site, prUrls, running }: ContextRailProps) {
   // Providers that carry a web URL on the issue (Pylon's `link`) win; Jira's
   // browse URL is built from the site.
   const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
   const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
-  const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
-  // Jira's dev-status PRs, plus whatever the agent raised that Jira hasn't
-  // linked (or can't — no dev integration): the branch's PRs and conversation.
-  const devUrls = useMemo(
-    () => prs.map((pr) => canonicalPrUrl(pr.url)).filter((u): u is string => u !== null),
-    [prs]
-  );
-  const prUrls = usePrWatch(issue.key, [issue.key], devUrls);
-
-  const openEditor = (editor: Editor) => {
-    void openInEditor(issue.key, editor).catch((e) => toast.error(String(e)));
-  };
 
   return (
     <div className="detail-right">
-      <div className="ctx-section">
-        <div className="label">Assignee</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <AgentAvatar assignee={issue.assignee} size="xl" />
-          <div>
-            <h3 style={{ marginBottom: 2 }}>{issue.assignee?.displayName ?? "Unassigned"}</h3>
-            <div style={{ color: "var(--fg-3)", fontSize: 12 }}>{issue.issueType}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="ctx-section">
-        <div className="label">Claude session</div>
-        {repo && (
-          <div className="ctx-row">
-            <span className="k">Repository</span>
-            <span className="v" title={repo}>
-              {basename(repo)}
-            </span>
-          </div>
-        )}
-        <div className="ctx-row">
-          <span className="k">Status</span>
-          <span className="v plain">
-            {status === "working" && <span className="thinking">working</span>}
-            {status === "waiting" && <span className="waiting">waiting for input</span>}
-            {status === "idle" && "not started"}
-          </span>
-        </div>
-        {live && (
-          <>
-            <div className="ctx-row">
-              <span className="k">Branch</span>
-              <span className="v">workspace/{slug}</span>
-            </div>
-            <div className="ctx-row">
-              <span className="k">Worktree</span>
-              <span className="v">.worktrees/{slug}</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="ctx-section">
-        <div className="label">Open in</div>
-        <div className="open-in">
-          {EDITORS.map((ed) => (
-            <button
-              key={ed.id}
-              type="button"
-              className="open-btn"
-              onClick={() => openEditor(ed.id)}
-              title={`Open the worktree in ${ed.label}`}
-            >
-              <I.Code size={12} /> {ed.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <PrRailSection urls={prUrls} />
+      <WorkspaceSection workspaceId={issue.key} refreshKey={running} />
 
-      <div className="ctx-section" style={{ flex: 1 }}>
-        <div className="label">Linked</div>
+      <div className="ctx-section">
+        <div className="label">Ticket</div>
+        <div className="ticket-assignee">
+          <AgentAvatar assignee={issue.assignee} size="lg" />
+          <div>
+            <div className="name">{issue.assignee?.displayName ?? "Unassigned"}</div>
+            <div className="sub">{issue.issueType}</div>
+          </div>
+        </div>
         <div className="linked-list">
-          <LinkedRow icon={I.Ticket} keyText={issue.key} sub="Jira" url={issueUrl} />
+          <LinkedRow icon={I.Ticket} keyText={issue.key} sub={issue.statusName} url={issueUrl} />
           {issue.epicKey && (
             <LinkedRow
               icon={I.Branch}

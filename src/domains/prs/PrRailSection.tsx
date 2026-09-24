@@ -120,7 +120,7 @@ export function PrRailSection({ urls }: { urls: string[] }) {
         </>
       ) : errors[selected] ? (
         <div className="pr-muted" title={errors[selected]}>
-          Couldn't read {shortRef(selected)} from GitHub — is <code>gh</code> signed in?
+          Couldn't read {shortRef(selected)}: {errors[selected].replace(/^gh:\s*/, "")}
         </div>
       ) : (
         <div className="pr-muted">Loading {shortRef(selected)}…</div>

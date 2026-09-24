@@ -92,7 +92,7 @@ interface TerminalEntry {
    * Last cols/rows we told the PTY about. A resize triggers SIGWINCH and the TUI
    * repaints on *any* SIGWINCH — even a same-size one — which lands a duplicate
    * banner over the first paint. So we only resize when the size actually
-   * changed; this records what we last sent.
+   * changed; this records the last size a PTY actually *took* (see `syncPtySize`).
    */
   lastSent: { cols: number; rows: number } | null;
   unsub: () => void;
@@ -227,8 +227,7 @@ export function getTerminal(issueKey: string): TerminalEntry {
       }
       entry.skipSeq = snap.seq;
       entry.hasOutput = true;
-      const r = fitAndDiff(issueKey);
-      if (r?.changed) void resizeAgent(issueKey, r.cols, r.rows);
+      syncPtySize(issueKey);
       entry.term.refresh(0, entry.term.rows - 1);
     })
     .catch(() => {});
@@ -255,24 +254,28 @@ export function fitTerminal(issueKey: string): { cols: number; rows: number } | 
 }
 
 /**
- * Fit to the host and report whether the size *changed* since the last resize we
- * sent the PTY. Callers resize the PTY only when `changed` — a same-size resize
- * still raises SIGWINCH and makes the TUI repaint over itself (duplicate banner).
+ * Fit to the host and, if that changed the size, resize the PTY to match. The
+ * size only counts as sent once a PTY confirms it took it: a resize while the
+ * agent is still spawning is dropped backend-side, and recording it anyway left
+ * the PTY at its spawn size — a column wider than the grid, so the last
+ * character of every wrapped line vanished. Callers run this on layout changes
+ * AND right after a spawn, which catches any change made during startup.
  */
-export function fitAndDiff(
-  issueKey: string
-): { cols: number; rows: number; changed: boolean } | null {
+export function syncPtySize(issueKey: string): void {
   const entry = registry.get(issueKey);
-  if (!entry?.opened) return null;
+  if (!entry?.opened) return;
   try {
     entry.fit.fit();
-    const { cols, rows } = entry.term;
-    const changed = !entry.lastSent || entry.lastSent.cols !== cols || entry.lastSent.rows !== rows;
-    entry.lastSent = { cols, rows };
-    return { cols, rows, changed };
   } catch {
-    return null;
+    return;
   }
+  const { cols, rows } = entry.term;
+  if (entry.lastSent?.cols === cols && entry.lastSent.rows === rows) return;
+  void resizeAgent(issueKey, cols, rows)
+    .then((applied) => {
+      if (applied) entry.lastSent = { cols, rows };
+    })
+    .catch(() => {});
 }
 
 /**
@@ -301,7 +304,7 @@ export function resetTerminal(issueKey: string): void {
  * outlive Settings (the registry keeps them across navigation), so changes
  * must be applied in place. New metrics change cols/rows, so each visible
  * terminal is refitted and its PTY resized — with the same changed-size guard
- * as `fitAndDiff` (a same-size SIGWINCH makes TUIs repaint over themselves).
+ * as `syncPtySize` (a same-size SIGWINCH makes TUIs repaint over themselves).
  */
 export function applyTerminalPrefs(): void {
   const fontFamily = termFontFamily();
@@ -311,19 +314,9 @@ export function applyTerminalPrefs(): void {
     entry.term.options.fontFamily = fontFamily;
     entry.term.options.fontSize = fontSize;
     entry.term.options.lineHeight = lineHeight;
-    if (!entry.opened) continue;
-    try {
-      // A detached container measures 0×0 and fit() is a no-op — the next
-      // mount's fitAndDiff picks up the new metrics instead.
-      entry.fit.fit();
-      const { cols, rows } = entry.term;
-      const changed =
-        !entry.lastSent || entry.lastSent.cols !== cols || entry.lastSent.rows !== rows;
-      entry.lastSent = { cols, rows };
-      if (changed) void resizeAgent(key, cols, rows);
-    } catch {
-      // Not measurable — leave geometry to the next mount.
-    }
+    // A detached container measures 0×0 and fit() is a no-op — the next
+    // mount's sync picks up the new metrics instead.
+    syncPtySize(key);
   }
 }
 

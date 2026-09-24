@@ -6,8 +6,6 @@
 //! (coverage, previews, AI reviewers) edit one comment in place rather than
 //! posting new ones: `lastEditedAt` is how the rail notices.
 
-use std::process::Command;
-
 use serde::Serialize;
 
 use super::links::parse_pr_url;
@@ -91,33 +89,27 @@ query($owner: String!, $name: String!, $number: Int!) {
   }
 }"#;
 
-/// Fetch a PR by URL. `cwd` is any directory — auth is the user's global `gh`
-/// login — but running from the workspace keeps enterprise-host config intact.
+/// Fetch a PR by URL, as whichever signed-in account can see its repo (`gh`).
+/// Run from the workspace so a repo-local `gh` config still applies.
 pub fn fetch(cwd: &str, pr_url: &str) -> Result<PrThread, String> {
     let (owner, name, number) =
         parse_pr_url(pr_url).ok_or_else(|| format!("Not a GitHub PR URL: {pr_url}"))?;
-    let out = Command::new("gh")
-        .args(["api", "graphql", "-f"])
-        .arg(format!("query={QUERY}"))
-        // -f keeps owner/name strings (a numeric org name must not become an Int);
-        // -F types the number.
-        .args([
-            "-f",
-            &format!("owner={owner}"),
-            "-f",
-            &format!("name={name}"),
-        ])
-        .args(["-F", &format!("number={number}")])
-        .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("gh failed to start: {e}"))?;
-    if !out.status.success() {
-        return Err(format!(
-            "gh api graphql failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ));
-    }
+    // -f keeps owner/name strings (a numeric org name must not become an Int);
+    // -F types the number.
+    let args: Vec<String> = vec![
+        "api".into(),
+        "graphql".into(),
+        "-f".into(),
+        format!("query={QUERY}"),
+        "-f".into(),
+        format!("owner={owner}"),
+        "-f".into(),
+        format!("name={name}"),
+        "-F".into(),
+        format!("number={number}"),
+    ];
+    let stdout = super::gh::run(cwd, &owner, &args)?;
     let json: serde_json::Value =
-        serde_json::from_slice(&out.stdout).map_err(|e| format!("bad gh json: {e}"))?;
+        serde_json::from_slice(&stdout).map_err(|e| format!("bad gh json: {e}"))?;
     super::thread_parse::parse(&json).ok_or_else(|| format!("GitHub returned no PR for {pr_url}"))
 }

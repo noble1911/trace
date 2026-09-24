@@ -7,6 +7,7 @@
 //! - `thread`: one PR's state + discussion (comments, reviews, inline threads)
 //!   with edit timestamps, so the rail can show comments that change in place.
 
+mod gh;
 pub mod links;
 pub mod thread;
 mod thread_parse;

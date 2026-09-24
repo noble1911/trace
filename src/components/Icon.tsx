@@ -100,6 +100,13 @@ export const I = {
       <path d="m9 18 6-6-6-6" />
     </Base>
   ),
+  More: (p: IconProps) => (
+    <Base {...p}>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </Base>
+  ),
   Back: (p: IconProps) => (
     <Base {...p}>
       <path d="m15 18-6-6 6-6" />
