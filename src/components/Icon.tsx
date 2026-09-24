@@ -100,6 +100,13 @@ export const I = {
       <path d="m9 18 6-6-6-6" />
     </Base>
   ),
+  /** A window with a right-hand panel — the universal "toggle sidebar" glyph. */
+  Sidebar: (p: IconProps) => (
+    <Base {...p}>
+      <rect width="18" height="16" x="3" y="4" rx="2" />
+      <path d="M15 4v16" />
+    </Base>
+  ),
   More: (p: IconProps) => (
     <Base {...p}>
       <circle cx="5" cy="12" r="1" />

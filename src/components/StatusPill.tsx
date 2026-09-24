@@ -21,10 +21,23 @@ const CATEGORY: Record<StatusCategory, { color: string; bg: string; border: stri
 interface StatusPillProps {
   name: string;
   category: StatusCategory;
+  /**
+   * Inline text with a coloured dot instead of a filled pill — for a meta line
+   * where a badge would outshout what sits beside it (the ticket key).
+   */
+  quiet?: boolean;
 }
 
-export function StatusPill({ name, category }: StatusPillProps) {
+export function StatusPill({ name, category, quiet }: StatusPillProps) {
   const m = CATEGORY[category] ?? CATEGORY.new;
+  if (quiet) {
+    return (
+      <span className="status-quiet">
+        <span className="d" style={{ background: m.color }} />
+        {name}
+      </span>
+    );
+  }
   return (
     <span
       className="status-pill"

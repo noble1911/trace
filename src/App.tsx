@@ -261,9 +261,10 @@ export function App() {
     </>
   );
 
-  // The Recents sidebar lives on the Sessions view AND alongside an open session
-  // detail (so you can hop between recent sessions without backing out).
-  const showRecents = nav === "sessions" || openSession != null;
+  // The Recents sidebar sits beside an open session detail, for hopping between
+  // sessions without backing out. Not on the Sessions list — it would just
+  // repeat the list next to itself.
+  const showRecents = openSession != null;
 
   // `has-recents` lives on the root wrapper (not `.app`) so it can inset both
   // the app grid AND the fixed orchestrator FAB/panel — siblings of `.app` —

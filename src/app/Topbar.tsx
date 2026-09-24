@@ -9,14 +9,21 @@ interface TopbarProps {
   extra?: ReactNode;
 }
 
+/** Views that show the selected board's data — only they name it in the crumbs. */
+const BOARD_SCOPED = new Set<NavId>(["board", "pr"]);
+
 export function Topbar({ nav, project, extra }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="crumbs">
         <span>trace</span>
         <span className="sep">/</span>
-        <span className="project">{project}</span>
-        <span className="sep">/</span>
+        {BOARD_SCOPED.has(nav) && (
+          <>
+            <span className="project">{project}</span>
+            <span className="sep">/</span>
+          </>
+        )}
         <span>{NAV_LABELS[nav]}</span>
       </div>
       <SearchPalette />

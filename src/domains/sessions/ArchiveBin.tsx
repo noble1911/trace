@@ -1,6 +1,6 @@
 import { I } from "@/components/Icon";
 import { sessionsDrag } from "./dragState";
-import { relTime } from "./SessionCard";
+import { relTime } from "./time";
 import type { ScratchSession } from "./types";
 
 interface ArchiveBinProps {

@@ -4,6 +4,7 @@
 //! `locate` maps any of them to the directory its agent runs in and the Claude
 //! conversations that belong to it.
 
+use std::collections::HashMap;
 use std::process::Command;
 
 use serde::Serialize;
@@ -83,6 +84,67 @@ pub async fn workspace_info(workspace_id: String) -> Result<Option<WorkspaceInfo
             cwd,
             branch,
         })
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// One row of the Sessions list: where the session works and its PR.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionOverview {
+    pub id: String,
+    /// Repo root path.
+    pub repo: String,
+    pub branch: Option<String>,
+    pub pr: Option<crate::github::repo_prs::PrRef>,
+}
+
+/// Branch + PR for many sessions at once: a local `git` read per session, then
+/// ONE `gh pr list` per repo matched by branch — a page of 20 sessions costs a
+/// couple of GitHub calls, not twenty. Sessions without a repo are skipped.
+#[tauri::command]
+pub async fn sessions_overview(ids: Vec<String>) -> Result<Vec<SessionOverview>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut rows: Vec<SessionOverview> = Vec::new();
+        for id in ids {
+            let Some((cwd, _)) = locate(&id) else {
+                continue;
+            };
+            let repo = git(
+                &cwd,
+                &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+            )
+            .and_then(|d| {
+                std::path::Path::new(&d)
+                    .parent()
+                    .map(|p| p.to_string_lossy().into_owned())
+            })
+            .unwrap_or(cwd.clone());
+            let branch = git(&cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).filter(|b| b != "HEAD");
+            rows.push(SessionOverview {
+                id,
+                repo,
+                branch,
+                pr: None,
+            });
+        }
+        // The default branch is every legacy root session's — its PRs aren't theirs.
+        let mut prs_by_repo: HashMap<String, HashMap<String, crate::github::repo_prs::PrRef>> =
+            HashMap::new();
+        for row in &mut rows {
+            let Some(branch) = row.branch.clone() else {
+                continue;
+            };
+            if branch == crate::git::get_default_branch(&row.repo) {
+                continue;
+            }
+            let prs = prs_by_repo
+                .entry(row.repo.clone())
+                .or_insert_with(|| crate::github::repo_prs::by_branch(&row.repo));
+            row.pr = prs.get(&branch).cloned();
+        }
+        rows
     })
     .await
     .map_err(|e| e.to_string())

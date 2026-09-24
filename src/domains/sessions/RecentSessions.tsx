@@ -3,8 +3,9 @@ import { useBoardStore } from "@/domains/board/store";
 import { sessionNeedsYou, sessionStatus } from "./agentRoster";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useRecentsCollapsed } from "./recentsLayout";
-import { relTime } from "./SessionCard";
+import { StatusDot } from "./StatusDot";
 import { useSessionsStore } from "./store";
+import { relTime } from "./time";
 import type { ScratchSession } from "./types";
 
 // The "Recents" sidebar on the Sessions view — the sessions you last opened,
@@ -46,8 +47,12 @@ export function RecentSessions() {
           title="Show recent sessions"
           aria-label="Show recent sessions"
         >
-          <I.Back size={14} />
+          <I.Sidebar size={14} />
           {needsYou && <span className="rs-attn" />}
+        </button>
+        {/* Says what's folded away — the strip alone doesn't. */}
+        <button type="button" className="rs-strip-label" onClick={toggle} tabIndex={-1}>
+          Recent
         </button>
       </aside>
     );
@@ -64,7 +69,7 @@ export function RecentSessions() {
           title="Hide recent sessions"
           aria-label="Hide recent sessions"
         >
-          <I.Chevron size={14} />
+          <I.Sidebar size={14} />
         </button>
       </div>
       {items.length === 0 ? (
@@ -78,7 +83,6 @@ export function RecentSessions() {
             // once seen it reads as a plain active session so it stops nagging.
             const attention = sessionNeedsYou(s, running, agentActivity, ackedWaiting);
             const where = [tabName(s.tab), sectionName(s.section)].filter(Boolean).join(" · ");
-            const dot = attention ? "attention" : status === "working" ? "working" : null;
             const stat = diffs[s.id];
             const hasDiff = stat != null && (stat.add > 0 || stat.del > 0);
             return (
@@ -90,10 +94,7 @@ export function RecentSessions() {
                   title={s.title}
                 >
                   <div className="rs-card-top">
-                    <span
-                      className={`rs-dot${dot ? ` ${dot}` : ""}`}
-                      title={attention ? "Needs you" : status === "working" ? "Working" : undefined}
-                    />
+                    <StatusDot working={status === "working"} needsYou={attention} />
                     <span className="rs-name">{s.title}</span>
                     <span className="rs-time">{relTime(s.createdAt)}</span>
                   </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
+import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { agentArgs } from "@/domains/agent/defaults";
 import { editorItems } from "@/domains/agent/editorItems";
@@ -21,7 +22,6 @@ import { AgentPane } from "./AgentPane";
 import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
 import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
-import { useReportPrRail } from "./recentsLayout";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -71,7 +71,6 @@ export function SessionDetail({
   const prUrls = usePrWatch(session.id, turnIds);
   const [prRailOpen, togglePrRail] = usePersistedFlag("trace.sessionPrRailOpen", true);
   const showRail = prUrls.length > 0 && prRailOpen;
-  useReportPrRail(showRail);
   // Falls back to the session's own agent, which also self-heals the selection
   // when the companion whose tab was open is removed.
   const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
@@ -231,15 +230,12 @@ export function SessionDetail({
             ]}
           />
           {prUrls.length > 0 && (
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={togglePrRail}
-              title={prRailOpen ? "Hide pull requests" : "Show pull requests"}
-              aria-label={prRailOpen ? "Hide pull requests panel" : "Show pull requests panel"}
-            >
-              {prRailOpen ? <I.Chevron size={14} /> : <I.GitPR size={14} />}
-            </button>
+            <PanelToggle
+              label="Pull requests"
+              count={prUrls.length}
+              open={prRailOpen}
+              onToggle={togglePrRail}
+            />
           )}
         </div>
       </div>

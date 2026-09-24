@@ -121,7 +121,7 @@ fn branch_prs(cwd: &str) -> Vec<String> {
 
 /// The owner in a GitHub remote — `git@github.com:acme/web.git`, an ssh host
 /// alias like `git@github.com-work:acme/web.git`, or `https://github.com/acme/web`.
-fn remote_owner(remote: &str) -> Option<String> {
+pub(super) fn remote_owner(remote: &str) -> Option<String> {
     let rest = remote.split_once("github.com")?.1;
     // Skip an ssh alias suffix (`-work`) up to the `:` or `/` before the owner.
     let rest = &rest[rest.find([':', '/'])? + 1..];

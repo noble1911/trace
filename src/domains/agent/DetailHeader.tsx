@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { I } from "@/components/Icon";
+import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { StatusPill } from "@/components/StatusPill";
 import type { SessionStatus } from "@/domains/board/store";
@@ -104,7 +105,7 @@ export function DetailHeader({
         <I.Back size={14} /> Board
       </button>
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="detail-meta">
           {issueUrl ? (
             <button
               type="button"
@@ -117,7 +118,8 @@ export function DetailHeader({
           ) : (
             <span className="id">{issue.key}</span>
           )}
-          <StatusPill name={issue.statusName} category={issue.statusCategory} />
+          <span className="sep">·</span>
+          <StatusPill name={issue.statusName} category={issue.statusCategory} quiet />
         </div>
         <div className="ttl">{issue.summary}</div>
       </div>
@@ -144,15 +146,7 @@ export function DetailHeader({
           trigger={({ toggle }) => <MoreTrigger toggle={toggle} label="More actions" />}
           sections={[{ title: "Worktree", items: editorItems(issue.key) }]}
         />
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={onToggleRail}
-          title={railOpen ? "Hide details" : "Show details"}
-          aria-label={railOpen ? "Hide details panel" : "Show details panel"}
-        >
-          {railOpen ? <I.Chevron size={14} /> : <I.Back size={14} />}
-        </button>
+        <PanelToggle label="Details" open={railOpen} onToggle={onToggleRail} />
       </div>
     </div>
   );

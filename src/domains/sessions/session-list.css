@@ -1,0 +1,113 @@
+/* ============ Sessions list (SessionRow) + the shared status dot ============ */
+
+/* The list: one ~36px row per session — status, name, where, PR, diff, age.
+   Columns line up across rows (and across sections) so the eye can scan down. */
+.session-list {
+  display: flex;
+  flex-direction: column;
+}
+.session-row {
+  display: grid;
+  grid-template-columns: 8px minmax(180px, 2fr) minmax(0, 1.4fr) 128px 104px 64px 44px;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.session-row:hover {
+  background: var(--bg-2);
+}
+.session-row:focus-visible {
+  outline: 1px solid var(--c-accent);
+}
+.sr-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sr-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-0);
+}
+.sr-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-3);
+}
+.sr-pr .pr-pill {
+  cursor: pointer;
+}
+.sr-diff {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.sr-diff .add {
+  color: var(--c-done);
+}
+.sr-diff .del {
+  color: var(--c-danger);
+}
+.sr-time {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  white-space: nowrap;
+}
+.sr-actions {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.session-row:hover .sr-actions,
+.session-row:focus-within .sr-actions {
+  opacity: 1;
+}
+.sr-actions button {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-4);
+}
+.sr-actions button:hover {
+  color: var(--fg-0);
+  background: var(--bg-3);
+}
+
+/* A session's state: blue working, blinking amber needs you, grey idle.
+   Shared by the list rows and the Recents column. */
+.session-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.session-dot.working {
+  background: var(--c-prog);
+}
+.session-dot.attention {
+  background: var(--c-warn);
+  animation: session-blink 1.2s ease-in-out infinite;
+}
+@keyframes session-blink {
+  50% {
+    opacity: 0.3;
+  }
+}

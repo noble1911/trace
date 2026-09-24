@@ -16,3 +16,23 @@ export interface WorkspaceInfo {
 export function workspaceInfo(workspaceId: string): Promise<WorkspaceInfo | null> {
   return invoke("workspace_info", { workspaceId });
 }
+
+export interface SessionPrRef {
+  number: number;
+  state: "open" | "draft" | "merged" | "closed";
+  url: string;
+}
+
+/** One Sessions-list row's checkout facts. */
+export interface SessionOverview {
+  id: string;
+  /** Repo root path. */
+  repo: string;
+  branch: string | null;
+  pr: SessionPrRef | null;
+}
+
+/** Branch + PR for many sessions in one go (one `gh` call per repo). */
+export function sessionsOverview(ids: string[]): Promise<SessionOverview[]> {
+  return invoke("sessions_overview", { ids });
+}

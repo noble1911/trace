@@ -93,3 +93,15 @@
   display: inline-flex;
   transform: rotate(90deg);
 }
+
+/* PanelToggle: a sidebar show/hide button, pressed while its panel is open. */
+.btn.panel-toggle .count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+.btn.panel-toggle.on {
+  background: var(--bg-2);
+  border-color: var(--border);
+  color: var(--fg-0);
+}

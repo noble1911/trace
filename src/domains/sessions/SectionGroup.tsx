@@ -18,7 +18,7 @@ interface SectionGroupProps {
 }
 
 // One collapsible vertical group of sessions within a tab. The header drags
-// to reorder sections; the whole group accepts session-card drops.
+// to reorder sections; the whole group accepts session-row drops.
 export function SectionGroup({
   section,
   count,

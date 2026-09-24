@@ -9,5 +9,6 @@
 
 mod gh;
 pub mod links;
+pub mod repo_prs;
 pub mod thread;
 mod thread_parse;

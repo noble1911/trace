@@ -53,6 +53,29 @@
   font-size: 12px;
   color: var(--fg-3);
 }
+/* The line above the title: key · status, one size and weight so neither
+   outshouts the other — the status's category lives in its dot's colour. */
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.detail-meta .sep {
+  color: var(--fg-4);
+}
+.status-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--fg-3);
+}
+.status-quiet .d {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
 /* The ticket key opens the issue in the tracker. */
 .detail-top .id-link {
   padding: 0;

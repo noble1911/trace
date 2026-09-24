@@ -16,9 +16,11 @@ import {
   withoutSection,
   withoutTab,
 } from "./groupOps";
+import { useSessionDiffs } from "./hooks/useSessionDiffs";
+import { useSessionsOverview } from "./hooks/useSessionsOverview";
 import { NewSessionModal } from "./NewSessionModal";
 import { SectionGroup } from "./SectionGroup";
-import { SessionCard } from "./SessionCard";
+import { SessionRow } from "./SessionRow";
 import { SessionTabs } from "./SessionTabs";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
@@ -61,6 +63,10 @@ export function SessionsView() {
   const sectionOf = (s: ScratchSession) =>
     s.section && sectionIds.has(s.section) ? s.section : null;
   const unsectioned = inTab.filter((s) => sectionOf(s) === null);
+  // Row decorations for this tab: diffs (worktree sessions only — a legacy one
+  // shares the repo root) and branch/PR, each fetched for the tab in one go.
+  const diffs = useSessionDiffs(inTab.filter((s) => s.worktree).map((s) => s.id));
+  const overview = useSessionsOverview(inTab.map((s) => s.id));
 
   // --- groups manipulation (pure ops in groupOps.ts; backend sanitizes) ---
   const addTab = (name: string) => {
@@ -101,15 +107,17 @@ export function SessionsView() {
     },
   };
 
-  const grid = (list: ScratchSession[]) => (
-    <div className="session-grid">
-      {list.map((s) => (
-        <SessionCard
+  const list = (items: ScratchSession[]) => (
+    <div className="session-list">
+      {items.map((s) => (
+        <SessionRow
           key={s.id}
           session={s}
           // Across every agent on the session, not just the one it started with.
-          status={sessionStatus(s, running, agentActivity)}
-          acked={!sessionNeedsYou(s, running, agentActivity, ackedWaiting)}
+          working={sessionStatus(s, running, agentActivity) === "working"}
+          needsYou={sessionNeedsYou(s, running, agentActivity, ackedWaiting)}
+          overview={overview[s.id]}
+          diff={diffs[s.id]}
           onOpen={() => select(s.id)}
           onArchive={() => void archive(s.id)}
           onRename={(title) => void rename(s.id, title)}
@@ -172,9 +180,9 @@ export function SessionsView() {
           <>
             <div className="unsectioned" {...unsectionedDrop}>
               {unsectioned.length > 0 ? (
-                grid(unsectioned)
+                list(unsectioned)
               ) : (
-                <div className="pr-muted">No unfiled sessions — drop cards here to unfile.</div>
+                <div className="pr-muted">Drop a session here to take it out of its section.</div>
               )}
             </div>
 
@@ -194,7 +202,7 @@ export function SessionsView() {
                   })
                 }
               >
-                {grid(inTab.filter((s) => sectionOf(s) === sec.id))}
+                {list(inTab.filter((s) => sectionOf(s) === sec.id))}
               </SectionGroup>
             ))}
 
