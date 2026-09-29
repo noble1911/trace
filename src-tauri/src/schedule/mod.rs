@@ -14,6 +14,7 @@
 //! - `transcript`: a finished run's PTY bytes on disk, replayable after restart.
 //! - `template`: `{date}`-style variables substituted into the prompt.
 //! - `handoff`: continuing a finished run as an exploratory session.
+//! - `share`: exporting prompts to a portable file and importing them, paused.
 
 pub mod completion;
 pub mod cron;
@@ -22,6 +23,7 @@ pub mod model;
 pub mod prompts;
 pub mod run;
 pub mod runner;
+pub mod share;
 pub mod store;
 pub mod template;
 pub mod timing;

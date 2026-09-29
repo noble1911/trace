@@ -1,11 +1,14 @@
 //! Scheduled prompts — thin wrappers over `schedule::*` (prompts, runs, the
-//! schedule preview, and handing a run off to a session).
+//! schedule preview, handing a run off to a session, and sharing prompts).
+
+use std::path::Path;
 
 use tauri::{AppHandle, Emitter};
 
 use crate::claude::conversation_log::{self, LogEntry};
 use crate::commands::session::ScratchSession;
 use crate::schedule::model::{PromptInput, ScheduleRun, ScheduledPrompt, Trigger};
+use crate::schedule::share::{self, ImportItem};
 use crate::schedule::timing::Schedule;
 use crate::schedule::{handoff, now_secs, prompts, run, runner, store};
 
@@ -123,4 +126,29 @@ pub fn run_conversation(run_id: String) -> Result<Vec<LogEntry>, String> {
 #[tauri::command]
 pub fn continue_run_as_session(run_id: String) -> Result<ScratchSession, String> {
     handoff::continue_as_session(&run_id)
+}
+
+/// Write the chosen prompts to `path` (from a save dialog) as a shareable file.
+/// Returns how many were written.
+#[tauri::command]
+pub fn export_scheduled_prompts(ids: Vec<String>, path: String) -> Result<usize, String> {
+    share::export(&ids, Path::new(&path))
+}
+
+/// Read a shared file for the import preview: its prompts, each matched to one
+/// of this machine's repos. Saves nothing.
+#[tauri::command]
+pub fn read_scheduled_prompts_file(path: String) -> Result<Vec<ImportItem>, String> {
+    share::read(Path::new(&path))
+}
+
+/// Save previewed prompts as new, paused prompts — all or nothing.
+#[tauri::command]
+pub fn import_scheduled_prompts(
+    app: AppHandle,
+    items: Vec<ImportItem>,
+) -> Result<Vec<ScheduledPrompt>, String> {
+    let saved = share::import(items)?;
+    let _ = app.emit("schedules-changed", ());
+    Ok(saved)
 }

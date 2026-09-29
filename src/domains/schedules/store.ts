@@ -6,6 +6,7 @@ import { useSessionsStore } from "@/domains/sessions/store";
 import {
   continueRunAsSession,
   deleteScheduledPrompt,
+  importScheduledPrompts,
   listScheduledPrompts,
   listScheduleRuns,
   runScheduledPromptNow,
@@ -14,7 +15,7 @@ import {
   stopScheduledRun,
 } from "@/ipc/schedules";
 import { runWorkspaceId } from "./ids";
-import type { PromptInput, ScheduledPrompt, ScheduleRun } from "./types";
+import type { ImportItem, PromptInput, ScheduledPrompt, ScheduleRun } from "./types";
 
 // Prompts + run records mirrored from the backend, which owns them (the runner
 // thread changes both on its own). Every mutation re-loads rather than patching
@@ -31,6 +32,8 @@ interface SchedulesStore {
   openRunId: string | null;
   load: () => Promise<void>;
   save: (input: PromptInput) => Promise<ScheduledPrompt>;
+  /** Save prompts from a shared file — they arrive paused. */
+  importPrompts: (items: ImportItem[]) => Promise<ScheduledPrompt[]>;
   setEnabled: (id: string, enabled: boolean) => Promise<void>;
   remove: (id: string) => Promise<void>;
   runNow: (id: string) => Promise<void>;
@@ -75,6 +78,11 @@ export const useSchedulesStore = create<SchedulesStore>((set, get) => ({
   },
   async save(input) {
     const saved = await saveScheduledPrompt(input);
+    await get().load();
+    return saved;
+  },
+  async importPrompts(items) {
+    const saved = await importScheduledPrompts(items);
     await get().load();
     return saved;
   },

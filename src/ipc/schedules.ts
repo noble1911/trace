@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ConversationEntry,
+  ImportItem,
   PromptInput,
   Schedule,
   ScheduledPrompt,
@@ -65,4 +66,22 @@ export function runConversation(runId: string): Promise<ConversationEntry[]> {
 /** Turn a finished run into an exploratory session resuming its conversation. */
 export function continueRunAsSession(runId: string): Promise<ScratchSession> {
   return invoke("continue_run_as_session", { runId });
+}
+
+/** Write the chosen prompts to `path` as a shareable file; resolves to how many were written. */
+export function exportScheduledPrompts(ids: string[], path: string): Promise<number> {
+  return invoke("export_scheduled_prompts", { ids, path });
+}
+
+/**
+ * Read a shared file for the import preview, each prompt matched to one of your
+ * repos. Saves nothing; rejects with a message fit for a toast.
+ */
+export function readScheduledPromptsFile(path: string): Promise<ImportItem[]> {
+  return invoke("read_scheduled_prompts_file", { path });
+}
+
+/** Save previewed prompts as new, paused prompts. All or nothing. */
+export function importScheduledPrompts(items: ImportItem[]): Promise<ScheduledPrompt[]> {
+  return invoke("import_scheduled_prompts", { items });
 }

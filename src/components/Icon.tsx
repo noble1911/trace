@@ -220,4 +220,18 @@ export const I = {
       <path d="M13 2 3 14h8l-1 8 10-12h-8z" />
     </Base>
   ),
+  Download: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M12 15V3" />
+    </Base>
+  ),
+  Upload: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m17 8-5-5-5 5" />
+      <path d="M12 3v12" />
+    </Base>
+  ),
 };

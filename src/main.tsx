@@ -21,6 +21,7 @@ import "@/domains/sessions/sessions.css";
 import "@/domains/sessions/session-list.css";
 import "@/domains/sessions/recents.css";
 import "@/domains/schedules/schedules.css";
+import "@/domains/schedules/share.css";
 import "@/domains/settings/settings.css";
 import "@/domains/activity/activity.css";
 import "@/domains/orchestrator/orchestrator.css";

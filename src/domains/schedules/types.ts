@@ -84,6 +84,31 @@ export interface PromptInput {
   notify: boolean;
 }
 
+/**
+ * A prompt as it travels in a shared file (`schedule::share`): no ids, history,
+ * timestamps or local paths. The provider's key never travels — only its id.
+ */
+export interface SharedPrompt {
+  title: string;
+  prompt: string;
+  schedule: Schedule;
+  /** Folder name of the exporter's repo — a hint for picking one of yours. */
+  repoName?: string | null;
+  /** Null/undefined = Anthropic (unknown providers are dropped on read). */
+  provider?: AgentProvider | null;
+  model?: string | null;
+  extraArgs: string[];
+  timeoutMins: number;
+  notify: boolean;
+}
+
+/** A shared prompt and the repo it's imported into (proposed by the backend). */
+export interface ImportItem {
+  shared: SharedPrompt;
+  /** Null only when no repo is configured. */
+  repo: string | null;
+}
+
 /** One displayable part of a run's conversation (`claude::conversation_log`). */
 export interface ConversationEntry {
   kind: "prompt" | "reply" | "tool" | "notice";

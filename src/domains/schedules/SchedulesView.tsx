@@ -5,6 +5,7 @@ import { useNow } from "@/hooks/useNow";
 import { ScheduleDetail } from "./ScheduleDetail";
 import { ScheduleModal } from "./ScheduleModal";
 import { ScheduleRow } from "./ScheduleRow";
+import { ShareActions } from "./ShareActions";
 import { useSchedulesStore } from "./store";
 import type { ScheduledPrompt } from "./types";
 
@@ -37,6 +38,7 @@ export function SchedulesView() {
           </div>
         </div>
         <div className="right">
+          <ShareActions prompts={prompts} />
           <button type="button" className="btn primary" onClick={() => setEditing("new")}>
             <I.Plus size={14} /> New scheduled prompt
           </button>
