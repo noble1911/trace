@@ -1,5 +1,7 @@
 import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
+import { Buddy } from "@/domains/buddy/Buddy";
+import { useBuddyStore } from "@/domains/buddy/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { useScheduledNeedsYou } from "@/domains/schedules/hooks/useScheduledNeedsYou";
 import type { NavId } from "./nav";
@@ -14,6 +16,7 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
   // Prefer the Jira identity for the rail avatar; fall back to any provider.
   const user = useIssuesStore((s) => s.users.jira ?? s.users.pylon ?? null);
   const scheduledNeedsYou = useScheduledNeedsYou();
+  const buddyOn = useBuddyStore((s) => s.enabled);
 
   return (
     <aside className="rail">
@@ -64,6 +67,7 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
           <I.Activity size={16} />
         </button>
       </nav>
+      {buddyOn && <Buddy />}
       <button
         type="button"
         className={`nav-btn${nav === "settings" ? " active" : ""}`}

@@ -1,4 +1,5 @@
 import { activity } from "@/domains/activity/store";
+import type { ActivityActor } from "@/domains/activity/types";
 import { useBoardStore } from "@/domains/board/store";
 import type { Issue, IssueComment } from "@/domains/issues/types";
 import { type AgentCli, type AgentProvider, startAgent } from "@/ipc/agent";
@@ -75,6 +76,8 @@ interface LaunchOptions {
   provider?: AgentProvider;
   /** Sent as the CLI's positional prompt — fresh conversations only. */
   prompt?: string;
+  /** Who started it, for the activity log (default: the user). */
+  actor?: ActivityActor;
 }
 
 /**
@@ -86,7 +89,7 @@ interface LaunchOptions {
  */
 export async function launchIssueAgent(
   issueKey: string,
-  { cli, provider, prompt }: LaunchOptions = {}
+  { cli, provider, prompt, actor }: LaunchOptions = {}
 ): Promise<void> {
   const { clearOutput, setAgentRunning, data } = useBoardStore.getState();
   const chosen = cli ?? agentCli();
@@ -120,6 +123,7 @@ export async function launchIssueAgent(
   syncPtySize(issueKey);
   activity.log({
     kind: "agent-start",
+    actor,
     issueKey,
     title: `started ${agentLabel(chosen, chosenProvider)}`,
   });

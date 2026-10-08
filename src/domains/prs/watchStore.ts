@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { PrEntry, PrThread } from "@/ipc/prWatch";
+import { logChecks } from "./checkEvents";
 
 // The PRs each workspace raised, and their live discussion, polled by
 // `usePrWatch`. Also remembers what the user has already seen of each PR, so a
@@ -43,13 +44,17 @@ export const usePrWatchStore = create<PrWatchState>((set, get) => ({
     if (prev && prev.join("\n") === urls.join("\n")) return;
     set((s) => ({ links: { ...s.links, [workspaceId]: urls } }));
   },
-  setThread: (url, thread) =>
+  setThread: (url, thread) => {
+    const { threads, links } = get();
+    const owner = Object.keys(links).find((ws) => links[ws]?.includes(url));
+    logChecks(threads[url], thread, owner);
     set((s) => {
       const { [url]: _cleared, ...errors } = s.errors;
       // First sight of a PR: everything already on it counts as read.
       const seen = s.seen[url] ? s.seen : { ...s.seen, [url]: snapshot(thread.entries) };
       return { threads: { ...s.threads, [url]: thread }, errors, seen };
-    }),
+    });
+  },
   setError: (url, error) => set((s) => ({ errors: { ...s.errors, [url]: error } })),
   markSeen: (url, ids) =>
     set((s) => {

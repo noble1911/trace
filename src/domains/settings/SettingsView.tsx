@@ -21,6 +21,7 @@ import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { AssistantSettings } from "./AssistantSettings";
+import { BuddySettings } from "./BuddySettings";
 import { NotificationSettings } from "./NotificationSettings";
 import { ProviderKeyField } from "./ProviderKeyField";
 import { RepoSettings } from "./RepoSettings";
@@ -207,6 +208,8 @@ export function SettingsView() {
             </section>
 
             <NotificationSettings />
+
+            <BuddySettings />
 
             <AssistantSettings />
 

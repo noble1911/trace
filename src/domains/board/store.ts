@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
 import { activity } from "@/domains/activity/store";
+import type { ActivityActor } from "@/domains/activity/types";
 import { autoStartOnMove } from "@/domains/agent/defaults";
 import { boardOptionFor } from "@/domains/issues/store";
 import type { BoardData, ColumnStatus, ProviderKind, PullRequest } from "@/domains/issues/types";
@@ -125,7 +126,7 @@ interface BoardStore {
   setFilter: (filter: BoardFilter) => void;
   setAssigneeFilter: (accountId: string | null) => void;
   /** Start an agent on an issue with the templated kickoff brief. */
-  kickoff: (key: string) => void;
+  kickoff: (key: string, actor?: ActivityActor) => void;
   /** Issue awaiting a repo pick before its kickoff can proceed. */
   repoPickFor: string | null;
   closeRepoPick: () => void;
@@ -231,14 +232,14 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   closeRepoPick() {
     set({ repoPickFor: null });
   },
-  kickoff(key) {
+  kickoff(key, actor) {
     const issue = get().data?.issues.find((i) => i.key === key);
     if (!issue || get().runningAgents.has(key)) return;
     // Fire-and-forget — worktree creation takes seconds and the board
     // shouldn't block on it. (Dynamic import: launch.ts imports this store,
     // so a static import would be a cycle.)
     void import("@/domains/agent/launch").then(async ({ launchIssueAgent, kickoffPrompt }) =>
-      launchIssueAgent(key, { prompt: await kickoffPrompt(issue) })
+      launchIssueAgent(key, { prompt: await kickoffPrompt(issue), actor })
         .then(() => toast.success(`Started agent on ${key}`))
         .catch((err) => {
           // Unassigned issue in a multi-repo setup: ask right here on the

@@ -1,0 +1,129 @@
+/* The rail buddy and its speech bubble. */
+
+/* 64pt wide in a 56px rail: pinned to the rail's left edge so it overhangs the
+   board by a few px on the right, peeking out (never clipped by the window). */
+.buddy {
+  position: relative;
+  align-self: flex-start;
+  margin-bottom: 6px;
+}
+.buddy-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+}
+.buddy-btn:hover {
+  background: var(--bg-2);
+}
+.buddy.muted .buddy-sprite {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.buddy-sprite {
+  background-repeat: no-repeat;
+}
+
+.buddy-bubble {
+  position: absolute;
+  left: calc(100% + 12px);
+  bottom: 10px;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 11px;
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-pop);
+  color: var(--fg-1);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  animation: buddy-pop 160ms ease-out;
+  z-index: 30;
+}
+/* Tail pointing back at the buddy. */
+.buddy-bubble::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  bottom: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.buddy-bubble.link {
+  cursor: pointer;
+}
+.buddy-bubble .go {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-accent);
+}
+
+@keyframes buddy-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .buddy-bubble {
+    animation: none;
+  }
+}
+
+/* Settings → Buddy character picker. */
+.buddy-picker {
+  margin-top: 4px;
+}
+.buddy-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.buddy-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 92px;
+  padding: 10px 6px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 11.5px;
+}
+.buddy-tile:hover {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+.buddy-tile.selected {
+  border-color: var(--c-accent);
+  color: var(--fg-0);
+  box-shadow: 0 0 0 1px var(--c-accent);
+}
+.buddy-tile .buddy-sprite {
+  flex: none;
+}
+.buddy-tile .name {
+  margin-top: auto;
+  text-align: center;
+  line-height: 1.3;
+}
+.buddy-picker-broken {
+  margin-top: 8px;
+}

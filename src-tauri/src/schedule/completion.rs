@@ -114,6 +114,7 @@ fn mark_needs_input(app: &AppHandle, run_id: &str) {
     }
     if let Ok(Some(run)) = store::update_run(run_id, |r| r.needs_input = true) {
         run::emit(app, &run);
+        super::activity::log_needs_input(app, &run);
     }
 }
 

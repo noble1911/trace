@@ -103,6 +103,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
         return Err(err);
     }
     emit(app, &run);
+    super::activity::log_run(app, &run);
     let worker = app.clone();
     let launched = run.clone();
     std::thread::spawn(move || launch(&worker, &prompt, &launched));
@@ -241,6 +242,7 @@ pub fn finish(app: &AppHandle, ws: &str, status: RunStatus, error: Option<String
     });
     if let Ok(Some(run)) = updated {
         emit(app, &run);
+        super::activity::log_run(app, &run);
     }
 }
 

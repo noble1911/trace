@@ -1,4 +1,4 @@
-import type { ActivityEvent } from "@/domains/activity/store";
+import type { ActivityEvent } from "@/domains/activity/types";
 import { groupIssuesByColumn } from "@/domains/board/columns";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import type { BoardData, PullRequest } from "@/domains/issues/types";

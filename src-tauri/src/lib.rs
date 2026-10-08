@@ -3,6 +3,7 @@
 //! Thin by design: owns `AppState`, `run()`, and command registration only.
 //! Feature logic lives in `jira/`, `claude/`, `schedule/`, `git`, and thin `commands/*`.
 
+pub mod activity;
 pub mod claude;
 pub mod commands;
 pub mod git;
@@ -36,6 +37,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::activity::list_activity,
+            commands::activity::record_activity,
+            commands::activity::clear_activity,
+            commands::activity::import_activity,
             commands::issues::connect_jira,
             commands::issues::connect_pylon,
             commands::issues::provider_sessions,

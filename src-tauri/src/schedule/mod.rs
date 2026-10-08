@@ -15,7 +15,9 @@
 //! - `template`: `{date}`-style variables substituted into the prompt.
 //! - `handoff`: continuing a finished run as an exploratory session.
 //! - `share`: exporting prompts to a portable file and importing them, paused.
+//! - `activity`: runs on the activity log (started / finished / failed / blocked).
 
+pub mod activity;
 pub mod completion;
 pub mod cron;
 pub mod handoff;

@@ -53,7 +53,8 @@ src/
     ├── sessions/           # exploratory (non-Jira) Claude sessions
     ├── schedules/          # scheduled prompts: list, form, run history + run viewer
     ├── prs/                # pull-request list view
-    ├── activity/           # activity feed
+    ├── activity/           # activity feed — renders the backend activity log (types + store)
+    ├── buddy/              # rail pixel buddy: mood from board/activity, Haiku speech; art is data (art/ART.md)
     └── settings/           # repos, agent defaults, integrations
 ```
 
@@ -65,11 +66,12 @@ src-tauri/src/
 ├── lib.rs                  # run() + invoke_handler registration ONLY
 ├── state.rs helpers.rs git.rs
 ├── claude/                 # discovery, env, pty, turn hooks, conversation ids  (the interactive TUI transport)
+├── activity/               # persisted activity log (JSONL) + `activity-event`; every producer records here
 ├── issues/                 # IssueProvider trait, Provider enum, shared models, active-provider session
 ├── jira/                   # Jira provider: auth, client, parse, board, dev  (Jira Cloud REST)
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
 ├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
-└── commands/               # thin wrappers: agent, session, schedules, issues, pr, diff, tests, repos, editor
+└── commands/               # thin wrappers: agent, session, schedules, issues, activity, pr, diff, tests, repos, editor
 ```
 
 Detailed rules live in `.claude/rules/` — read the one relevant to your change:

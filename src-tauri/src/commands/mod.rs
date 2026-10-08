@@ -1,6 +1,7 @@
 //! Thin `#[tauri::command]` wrappers. Validation + delegation only — business
 //! logic lives in `jira/`, `claude/`, and `git`.
 
+pub mod activity;
 pub mod agent;
 pub mod diff;
 pub mod editor;

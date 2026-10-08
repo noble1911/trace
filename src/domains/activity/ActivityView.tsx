@@ -1,24 +1,45 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
-import { type ActivityEvent, type ActivityKind, useActivityStore } from "./store";
+import { useActivityStore } from "./store";
+import type { ActivityEvent, ActivityKind } from "./types";
 
-const ICON: Record<ActivityKind, (p: { size?: number }) => ReactNode> = {
+type IconFn = (p: { size?: number }) => ReactNode;
+
+const ICON: Record<ActivityKind, IconFn> = {
   transition: I.Activity,
   "agent-start": I.Bolt,
   "pr-raised": I.GitPR,
   "pr-merged": I.Check,
   "session-created": I.Sparkles,
+  "agent-needs-input": I.Chat,
+  "agent-turn-end": I.Terminal,
+  "agent-exit": I.Terminal,
+  "schedule-run-started": I.Clock,
+  "schedule-run-succeeded": I.Clock,
+  "schedule-run-failed": I.X,
+  "checks-failed": I.X,
+  "checks-passed": I.Beaker,
+  other: I.Activity,
 };
 
-// Design timeline class per kind: merge=green, pr=violet, spawn=amber.
-const ROW_CLASS: Record<ActivityKind, string> = {
-  transition: "",
+// Design timeline class per kind: merge=green, pr=violet, spawn=amber, fail=red.
+const ROW_CLASS: Partial<Record<ActivityKind, string>> = {
   "agent-start": "spawn",
   "session-created": "spawn",
+  "schedule-run-started": "spawn",
+  "agent-needs-input": "spawn",
   "pr-raised": "pr",
   "pr-merged": "merge",
+  "checks-passed": "merge",
+  "schedule-run-succeeded": "merge",
+  "checks-failed": "fail",
+  "schedule-run-failed": "fail",
 };
+
+// Logged for consumers that react to agents (one per turn — far too chatty for
+// a timeline a person reads).
+const HIDDEN: ReadonlySet<ActivityKind> = new Set(["agent-turn-end"]);
 
 function dayLabel(at: number): string {
   const d = new Date(at);
@@ -51,7 +72,8 @@ function withDayHeaders(events: ActivityEvent[]): (ActivityEvent | { day: string
 
 // The "Activity" view — a day-grouped timeline of board/agent events.
 export function ActivityView() {
-  const events = useActivityStore((s) => s.events);
+  const all = useActivityStore((s) => s.events);
+  const events = useMemo(() => all.filter((e) => !HIDDEN.has(e.kind)), [all]);
   const clear = useActivityStore((s) => s.clear);
 
   return (
@@ -59,7 +81,7 @@ export function ActivityView() {
       <div className="page-head">
         <div>
           <h1>Activity</h1>
-          <div className="desc">Recent transitions, agent runs, and pull requests.</div>
+          <div className="desc">Transitions, agents, scheduled runs, pull requests and CI.</div>
         </div>
         {events.length > 0 && (
           <div className="right">
@@ -102,7 +124,7 @@ export function ActivityView() {
 
 function ActivityRow({ event }: { event: ActivityEvent }) {
   const openIssue = useBoardStore((s) => s.openIssue);
-  const Ico = ICON[event.kind];
+  const Ico = ICON[event.kind] ?? I.Activity;
   const clickable = Boolean(event.issueKey);
   const open = () => {
     if (event.issueKey) openIssue(event.issueKey);
@@ -111,7 +133,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
     // biome-ignore lint/a11y/noStaticElementInteractions: timeline row; only issue-linked rows are interactive
     // biome-ignore lint/a11y/useKeyWithClickEvents: pointer affordance only — the board offers the keyboard path
     <div
-      className={`act-row ${ROW_CLASS[event.kind]}${clickable ? " click" : ""}`}
+      className={`act-row ${ROW_CLASS[event.kind] ?? ""}${clickable ? " click" : ""}`}
       onClick={clickable ? open : undefined}
     >
       <span className="time">{timeLabel(event.at)}</span>
@@ -119,7 +141,11 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
         <Ico size={12} />
       </span>
       <div className="body">
-        {event.issueKey && <span className="ticket">{event.issueKey}</span>}
+        {event.issueKey ? (
+          <span className="ticket">{event.issueKey}</span>
+        ) : (
+          event.subject && <span className="ticket">{event.subject}</span>
+        )}
         {event.title}
       </div>
     </div>

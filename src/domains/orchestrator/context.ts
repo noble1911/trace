@@ -105,7 +105,8 @@ export function buildBoardContext(): string {
     lines.push(ticketLine(issue, agent, board.pullRequests[issue.key]));
   }
 
-  const recent = input.activity.slice(0, 12);
+  // Per-turn agent events would crowd out everything else in 12 lines.
+  const recent = input.activity.filter((e) => e.kind !== "agent-turn-end").slice(0, 12);
   if (recent.length) {
     lines.push("", "RECENT ACTIVITY (newest first):");
     for (const e of recent) {

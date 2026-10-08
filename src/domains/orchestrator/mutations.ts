@@ -192,7 +192,12 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
         key,
         statuses.map((s) => s.id)
       );
-      activity.log({ kind: "transition", issueKey: key, title: `→ ${targetName}` });
+      activity.log({
+        kind: "transition",
+        actor: "orchestrator",
+        issueKey: key,
+        title: `→ ${targetName}`,
+      });
       await board.refresh();
       return `Moved ${key} to ${targetName}.`;
     } catch (e) {
@@ -216,7 +221,12 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
         try {
           if (!board.provider) throw new Error("no provider");
           await transitionIssue(board.provider, key, [target.id]);
-          activity.log({ kind: "transition", issueKey: key, title: `→ ${target.name}` });
+          activity.log({
+            kind: "transition",
+            actor: "orchestrator",
+            issueKey: key,
+            title: `→ ${target.name}`,
+          });
           moved = ` and moved it to ${target.name}`;
         } catch (e) {
           // A transition failure shouldn't block the agent — surface it and go on.
@@ -224,7 +234,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
         }
       }
     }
-    board.kickoff(key);
+    board.kickoff(key, "orchestrator");
     await board.refresh();
     return `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working — no follow-up message is needed.`;
   }

@@ -27,6 +27,7 @@ import "@/domains/activity/activity.css";
 import "@/domains/orchestrator/orchestrator.css";
 import "@/domains/orchestrator/chat.css";
 import "@/domains/orchestrator/charts.css";
+import "@/domains/buddy/buddy.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

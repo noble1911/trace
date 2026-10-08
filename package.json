@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "check": "biome check src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:sprite": "node scripts/check-sprite.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

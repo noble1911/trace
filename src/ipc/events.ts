@@ -1,4 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { ActivityEvent } from "@/domains/activity/types";
 import type { RunStatus } from "@/domains/schedules/types";
 
 // Typed wrappers around backend events. The PTY pump emits raw bytes per issue.
@@ -66,4 +67,9 @@ export function onSchedulesChanged(cb: () => void): Promise<UnlistenFn> {
 
 export function onAgentTurn(cb: (payload: AgentTurn) => void): Promise<UnlistenFn> {
   return listen<AgentTurn>("agent-turn", (e) => cb(e.payload));
+}
+
+/** A new entry on the activity log (`activity::record`), from any producer. */
+export function onActivityEvent(cb: (payload: ActivityEvent) => void): Promise<UnlistenFn> {
+  return listen<ActivityEvent>("activity-event", (e) => cb(e.payload));
 }

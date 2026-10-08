@@ -306,6 +306,13 @@ fn run_in_pty(
                 running: false,
             },
         );
+        crate::activity::record_agent(
+            &reader_app,
+            &reader_ws,
+            crate::activity::ActivityKind::AgentExit,
+            "session ended",
+            serde_json::Value::Null,
+        );
     });
 
     Ok((

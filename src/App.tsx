@@ -6,6 +6,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { I } from "@/components/Icon";
 import { Toaster } from "@/components/Toaster";
 import { ActivityView } from "@/domains/activity/ActivityView";
+import { useActivityFeed } from "@/domains/activity/hooks/useActivityFeed";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
 import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
@@ -69,6 +70,7 @@ export function App() {
 
   // Scheduled runs start and finish backend-side; keep their store live app-wide.
   useScheduleEvents();
+  useActivityFeed();
 
   // App-level listeners. We capture pty-output here (not in PtyTerminal) so the
   // buffer keeps growing even when the agent detail isn't mounted — that's what

@@ -145,9 +145,35 @@ pub fn on_hook(app: &AppHandle, ws: &str, message: &str) {
         HookEvent::NeedsInput => return,
     };
     let _ = app.emit("agent-turn", turn);
+    log_turn(app, ws, event, &input);
     if ws.starts_with(crate::schedule::RUN_PREFIX) {
         crate::schedule::completion::on_turn(app, ws, event, input);
     }
+}
+
+/// Put the turn on the activity log, with Claude's closing words — the part a
+/// reader (or the buddy) can actually react to.
+fn log_turn(app: &AppHandle, ws: &str, event: HookEvent, input: &HookInput) {
+    use crate::activity::{clip, record_agent, ActivityKind};
+    let (kind, title, data) = match event {
+        HookEvent::NeedsInput => (
+            ActivityKind::AgentNeedsInput,
+            "needs your input".to_string(),
+            json!({ "notification": input.notification_type }),
+        ),
+        HookEvent::Stop => {
+            let pending = input.pending_tasks();
+            let title = if pending > 0 {
+                format!("paused with {pending} background task(s) running")
+            } else {
+                "finished a turn".to_string()
+            };
+            let said = input.last_assistant_message.as_deref().map(|m| clip(m, 400));
+            let data = json!({ "backgroundTasks": pending, "lastMessage": said });
+            (ActivityKind::AgentTurnEnd, title, data)
+        }
+    };
+    record_agent(app, ws, kind, &title, data);
 }
 
 fn decode(payload: &str) -> HookInput {

@@ -92,6 +92,11 @@
   background: var(--c-prog-bg);
   border-color: oklch(0.78 0.15 70 / 0.3);
 }
+.act-row.fail .ic {
+  color: var(--c-danger);
+  background: color-mix(in oklch, var(--c-danger) 14%, transparent);
+  border-color: color-mix(in oklch, var(--c-danger) 30%, transparent);
+}
 .act-row .body {
   padding-top: 2px;
   color: var(--fg-1);
