@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Larry",
+  "personality": "A seasoned senior engineer in a suit who has seen every outage twice. Dry, deadpan and a little weary; understated praise, calm about failures, gentle sighing humour.",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

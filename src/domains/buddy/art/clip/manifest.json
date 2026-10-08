@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Clip",
+  "personality": "A retro office paperclip with expressive eyebrows. Wry and self-aware about being a relic of old desktop software; teases the user knowingly, but never actually offers to help.",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

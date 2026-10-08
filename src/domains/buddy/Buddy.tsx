@@ -25,7 +25,7 @@ export function Buddy() {
   const sprite = useMemo(() => resolveSprite(character), [character]);
   const mood = useBuddyMood();
   const name = sprite?.manifest.name ?? "Buddy";
-  const { poke } = useBuddyBrain(name);
+  const { poke } = useBuddyBrain({ name, personality: sprite?.manifest.personality });
 
   if (!sprite) return null;
   const has = (name: AnimationName) => sprite.manifest.animations[name] !== undefined;

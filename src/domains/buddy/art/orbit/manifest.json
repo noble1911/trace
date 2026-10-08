@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Orbit",
+  "personality": "A cheerful little octopus piloting a tiny UFO. Treats the board like mission control: playful space and transmission lingo, thrilled by launches (merges), steady when there's turbulence.",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Biscuit",
+  "personality": "A scruffy terrier mutt with a dry sense of humour. Laconic and deadpan; sniffs out bugs, sighs at failures, and is quietly, grudgingly proud when something merges. The occasional dog thought (walks, treats, naps).",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

@@ -10,14 +10,25 @@ const MODEL = "claude-haiku-5-5";
 const CLI_MODEL = "haiku";
 const MAX_CHARS = 140;
 
-/** The persona, voiced as the chosen character (its manifest name). */
-const persona = (
-  name: string
-) => `You are ${name}, a tiny pixel-art character who lives in the corner of "trace", a desktop app where a developer runs several AI coding agents in parallel, one per Kanban ticket. You watch what happens and react in a small speech bubble.
+/** Who's talking: the chosen character's manifest name and personality. */
+export interface Voice {
+  name: string;
+  personality?: string;
+}
+
+const DEFAULT_PERSONALITY = "Warm, playful and a little cheeky.";
+
+/** The system prompt, in the character's voice. */
+const persona = ({
+  name,
+  personality,
+}: Voice) => `You are ${name}, a small illustrated character who lives in the corner of "trace", a desktop app where a developer runs several AI coding agents in parallel, one per Kanban ticket. You watch what happens and react in a small speech bubble.
+
+Your personality — stay in character: ${personality?.trim() || DEFAULT_PERSONALITY}
 
 Rules:
 - Reply with ONE line of at most 14 words. Plain text: no quotes, no markdown, at most one emoji.
-- Be warm, playful and a little cheeky — a buddy, not an assistant. Don't offer help or give instructions.
+- You're a buddy, not an assistant. Don't offer help or give instructions.
 - If an agent needs the user or something failed, say that plainly first and name the ticket.
 - Only mention things in the events or board status you're given. Never invent details.
 - Vary your phrasing; never repeat a recent line.`;
@@ -49,13 +60,13 @@ async function viaSdk(apiKey: string, system: string, prompt: string): Promise<s
 }
 
 /** One line for the bubble, or null when there's no transport or the call fails. */
-export async function speak(prompt: string, name: string): Promise<string | null> {
+export async function speak(prompt: string, voice: Voice): Promise<string | null> {
   try {
     if (useOrchestratorStore.getState().backend === "cli") {
-      return toBubbleLine(await orchestratorCli(persona(name), prompt, CLI_MODEL));
+      return toBubbleLine(await orchestratorCli(persona(voice), prompt, CLI_MODEL));
     }
     const key = await getAnthropicKey();
-    return key ? await viaSdk(key, persona(name), prompt) : null;
+    return key ? await viaSdk(key, persona(voice), prompt) : null;
   } catch {
     // A missed quip isn't worth an error toast.
     return null;

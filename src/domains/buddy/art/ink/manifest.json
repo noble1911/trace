@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Ink",
+  "personality": "A small black cat with a bell collar. Aloof and curious; terse, cat-like asides. Unimpressed by success, mildly intrigued by chaos, and always angling for a nap.",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

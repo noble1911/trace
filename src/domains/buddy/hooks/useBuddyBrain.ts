@@ -13,7 +13,7 @@ import {
   waitBeforeSpeaking,
 } from "../speech";
 import { useBuddyStore } from "../store";
-import { speak } from "../voice";
+import { speak, type Voice } from "../voice";
 
 /** Away (window unfocused) at least this long → a "welcome back" digest. */
 const WELCOME_BACK_MS = 5 * 60_000;
@@ -38,10 +38,10 @@ const isMuted = () => useBuddyStore.getState().mutedUntil > Date.now();
  * window is unfocused, events are held; coming back after a while gets a digest.
  * Mounted only while the buddy is enabled — disabled means zero calls.
  */
-export function useBuddyBrain(name: string): { poke: () => void } {
+export function useBuddyBrain(voice: Voice): { poke: () => void } {
   // Read at call time, so switching characters doesn't reset the loop.
-  const nameRef = useRef(name);
-  nameRef.current = name;
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
   const pending = useRef<ActivityEvent[]>([]);
   const lastSpokeAt = useRef(0);
   const callTimes = useRef<number[]>([]);
@@ -63,7 +63,7 @@ export function useBuddyBrain(name: string): { poke: () => void } {
       recentLines: recentLines.current,
       now,
     });
-    const line = await speak(prompt, nameRef.current);
+    const line = await speak(prompt, voiceRef.current);
     busy.current = false;
     if (!line || !alive.current || isMuted()) return;
     recentLines.current = [...recentLines.current, line].slice(-5);

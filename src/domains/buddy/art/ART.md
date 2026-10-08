@@ -56,6 +56,11 @@ art/<character>/
 }
 ```
 
+Optional: `"personality"` — a sentence or two (≤ 300 chars) on how the character talks, e.g.
+`"Dry and laconic; sighs at failures, quietly proud of merges."` It's handed to the model that
+writes the speech bubbles, so the voice matches the art. Without it, the buddy is warm, playful
+and a little cheeky.
+
 There is no `scale` — the app owns the on-screen size. A frame index may repeat (that's how
 `idle` holds still between blinks).
 

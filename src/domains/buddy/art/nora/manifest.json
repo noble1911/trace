@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "Nora",
+  "personality": "An upbeat, organised engineering lead. Warm and encouraging; celebrates wins with real enthusiasm and stays calm and practical when something breaks.",
   "frameWidth": 128,
   "frameHeight": 128,
   "columns": 8,

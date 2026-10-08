@@ -10,6 +10,9 @@ export type Mood = (typeof MOODS)[number];
 export const OPTIONAL_ANIMATIONS = ["pet", "talk"] as const;
 export type AnimationName = Mood | (typeof OPTIONAL_ANIMATIONS)[number];
 
+/** A personality is a sentence or two of direction, not a script. */
+export const MAX_PERSONALITY = 300;
+
 /** Contract version. v1 (small frames + an integer `scale`) is retired. */
 export const CONTRACT_VERSION = 2;
 
@@ -30,6 +33,8 @@ export interface SpriteAnimation {
 export interface SpriteManifest {
   version: typeof CONTRACT_VERSION;
   name: string;
+  /** How the character talks — added to its speech prompt. Optional. */
+  personality?: string;
   /** Always FRAME_PX; explicit so a manifest documents its own geometry. */
   frameWidth: number;
   frameHeight: number;
@@ -67,6 +72,13 @@ export function validateManifest(
     errors.push(`version must be ${CONTRACT_VERSION} (got ${JSON.stringify(raw.version)})`);
   }
   if (typeof raw.name !== "string" || !raw.name.trim()) errors.push("name must be a string");
+  if ("personality" in raw) {
+    const p = raw.personality;
+    if (typeof p !== "string" || !p.trim()) errors.push("personality must be a non-empty string");
+    else if (p.length > MAX_PERSONALITY) {
+      errors.push(`personality is ${p.length} chars; keep it to ${MAX_PERSONALITY}`);
+    }
+  }
   for (const key of ["frameWidth", "frameHeight"]) {
     if (raw[key] !== FRAME_PX)
       errors.push(`${key} must be ${FRAME_PX} (got ${JSON.stringify(raw[key])})`);
