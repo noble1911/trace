@@ -240,3 +240,15 @@ pub async fn list_comments(conn: &PylonConnection, issue_id: &str) -> Result<Vec
     }
     Ok(out)
 }
+
+/// One issue's status category, from its state slug (`closed` → `done`).
+/// `issue_key` is the card key (`#123`); the API accepts the issue number.
+pub async fn status_category(conn: &PylonConnection, issue_key: &str) -> Result<String, String> {
+    let id = issue_key.trim_start_matches('#');
+    let issue = client::get(conn, &format!("/issues/{id}")).await?;
+    let state = client::data(&issue)
+        .get("state")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("{issue_key} has no state."))?;
+    Ok(state_category(state))
+}

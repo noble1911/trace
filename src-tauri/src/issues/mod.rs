@@ -25,6 +25,16 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
+    /// Which tracker a card key came from: Pylon keys are `#123`, Jira's
+    /// `ABC-123`. For callers holding only a workspace id (an issue key).
+    pub fn for_issue_key(key: &str) -> Self {
+        if key.starts_with('#') {
+            ProviderKind::Pylon
+        } else {
+            ProviderKind::Jira
+        }
+    }
+
     pub fn parse(s: &str) -> Result<Self, String> {
         match s {
             "jira" => Ok(ProviderKind::Jira),
@@ -104,6 +114,14 @@ pub trait IssueProvider {
         fresh: bool,
     ) -> impl std::future::Future<Output = Result<Vec<PullRequest>, String>> + Send;
 
+    /// One issue's status category (`new` | `indeterminate` | `done`), looked
+    /// up by its card key — for housekeeping that runs without a board loaded
+    /// (`cleanup`'s "only once it's done" rule).
+    fn status_category(
+        &self,
+        issue_key: &str,
+    ) -> impl std::future::Future<Output = Result<String, String>> + Send;
+
     /// The non-secret session descriptor for `provider_session`.
     fn session_info(&self) -> ProviderSession;
 }
@@ -155,6 +173,13 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.get_pull_requests(issue_id, fresh).await,
             Provider::Pylon(c) => c.get_pull_requests(issue_id, fresh).await,
+        }
+    }
+
+    async fn status_category(&self, issue_key: &str) -> Result<String, String> {
+        match self {
+            Provider::Jira(c) => c.status_category(issue_key).await,
+            Provider::Pylon(c) => c.status_category(issue_key).await,
         }
     }
 

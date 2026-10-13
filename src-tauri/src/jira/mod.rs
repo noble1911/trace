@@ -66,6 +66,10 @@ impl IssueProvider for JiraConnection {
         dev::get_pull_requests(self, issue_id, fresh).await
     }
 
+    async fn status_category(&self, issue_key: &str) -> Result<String, String> {
+        board::status_category(self, issue_key).await
+    }
+
     fn session_info(&self) -> ProviderSession {
         ProviderSession {
             provider: ProviderKind::Jira,

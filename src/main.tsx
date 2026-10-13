@@ -23,6 +23,7 @@ import "@/domains/sessions/recents.css";
 import "@/domains/schedules/schedules.css";
 import "@/domains/schedules/share.css";
 import "@/domains/settings/settings.css";
+import "@/domains/settings/cleanup.css";
 import "@/domains/activity/activity.css";
 import "@/domains/orchestrator/orchestrator.css";
 import "@/domains/orchestrator/chat.css";

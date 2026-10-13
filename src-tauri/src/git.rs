@@ -85,9 +85,22 @@ pub fn create_worktree(
         ));
     }
 
+    // A branch can outlive its checkout — auto-cleanup (`cleanup::sweep`) keeps
+    // branches holding unpushed commits. Check it back out rather than failing
+    // on `-b`, so restarting the workspace picks its committed work back up.
+    let branch_exists = Command::new("git")
+        .args(["show-ref", "--verify", "--quiet", &format!("refs/heads/{branch}")])
+        .current_dir(repo_path)
+        .status()
+        .is_ok_and(|s| s.success());
     let start_point = format!("origin/{default_branch}");
+    let args: Vec<&str> = if branch_exists {
+        vec!["worktree", "add", worktree_path, branch]
+    } else {
+        vec!["worktree", "add", "-b", branch, worktree_path, &start_point]
+    };
     let output = Command::new("git")
-        .args(["worktree", "add", "-b", branch, worktree_path, &start_point])
+        .args(&args)
         .current_dir(repo_path)
         .output()
         .map_err(|e| format!("Failed to create worktree: {e}"))?;

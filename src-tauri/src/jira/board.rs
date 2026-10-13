@@ -356,3 +356,13 @@ pub async fn add_comment(conn: &JiraConnection, key: &str, text: &str) -> Result
     client::post(conn, &path, body).await?;
     Ok(())
 }
+
+/// One issue's status category key (`new` | `indeterminate` | `done`). Fetches
+/// only the `status` field — this runs per worktree during cleanup sweeps.
+pub async fn status_category(conn: &JiraConnection, key: &str) -> Result<String, String> {
+    let path = format!("/rest/api/3/issue/{key}");
+    let issue = client::get_query(conn, &path, &[("fields", "status")]).await?;
+    super::parse::str_at(&issue, &["fields", "status", "statusCategory", "key"])
+        .map(str::to_string)
+        .ok_or_else(|| format!("{key} has no status."))
+}

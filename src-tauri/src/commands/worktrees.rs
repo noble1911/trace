@@ -27,7 +27,7 @@ pub struct WorktreeInfo {
     pub running: bool,
 }
 
-fn git_out(dir: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn git_out(dir: &str, args: &[&str]) -> Option<String> {
     let out = Command::new("git").args(args).current_dir(dir).output().ok()?;
     if out.status.success() {
         Some(String::from_utf8_lossy(&out.stdout).to_string())
@@ -60,7 +60,7 @@ fn parse_worktree_list(porcelain: &str) -> Vec<(String, Option<String>)> {
 /// `git branch --merged` per repo instead of a merge-base probe per worktree.
 /// Prefers the remote-tracking ref (what's actually merged); falls back to
 /// the local default branch when there's no remote.
-fn merged_branches(repo: &str) -> std::collections::HashSet<String> {
+pub(crate) fn merged_branches(repo: &str) -> std::collections::HashSet<String> {
     let default = git::get_default_branch(repo);
     for base in [format!("origin/{default}"), default] {
         if let Some(out) = git_out(repo, &["branch", "--merged", &base, "--format=%(refname:short)"])
@@ -75,14 +75,15 @@ fn merged_branches(repo: &str) -> std::collections::HashSet<String> {
     Default::default()
 }
 
-fn is_dirty(worktree: &str) -> bool {
+pub(crate) fn is_dirty(worktree: &str) -> bool {
     git_out(worktree, &["status", "--porcelain"]).is_none_or(|s| !s.trim().is_empty())
 }
 
-/// Worktree dir names with a live PTY (board agents + their `term:` shells, and
-/// scheduled runs — which live in their *prompt's* worktree). Resolved through
+/// Worktree dir names with a live PTY (board agents + their `term:` shells,
+/// session companions, and scheduled runs — the last two live in their
+/// session's / *prompt's* worktree). Resolved through
 /// the dirname helper so adopted dirs match correctly.
-fn running_slugs(state: &AppState) -> Vec<String> {
+pub(crate) fn running_slugs(state: &AppState) -> Vec<String> {
     let keys: Vec<String> = state.pty_sessions.lock().keys().cloned().collect();
     let run_prompts: std::collections::HashMap<String, String> = state
         .live_runs
@@ -96,7 +97,11 @@ fn running_slugs(state: &AppState) -> Vec<String> {
                 .get(k)
                 .map(String::as_str)
                 .unwrap_or_else(|| k.strip_prefix("term:").unwrap_or(k));
-            crate::commands::repos::workspace_dirname(owner)
+            // A session companion runs in its session's worktree, not one of its own.
+            let owner = crate::commands::session::owning_session(owner)
+                .map(|s| s.id)
+                .unwrap_or_else(|| owner.to_string());
+            crate::commands::repos::workspace_dirname(&owner)
         })
         .collect()
 }
@@ -142,7 +147,7 @@ pub(crate) fn remove_for_workspace(workspace_id: &str) {
 
 /// Whether worktree dir `dirname` also backs a workspace other than
 /// `workspace_id`: one that adopted it, or the scheduled prompt it's named for.
-fn dir_shared(workspace_id: &str, dirname: &str) -> bool {
+pub(crate) fn dir_shared(workspace_id: &str, dirname: &str) -> bool {
     let adopted = crate::commands::repos::dir_adopters(dirname)
         .iter()
         .any(|id| id != workspace_id);

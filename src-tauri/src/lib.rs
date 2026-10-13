@@ -5,6 +5,7 @@
 
 pub mod activity;
 pub mod claude;
+pub mod cleanup;
 pub mod commands;
 pub mod git;
 pub mod github;
@@ -34,6 +35,8 @@ pub fn run() {
         .setup(|app| {
             // The scheduled-prompt engine fires from Rust, whatever the UI is doing.
             schedule::runner::start(app.handle().clone());
+            // Idle-workspace cleanup; a no-op until enabled in Settings.
+            cleanup::runner::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -113,6 +116,10 @@ pub fn run() {
             commands::update::install_app_update,
             commands::worktrees::list_worktrees,
             commands::worktrees::remove_worktree,
+            commands::cleanup::get_cleanup_settings,
+            commands::cleanup::set_cleanup_settings,
+            commands::cleanup::preview_cleanup,
+            commands::cleanup::run_cleanup_now,
             commands::orchestrator::get_anthropic_key,
             commands::orchestrator::set_anthropic_key,
             commands::orchestrator::orchestrator_cli,

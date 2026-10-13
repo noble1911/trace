@@ -63,7 +63,7 @@ fn with_subject(mut input: ActivityInput) -> ActivityInput {
 
 /// Jira `ABC-123` or Pylon `#123` — so a torn-down session's uuid never poses
 /// as an issue key.
-fn looks_like_issue_key(id: &str) -> bool {
+pub(crate) fn looks_like_issue_key(id: &str) -> bool {
     if let Some(num) = id.strip_prefix('#') {
         return !num.is_empty() && num.chars().all(|c| c.is_ascii_digit());
     }

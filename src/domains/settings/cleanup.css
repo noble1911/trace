@@ -1,0 +1,30 @@
+/* Settings → Worktrees: auto-cleanup rules and their live preview. */
+
+/* Idle period: a short number next to its unit, inside the 220px control. */
+.setting-row .cleanup-period {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.setting-row .cleanup-period input[type="number"] {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.cleanup-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cleanup-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setting-note {
+  padding: 8px 0 0;
+  font-size: 12px;
+  color: var(--fg-3);
+}

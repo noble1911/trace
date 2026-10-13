@@ -16,6 +16,8 @@ export type ActivityKind =
   | "schedule-run-failed"
   | "checks-failed"
   | "checks-passed"
+  /** Auto-cleanup deleted an idle workspace's checkout; `data.branchKept`. */
+  | "workspace-removed"
   /** A kind this build doesn't know (written by a newer one). */
   | "other";
 

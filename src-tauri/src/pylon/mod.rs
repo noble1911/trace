@@ -67,6 +67,10 @@ impl IssueProvider for PylonConnection {
         Ok(Vec::new())
     }
 
+    async fn status_category(&self, issue_key: &str) -> Result<String, String> {
+        board::status_category(self, issue_key).await
+    }
+
     fn session_info(&self) -> ProviderSession {
         ProviderSession {
             provider: ProviderKind::Pylon,

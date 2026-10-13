@@ -3,6 +3,7 @@
 
 pub mod activity;
 pub mod agent;
+pub mod cleanup;
 pub mod diff;
 pub mod editor;
 pub mod groups;

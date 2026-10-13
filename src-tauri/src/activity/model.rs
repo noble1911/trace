@@ -27,6 +27,8 @@ pub enum ActivityKind {
     ChecksFailed,
     /// A watched PR's CI went green after running.
     ChecksPassed,
+    /// Auto-cleanup deleted an idle workspace's checkout (`cleanup::sweep`).
+    WorkspaceRemoved,
     #[serde(other)]
     Other,
 }

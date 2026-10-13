@@ -21,6 +21,7 @@ import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { AssistantSettings } from "./AssistantSettings";
+import { AutoCleanupSettings } from "./AutoCleanupSettings";
 import { BuddySettings } from "./BuddySettings";
 import { NotificationSettings } from "./NotificationSettings";
 import { ProviderKeyField } from "./ProviderKeyField";
@@ -57,6 +58,8 @@ export function SettingsView() {
   const [kickoff, setKickoff] = useState(kickoffPromptRaw);
   const [autoStart, setAutoStart] = useState(autoStartOnMove);
   const [tab, setTab] = useState<SettingsTab>("general");
+  // Bumped when auto-cleanup removes worktrees, so the list remounts and rescans.
+  const [worktreeScan, setWorktreeScan] = useState(0);
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
@@ -111,7 +114,8 @@ export function SettingsView() {
         )}
         {tab === "worktrees" && (
           <div className="settings-wrap">
-            <WorktreeSettings />
+            <AutoCleanupSettings onCleaned={() => setWorktreeScan((n) => n + 1)} />
+            <WorktreeSettings key={worktreeScan} />
           </div>
         )}
         {tab === "updates" && (

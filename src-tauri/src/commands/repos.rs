@@ -224,6 +224,13 @@ pub(crate) fn forget_dir_override(workspace_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Every workspace id with a pinned repo, paired with that repo — every ticket
+/// workspace trace has started (`start_agent` pins each; an issue adopting a
+/// session's dir is pinned too). Cleanup sweeps walk these.
+pub(crate) fn assigned_workspaces() -> Vec<(String, String)> {
+    load().assignments.into_iter().collect()
+}
+
 /// All configured repos, in the order the user added them.
 pub(crate) fn all_repos() -> Vec<String> {
     load().repos

@@ -20,6 +20,7 @@ const ICON: Record<ActivityKind, IconFn> = {
   "schedule-run-failed": I.X,
   "checks-failed": I.X,
   "checks-passed": I.Beaker,
+  "workspace-removed": I.Archive,
   other: I.Activity,
 };
 
