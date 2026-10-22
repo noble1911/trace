@@ -104,6 +104,61 @@
   border-color: var(--border);
 }
 
+/* Issue-type filter row, under the header: Epic / Story / Bug … */
+.type-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 20px 12px;
+}
+.type-filter .tf-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  margin-right: 2px;
+}
+.type-filter .tf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-faint);
+  background: var(--bg-1);
+}
+.type-filter .tf-chip:hover {
+  color: var(--fg-1);
+  border-color: var(--border);
+}
+.type-filter .tf-chip.active {
+  color: var(--fg-0);
+  border-color: var(--border-strong);
+  background: var(--bg-3);
+}
+/* ⌥-clicked: shown as struck through so "everything but Tasks" reads at a glance. */
+.type-filter .tf-chip.excluded {
+  color: var(--fg-4);
+  text-decoration: line-through;
+  border-style: dashed;
+}
+/* Nothing of this type passes the other filters (e.g. epics assigned to others). */
+.type-filter .tf-chip.empty:not(.active) {
+  opacity: 0.55;
+}
+.type-filter .tf-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-4);
+}
+.type-filter .tf-chip.active .tf-count {
+  color: var(--fg-2);
+}
+
 .columns {
   display: grid;
   grid-auto-flow: column;

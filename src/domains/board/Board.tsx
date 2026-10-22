@@ -5,8 +5,11 @@ import { AssigneeFilter } from "./AssigneeFilter";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
 import { FilterChip } from "./FilterChip";
+import type { BoardFilter } from "./filterPrefs";
 import { RepoPickModal } from "./RepoPickModal";
-import { type BoardFilter, useBoardStore } from "./store";
+import { useBoardStore } from "./store";
+import { boardIssueTypes, TypeFilter } from "./TypeFilter";
+import { forBoard, showsType } from "./typeSelection";
 
 function applyFilter(
   issues: Issue[],
@@ -42,6 +45,8 @@ export function Board() {
   const setFilter = useBoardStore((s) => s.setFilter);
   const assigneeFilter = useBoardStore((s) => s.assigneeFilter);
   const setAssigneeFilter = useBoardStore((s) => s.setAssigneeFilter);
+  const typeFilter = useBoardStore((s) => s.typeFilter);
+  const setTypeFilter = useBoardStore((s) => s.setTypeFilter);
   const openIssue = useBoardStore((s) => s.openIssue);
   const moveIssue = useBoardStore((s) => s.moveIssue);
   const repoPickFor = useBoardStore((s) => s.repoPickFor);
@@ -66,7 +71,11 @@ export function Board() {
     );
   }
 
-  const filtered = applyFilter(data.issues, filter, runningAgents, effectiveAssignee);
+  const types = boardIssueTypes(data.issues);
+  const typeSel = forBoard(typeFilter, types);
+  // Counts on the type chips come from here — every filter but type.
+  const visible = applyFilter(data.issues, filter, runningAgents, effectiveAssignee);
+  const filtered = visible.filter((i) => showsType(typeSel, i.issueType));
   const grouped = groupIssuesByColumn(data.columns, filtered);
   const activeCount = filtered.filter((i) => i.statusCategory === "indeterminate").length;
 
@@ -116,6 +125,8 @@ export function Board() {
           </FilterChip>
         </div>
       </div>
+
+      <TypeFilter types={types} visible={visible} selected={typeSel} onSelect={setTypeFilter} />
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: dragend cleanup on the board container, not an interactive control */}
       <div className="columns" onDragEnd={onDragEnd}>

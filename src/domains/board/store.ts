@@ -8,45 +8,22 @@ import type { BoardData, ColumnStatus, ProviderKind, PullRequest } from "@/domai
 import { useSessionsStore } from "@/domains/sessions/store";
 import { getBoard, getIssuePullRequests, transitionIssue } from "@/ipc/issues";
 import { isStartOfWork } from "./columns";
+import {
+  type BoardFilter,
+  loadAssigneeFilter,
+  loadFilter,
+  loadTypeFilter,
+  saveAssigneeFilter,
+  saveFilter,
+  saveTypeFilter,
+} from "./filterPrefs";
+import type { TypeSelection } from "./typeSelection";
 import { armWaitingNotify, cancelWaitingWatch, watchForQuiet } from "./waitingNotify";
 
 // Tauri command errors arrive as strings; trim noise so the toast reads cleanly.
 function formatMoveError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   return msg.replace(/^Error:\s*/i, "").trim() || "Couldn't move the issue.";
-}
-
-export type BoardFilter = "all" | "active" | "running";
-
-const FILTER_KEY = "trace.boardFilter";
-const ASSIGNEE_KEY = "trace.assigneeFilter";
-
-function loadFilter(): BoardFilter {
-  try {
-    const v = localStorage.getItem(FILTER_KEY);
-    return v === "active" || v === "running" ? v : "all";
-  } catch {
-    return "all";
-  }
-}
-
-// `undefined` = never chosen (defaults to me), `null` = all, string = an account.
-function loadAssigneeFilter(): string | null | undefined {
-  try {
-    const v = localStorage.getItem(ASSIGNEE_KEY);
-    if (v === null) return undefined;
-    return v === "all" ? null : v;
-  } catch {
-    return undefined;
-  }
-}
-
-function persist(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // best-effort
-  }
 }
 
 /** Live state of an issue's agent. */
@@ -81,6 +58,8 @@ interface BoardStore {
    * `null` = all assignees, a string = that assignee's accountId.
    */
   assigneeFilter: string | null | undefined;
+  /** Issue types to show — "Stories + Epics" or "everything but Tasks". */
+  typeFilter: TypeSelection;
 
   selectedIssueKey: string | null;
   /** Issue keys with a live Claude PTY session. */
@@ -125,6 +104,7 @@ interface BoardStore {
   closeIssue: () => void;
   setFilter: (filter: BoardFilter) => void;
   setAssigneeFilter: (accountId: string | null) => void;
+  setTypeFilter: (sel: TypeSelection) => void;
   /** Start an agent on an issue with the templated kickoff brief. */
   kickoff: (key: string, actor?: ActivityActor) => void;
   /** Issue awaiting a repo pick before its kickoff can proceed. */
@@ -147,6 +127,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   error: null,
   filter: loadFilter(),
   assigneeFilter: loadAssigneeFilter(),
+  typeFilter: loadTypeFilter(),
   selectedIssueKey: null,
   runningAgents: new Set(),
   agentActivity: {},
@@ -288,12 +269,16 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     set({ selectedIssueKey: null });
   },
   setFilter(filter) {
-    persist(FILTER_KEY, filter);
+    saveFilter(filter);
     set({ filter });
   },
   setAssigneeFilter(accountId) {
-    persist(ASSIGNEE_KEY, accountId ?? "all");
+    saveAssigneeFilter(accountId);
     set({ assigneeFilter: accountId });
+  },
+  setTypeFilter(sel) {
+    saveTypeFilter(sel);
+    set({ typeFilter: sel });
   },
   setAgentRunning(key, running) {
     const next = new Set(get().runningAgents);
