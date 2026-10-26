@@ -1,4 +1,6 @@
 import { agentLabel } from "@/domains/agent/providerLabel";
+import { LIGHT_LABEL, mostUrgent } from "@/domains/live/light";
+import type { AgentLight, LiveInfo } from "@/domains/live/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import type { ScratchSession, SessionAgent } from "./types";
 
@@ -35,48 +37,17 @@ export function agentWorkspaceIds(session: ScratchSession): string[] {
 }
 
 /**
- * What a status light says about an agent. Four states, because "alive but
- * idle" is not "stopped": an agent you've already looked at that's sitting at
- * its prompt is `ready`, not off.
- */
-export type AgentLight = "working" | "attention" | "ready" | "stopped";
-
-export const LIGHT_LABEL: Record<AgentLight, string> = {
-  working: "Working",
-  attention: "Needs you",
-  ready: "Ready",
-  stopped: "Stopped",
-};
-
-/** One agent's light: running + mid-turn, waiting unseen, waiting seen, or not running. */
-export function agentLight(
-  workspaceId: string,
-  running: Set<string>,
-  activity: Record<string, "working" | "waiting">,
-  acked: Set<string>
-): AgentLight {
-  if (!running.has(workspaceId)) return "stopped";
-  if ((activity[workspaceId] ?? "working") === "working") return "working";
-  return acked.has(workspaceId) ? "ready" : "attention";
-}
-
-// Which light a multi-agent session shows: the one most worth your attention.
-const LIGHT_RANK: AgentLight[] = ["attention", "working", "ready", "stopped"];
-
-/**
  * A session's light across *all* its agents — a card whose codex companion is
  * waiting on you reads as "needs you" even if its claude agent is mid-turn.
  * `detail` breaks it down per agent when there's more than one (for a tooltip).
  */
 export function sessionLight(
   session: ScratchSession,
-  running: Set<string>,
-  activity: Record<string, "working" | "waiting">,
-  acked: Set<string>
+  info: Record<string, LiveInfo>
 ): { light: AgentLight; detail: string } {
   const roster = agentRoster(session);
-  const lights = roster.map((r) => agentLight(r.workspaceId, running, activity, acked));
-  const light = LIGHT_RANK.find((l) => lights.includes(l)) ?? "stopped";
+  const lights = roster.map((r) => info[r.workspaceId]?.light ?? "stopped");
+  const light = mostUrgent(lights);
   const detail =
     roster.length > 1
       ? roster.map((r, i) => `${r.label}: ${LIGHT_LABEL[lights[i]].toLowerCase()}`).join(" · ")
@@ -85,19 +56,11 @@ export function sessionLight(
 }
 
 /**
- * Whether any agent on this session is waiting on input the user hasn't looked at
- * yet — the "needs you" flag. Acknowledgement is per agent, so a session keeps
+ * Whether any agent on this session needs you. Per agent, so a session keeps
  * flagging while its codex companion waits, even after you've seen the claude one.
  */
-export function sessionNeedsYou(
-  session: ScratchSession,
-  running: Set<string>,
-  activity: Record<string, "working" | "waiting">,
-  acked: Set<string>
-): boolean {
-  return agentWorkspaceIds(session).some(
-    (id) => running.has(id) && activity[id] === "waiting" && !acked.has(id)
-  );
+export function sessionNeedsYou(session: ScratchSession, info: Record<string, LiveInfo>): boolean {
+  return agentWorkspaceIds(session).some((id) => info[id]?.light === "attention");
 }
 
 /**

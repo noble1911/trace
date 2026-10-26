@@ -1,26 +1,29 @@
 import { useEffect, useState } from "react";
+import { InterruptedAgents } from "@/app/InterruptedAgents";
 import type { NavId } from "@/app/nav";
+import { openWorkspace } from "@/app/openWorkspace";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
+import { useAppEvents } from "@/app/useAppEvents";
+import { useGlobalKeys } from "@/app/useGlobalKeys";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { I } from "@/components/Icon";
 import { Toaster } from "@/components/Toaster";
 import { ActivityView } from "@/domains/activity/ActivityView";
 import { useActivityFeed } from "@/domains/activity/hooks/useActivityFeed";
 import { AgentDetail } from "@/domains/agent/AgentDetail";
-import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { Board } from "@/domains/board/Board";
 import { useBoardAutoRefresh } from "@/domains/board/hooks/useBoardAutoRefresh";
 import { useBoardStore } from "@/domains/board/store";
-import { noteAgentTurn } from "@/domains/board/waitingNotify";
+import { FleetView } from "@/domains/fleet/FleetView";
+import { InboxView } from "@/domains/inbox/InboxView";
 import { ProviderLogin } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
+import { useLiveStore } from "@/domains/live/store";
 import { OrchestratorFab } from "@/domains/orchestrator/Fab";
 import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
-import { useOrchestratorStore } from "@/domains/orchestrator/store";
 import { PrsView } from "@/domains/prs/PrsView";
 import { useScheduleEvents } from "@/domains/schedules/hooks/useScheduleEvents";
-import { isScheduledRun, runIdOf } from "@/domains/schedules/ids";
 import { SchedulesView } from "@/domains/schedules/SchedulesView";
 import { useSchedulesStore } from "@/domains/schedules/store";
 import { RecentSessions } from "@/domains/sessions/RecentSessions";
@@ -29,7 +32,6 @@ import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
-import { onAgentRunState, onAgentTurn, onPtyOutput, onRichHtml } from "@/ipc/events";
 import { consumeNotificationClick, setDockBadge } from "@/ipc/notify";
 import { checkAppUpdate } from "@/ipc/update";
 import { toast } from "./app/toast";
@@ -55,14 +57,10 @@ export function App() {
   const refresh = useBoardStore((s) => s.refresh);
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
   const closeIssue = useBoardStore((s) => s.closeIssue);
-  const runningAgents = useBoardStore((s) => s.runningAgents);
-  const agentActivity = useBoardStore((s) => s.agentActivity);
-  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
+  const liveInfo = useLiveStore((s) => s.info);
   const sessions = useSessionsStore((s) => s.sessions);
   const selectedSessionId = useSessionsStore((s) => s.selectedId);
   const closeSession = useSessionsStore((s) => s.close);
-  const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
-  const appendOutput = useBoardStore((s) => s.appendOutput);
 
   useEffect(() => {
     void init();
@@ -72,55 +70,7 @@ export function App() {
   useScheduleEvents();
   useActivityFeed();
 
-  // App-level listeners. We capture pty-output here (not in PtyTerminal) so the
-  // buffer keeps growing even when the agent detail isn't mounted — that's what
-  // makes scrollback survive navigating away and back.
-  useEffect(() => {
-    // These listeners register asynchronously (Tauri's `listen` returns a
-    // promise). If the effect is torn down before the promise resolves — which
-    // StrictMode's mount→unmount→mount does on every dev mount — a naive
-    // `unlisten?.()` in cleanup is a no-op (still undefined), the listener leaks,
-    // and the next mount adds a *second* one. Two `pty-output` listeners means
-    // every chunk is written to the terminal twice (the doubled-output bug). The
-    // `cancelled` flag makes a late-resolving registration unlisten immediately.
-    let cancelled = false;
-    let unlistenRun: (() => void) | undefined;
-    let unlistenPty: (() => void) | undefined;
-    let unlistenRich: (() => void) | undefined;
-    let unlistenTurn: (() => void) | undefined;
-    void onAgentRunState((p) => setAgentRunning(p.workspaceId, p.running)).then((fn) => {
-      if (cancelled) fn();
-      else unlistenRun = fn;
-    });
-    void onPtyOutput((p) => appendOutput(p.workspaceId, p.data, p.seq)).then((fn) => {
-      if (cancelled) fn();
-      else unlistenPty = fn;
-    });
-    // HTML the agent emits via `trace-render` (out-of-band, bypassing the PTY) —
-    // pushed to the rich-output store; the panel renders it in a sandboxed iframe.
-    void onRichHtml((p) => useRichOutputStore.getState().push(p.issueKey, p.html)).then((fn) => {
-      if (cancelled) fn();
-      else unlistenRich = fn;
-    });
-    // Claude agents' hook-reported turns: tells "busy with background work" from
-    // "needs you" (the quiet timer alone can't).
-    void onAgentTurn(noteAgentTurn).then((fn) => {
-      if (cancelled) fn();
-      else unlistenTurn = fn;
-    });
-    return () => {
-      cancelled = true;
-      unlistenRun?.();
-      unlistenPty?.();
-      unlistenRich?.();
-      unlistenTurn?.();
-    };
-  }, [setAgentRunning, appendOutput]);
-
-  // Load persisted HTML cards once so the HTML tab survives reloads/restarts.
-  useEffect(() => {
-    void useRichOutputStore.getState().hydrate();
-  }, []);
+  useAppEvents();
 
   // Load the board whenever the selected board changes.
   useEffect(() => {
@@ -153,15 +103,7 @@ export function App() {
       // A focus right after a waiting notification ≈ the user clicked it:
       // jump straight to that workspace's detail (issue card or session).
       const target = consumeNotificationClick();
-      const runId = target ? runIdOf(target) : null;
-      if (runId) {
-        setNav("scheduled");
-        useSchedulesStore.getState().openRun(runId);
-      } else if (target) {
-        const isIssue = useBoardStore.getState().data?.issues.some((i) => i.key === target);
-        if (isIssue) useBoardStore.getState().openIssue(target);
-        else useSessionsStore.getState().select(target);
-      }
+      if (target) openWorkspace(target, setNav);
       // PR statuses change outside the app (agents run gh; merges happen in
       // the browser) — re-check on focus, at most once a minute.
       if (Date.now() - lastPrRefresh >= 60_000) {
@@ -173,32 +115,14 @@ export function App() {
     return () => window.removeEventListener("focus", onFocus);
   }, [refreshAllPrs]);
 
-  // Agents waiting on input that the user hasn't looked at yet (shells
-  // excluded — they're always "waiting"; viewing a session acknowledges it).
-  const waitingCount = [...runningAgents].filter(
-    (k) =>
-      !k.startsWith("term:") &&
-      !isScheduledRun(k) &&
-      agentActivity[k] === "waiting" &&
-      !ackedWaiting.has(k)
-  ).length;
+  // Agents that need you — the inbox's count, on the rail and the Dock.
+  const waitingCount = Object.values(liveInfo).filter((i) => i.light === "attention").length;
   useEffect(() => {
     setDockBadge(waitingCount);
   }, [waitingCount]);
 
-  // ⌘J toggles the orchestrator panel — registered here so it works whether the
-  // FAB or the panel is the mounted one (⌘K/⌘/ already open search).
-  const toggleOrchestrator = useOrchestratorStore((s) => s.toggle);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
-        e.preventDefault();
-        toggleOrchestrator();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggleOrchestrator]);
+  // ⌘J orchestrator, ⌘⇧N next agent needing you (⌘K/⌘/ already open search).
+  useGlobalKeys(setNav);
 
   if (!initialized) {
     return (
@@ -278,9 +202,16 @@ export function App() {
       <div className="app">
         <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
         {showRecents && <RecentSessions />}
-        <Topbar nav={nav} project={project} extra={nav === "board" ? boardActions : undefined} />
+        <Topbar
+          nav={nav}
+          project={project}
+          extra={nav === "board" ? boardActions : undefined}
+          onNav={handleNav}
+        />
         <main className="main">
+          {nav === "inbox" && <InboxView onOpen={(id) => openWorkspace(id, setNav)} />}
           {nav === "board" && <Board />}
+          {nav === "fleet" && <FleetView onOpen={(id) => openWorkspace(id, setNav)} />}
           {nav === "sessions" && <SessionsView />}
           {nav === "scheduled" && <SchedulesView />}
           {nav === "pr" && <PrsView />}
@@ -305,6 +236,7 @@ export function App() {
       )}
       <OrchestratorFab />
       <OrchestratorPanel />
+      <InterruptedAgents />
       <Toaster />
     </div>
   );

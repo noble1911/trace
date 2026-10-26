@@ -81,6 +81,9 @@ pub struct HookInput {
     pub last_assistant_message: Option<String>,
     pub transcript_path: Option<String>,
     pub notification_type: Option<String>,
+    /// A Notification's own text ("Claude needs your permission to use Bash") —
+    /// names what the agent is asking for.
+    pub message: Option<String>,
 }
 
 impl HookInput {
@@ -109,17 +112,31 @@ struct AgentTurn<'a> {
     event: &'a str,
     /// Background tasks still pending at a Stop; 0 otherwise.
     background_tasks: u32,
+    /// What the agent is asking for (needsInput only): the Notification's type
+    /// and text, which the renderer turns into "Permission · Bash" and the like.
+    notification_type: Option<String>,
+    message: Option<String>,
+    /// Claude's closing words for the turn (Stop only), clipped — what the
+    /// inbox and the board card quote.
+    last_message: Option<String>,
 }
 
-/// Write `trace-hook` and return the `--settings` JSON that wires it up. Hooks
-/// from `--settings` merge with the user's own, so theirs keep running too.
-pub fn settings_arg() -> Result<String, String> {
+/// Longest closing message the renderer gets — a card quotes two lines of it.
+const LAST_MESSAGE_CHARS: usize = 600;
+
+/// Write `trace-hook` and return the `--settings` JSON that wires it up, plus
+/// any permission rules to allow (trace's own tools). Hooks and rules from
+/// `--settings` merge with the user's own, so theirs keep working too.
+pub fn settings_arg(allow: &[&str]) -> Result<String, String> {
     let script =
         write_script().map_err(|e| format!("Couldn't write the trace-hook script: {e}"))?;
     let command = shell_quote(&script.to_string_lossy());
     let hook = |event: &str| json!([{ "hooks": [{ "type": "command", "command": format!("{command} {event}") }] }]);
-    let settings =
+    let mut settings =
         json!({ "hooks": { "Stop": hook("stop"), "Notification": hook("needs-input") } });
+    if !allow.is_empty() {
+        settings["permissions"] = json!({ "allow": allow });
+    }
     Ok(settings.to_string())
 }
 
@@ -131,16 +148,26 @@ pub fn on_hook(app: &AppHandle, ws: &str, message: &str) {
         return;
     };
     let input = decode(payload);
+    let clip = crate::activity::clip;
     let turn = match event {
         HookEvent::Stop => AgentTurn {
             workspace_id: ws,
             event: "stop",
             background_tasks: input.pending_tasks(),
+            notification_type: None,
+            message: None,
+            last_message: input
+                .last_assistant_message
+                .as_deref()
+                .map(|m| clip(m, LAST_MESSAGE_CHARS)),
         },
         HookEvent::NeedsInput if input.asks_for_human() => AgentTurn {
             workspace_id: ws,
             event: "needsInput",
             background_tasks: 0,
+            notification_type: input.notification_type.clone(),
+            message: input.message.as_deref().map(|m| clip(m, 200)),
+            last_message: None,
         },
         HookEvent::NeedsInput => return,
     };
@@ -216,6 +243,16 @@ mod tests {
         // Older CLIs / empty stdin: nothing to go on, but no panic.
         assert_eq!(decode("").pending_tasks(), 0);
         assert!(decode("not base64!").transcript_path.is_none());
+    }
+
+    #[test]
+    fn notification_carries_its_message() {
+        let json = r#"{"notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}"#;
+        let input = decode(&base64::engine::general_purpose::STANDARD.encode(json));
+        assert_eq!(
+            input.message.as_deref(),
+            Some("Claude needs your permission to use Bash")
+        );
     }
 
     #[test]

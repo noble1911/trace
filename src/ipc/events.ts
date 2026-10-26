@@ -34,6 +34,12 @@ export interface AgentTurn {
   event: "stop" | "needsInput";
   /** Background agents/shells/workflows still pending when the turn ended; 0 for needsInput. */
   backgroundTasks: number;
+  /** needsInput: Claude Code's notification type (`permission_prompt`, `elicitation_dialog`, …). */
+  notificationType?: string | null;
+  /** needsInput: the notification's text, e.g. "Claude needs your permission to use Bash". */
+  message?: string | null;
+  /** stop: Claude's closing message for the turn (clipped). */
+  lastMessage?: string | null;
 }
 
 /** A scheduled run started, changed (skips, needs input), or finished. */
@@ -63,6 +69,19 @@ export function onScheduleRun(cb: (payload: ScheduleRunEvent) => void): Promise<
 /** Prompts changed backend-side (saved, paused, or next-run times advanced). */
 export function onSchedulesChanged(cb: () => void): Promise<UnlistenFn> {
   return listen("schedules-changed", () => cb());
+}
+
+/** An agent calling one of trace's own tools (`agent_tools`). */
+export interface AgentToolCall {
+  id: string;
+  name: string;
+  arguments: unknown;
+  /** Workspace id of the calling agent (issue key, session id, `sched:` run). */
+  caller: string;
+}
+
+export function onAgentToolCall(cb: (payload: AgentToolCall) => void): Promise<UnlistenFn> {
+  return listen<AgentToolCall>("agent-tool-call", (e) => cb(e.payload));
 }
 
 export function onAgentTurn(cb: (payload: AgentTurn) => void): Promise<UnlistenFn> {

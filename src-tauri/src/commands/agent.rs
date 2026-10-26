@@ -61,6 +61,18 @@ pub(crate) fn spawn_in(
         return Ok(());
     }
     let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli, &cwd);
+    // What the caller asked for, before trace adds its own flags below — enough
+    // to start it again after an interrupted quit (`interrupted`).
+    let launch = crate::interrupted::AgentLaunch {
+        workspace_id: workspace_id.clone(),
+        cwd: cwd.clone(),
+        cli: cli.clone(),
+        model: model.clone(),
+        provider: provider.clone(),
+        extra_args: extra_args.clone(),
+        started_at: 0,
+        pid: None,
+    };
     // Start the loopback HTML bridge once (lazily) and hand this agent the
     // coordinates so its `trace-render` can post cards to the panel. Bind failure
     // yields a disabled bridge (port 0) and we simply skip the injection.
@@ -80,8 +92,19 @@ pub(crate) fn spawn_in(
         // Appended last: `--settings <json>` also ends any variadic user flag
         // (e.g. `--allowedTools Bash Edit`) that would otherwise swallow a prompt.
         // Best-effort — without them the renderer falls back to its quiet timer.
+        // trace's own tools (`agent_tools`), before `--settings` for the same
+        // reason: `--mcp-config` is variadic too. Bind failure = no tools.
+        let tools = state.tool_server.get_or_init(|| {
+            crate::agent_tools::server::start(app.clone()).unwrap_or_default()
+        });
+        let mut allow = Vec::new();
+        if tools.port != 0 {
+            extra_args.push("--mcp-config".to_string());
+            extra_args.push(crate::agent_tools::mcp_config_arg(tools, &workspace_id));
+            allow.push(crate::agent_tools::ALLOW_RULE);
+        }
         if bridge.port != 0 {
-            if let Ok(settings) = hooks::settings_arg() {
+            if let Ok(settings) = hooks::settings_arg(&allow) {
                 extra_args.push("--settings".to_string());
                 extra_args.push(settings);
             }
@@ -119,6 +142,7 @@ pub(crate) fn spawn_in(
         rows.max(4),
     )?;
     state.pty_sessions.lock().insert(workspace_id.clone(), session);
+    crate::interrupted::record_start(launch, pid);
     if let Some(pid) = pid {
         state.child_pids.lock().insert(workspace_id, pid);
     }

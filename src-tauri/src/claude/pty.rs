@@ -191,6 +191,10 @@ pub fn spawn_shell_pty(
 
     let mut cmd = CommandBuilder::new(default_shell());
     cmd.cwd(&cwd);
+    // A `claude` run in this shell must start as its own session too.
+    for key in crate::claude::env::INHERITED_SESSION_ENV {
+        cmd.env_remove(key);
+    }
     cmd.env("TERM", "xterm-256color");
     run_in_pty(app, workspace_id, pair, cmd, cols, rows)
 }
@@ -295,6 +299,7 @@ fn run_in_pty(
             }
         }
         // Process exited — drop session bookkeeping and tell the UI.
+        crate::interrupted::record_exit(&reader_app, &reader_ws);
         if let Some(state) = reader_app.try_state::<AppState>() {
             state.pty_sessions.lock().remove(&reader_ws);
             state.child_pids.lock().remove(&reader_ws);

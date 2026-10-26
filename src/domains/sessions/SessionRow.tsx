@@ -1,11 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { type DragEvent, type MouseEvent, useState } from "react";
 import { I } from "@/components/Icon";
+import { StatusLight } from "@/components/StatusLight";
+import type { AgentLight } from "@/domains/live/types";
 import type { SessionOverview } from "@/ipc/workspace";
-import { type AgentLight, companionsOf } from "./agentRoster";
+import { companionsOf } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
 import type { SessionDiffStat } from "./hooks/useSessionDiffs";
-import { StatusDot } from "./StatusDot";
 import { TitleEditor } from "./TitleEditor";
 import { relTime } from "./time";
 import type { ScratchSession } from "./types";
@@ -73,7 +74,7 @@ export function SessionRow(props: SessionRowProps) {
         if (!renaming && (e.key === "Enter" || e.key === " ")) onOpen();
       }}
     >
-      <StatusDot light={light} detail={lightDetail} labelled />
+      <StatusLight light={light} title={lightDetail} variant="word" />
       <div className="sr-name">
         {renaming ? (
           <TitleEditor

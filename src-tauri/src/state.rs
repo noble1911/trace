@@ -2,6 +2,7 @@
 //! commands and the PTY pump thread.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
 
 use parking_lot::{Mutex, RwLock};
@@ -56,6 +57,16 @@ pub struct AppState {
     /// spawn and shared by all agents. `OnceLock` so it binds once and lives for
     /// the app's lifetime. See `claude::render_bridge`.
     pub render_bridge: OnceLock<RenderBridge>,
+    /// Loopback MCP endpoint serving trace's own tools to its agents, started
+    /// with the first agent like the render bridge. See `agent_tools`.
+    pub tool_server: OnceLock<crate::agent_tools::ToolServer>,
+    /// The renderer's registered tool definitions and calls awaiting it.
+    pub agent_tools: crate::agent_tools::AgentTools,
+    /// Set once trace starts going down (quit, update restart), so agents killed
+    /// with it stay listed as interrupted rather than finished. See `interrupted`.
+    pub shutting_down: AtomicBool,
+    /// Agents the previous run left interrupted, until resumed or dismissed.
+    pub interrupted: crate::interrupted::Interrupted,
 }
 
 impl AppState {

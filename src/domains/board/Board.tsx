@@ -1,9 +1,11 @@
 import { type DragEvent, useRef } from "react";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ColumnStatus, Issue } from "@/domains/issues/types";
+import { useLiveStore } from "@/domains/live/store";
 import { AssigneeFilter } from "./AssigneeFilter";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
+import { DensityToggle } from "./DensityToggle";
 import { FilterChip } from "./FilterChip";
 import type { BoardFilter } from "./filterPrefs";
 import { RepoPickModal } from "./RepoPickModal";
@@ -41,6 +43,7 @@ export function Board() {
   const error = useBoardStore((s) => s.error);
   const filter = useBoardStore((s) => s.filter);
   const runningAgents = useBoardStore((s) => s.runningAgents);
+  const live = useLiveStore((s) => s.info);
   const pullRequests = useBoardStore((s) => s.pullRequests);
   const setFilter = useBoardStore((s) => s.setFilter);
   const assigneeFilter = useBoardStore((s) => s.assigneeFilter);
@@ -78,6 +81,9 @@ export function Board() {
   const filtered = visible.filter((i) => showsType(typeSel, i.issueType));
   const grouped = groupIssuesByColumn(data.columns, filtered);
   const activeCount = filtered.filter((i) => i.statusCategory === "indeterminate").length;
+  // This board's agents: how many run, how many need you.
+  const boardLights = data.issues.flatMap((i) => (live[i.key] ? [live[i.key].light] : []));
+  const needYou = boardLights.filter((l) => l === "attention").length;
 
   const onDragStart = (e: DragEvent, key: string) => {
     draggingRef.current = key;
@@ -106,9 +112,13 @@ export function Board() {
           <h1>{data.sprintName ?? data.boardName}</h1>
           <div className="subtitle">
             {filtered.length} issue{filtered.length === 1 ? "" : "s"} · {activeCount} active
+            {boardLights.length > 0 &&
+              ` · ${boardLights.length} agent${boardLights.length === 1 ? "" : "s"} running`}
+            {needYou > 0 && <span className="needs-you"> · {needYou} need you</span>}
           </div>
         </div>
         <div className="right">
+          <DensityToggle />
           <AssigneeFilter
             issues={data.issues}
             selected={effectiveAssignee}

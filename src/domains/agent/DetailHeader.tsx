@@ -2,10 +2,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { I } from "@/components/Icon";
 import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
+import { StatusLight } from "@/components/StatusLight";
 import { StatusPill } from "@/components/StatusPill";
-import type { SessionStatus } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
+import type { AgentLight } from "@/domains/live/types";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { editorItems } from "./editorItems";
 import { StartSplitButton } from "./StartSplitButton";
@@ -14,7 +15,9 @@ interface DetailHeaderProps {
   issue: Issue;
   /** Jira site, for the key's browse link (providers with `browseUrl` don't need it). */
   site: string | null;
-  status: SessionStatus;
+  /** The agent's light, and what it's asking for when it needs you. */
+  light: AgentLight;
+  askLabel?: string;
   running: boolean;
   cli: AgentCli;
   /** Model provider behind the Claude harness (third-party Anthropic-compatible endpoint). */
@@ -82,7 +85,8 @@ function PrAction({ openPr, busy, onRaisePr, onMergePr }: PrActionProps) {
 export function DetailHeader({
   issue,
   site,
-  status,
+  light,
+  askLabel,
   running,
   cli,
   provider,
@@ -102,7 +106,7 @@ export function DetailHeader({
   return (
     <div className="detail-top">
       <button type="button" className="back" onClick={onBack}>
-        <I.Back size={14} /> Board
+        <I.Back size={14} /> Board <span className="kbd">esc</span>
       </button>
       <div>
         <div className="detail-meta">
@@ -124,8 +128,7 @@ export function DetailHeader({
         <div className="ttl">{issue.summary}</div>
       </div>
       <div className="right">
-        {status === "working" && <span className="thinking">working</span>}
-        {status === "waiting" && <span className="waiting">waiting</span>}
+        {running && <StatusLight light={light} label={askLabel} variant="pill" />}
         <PrAction openPr={openPr} busy={busy} onRaisePr={onRaisePr} onMergePr={onMergePr} />
         {running ? (
           <button type="button" className="btn" onClick={onStop}>

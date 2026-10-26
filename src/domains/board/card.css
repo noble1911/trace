@@ -277,37 +277,79 @@ button.epic-chip:hover {
   background: var(--bg-1);
 }
 
-/* Subtle glow on in-progress card */
-.card.glow {
-  box-shadow:
-    0 0 0 1px oklch(0.78 0.15 70 / 0.25),
-    0 0 24px -8px oklch(0.78 0.15 70 / 0.3);
+/* A running agent's light runs down the card's left edge (StatusLight colours). */
+.card.light-attention,
+.card.light-working,
+.card.light-ready {
+  --edge: transparent;
 }
-.card.glow:hover {
-  box-shadow:
-    0 0 0 1px oklch(0.78 0.15 70 / 0.5),
-    0 0 32px -6px oklch(0.78 0.15 70 / 0.4);
+.card.light-attention {
+  --edge: var(--state-needs);
+  border-color: var(--state-needs-border);
+}
+.card.light-working {
+  --edge: var(--state-working);
+}
+.card.light-ready {
+  --edge: var(--state-ready);
+}
+.card.light-attention::before,
+.card.light-working::before,
+.card.light-ready::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--edge);
 }
 
+/* The agent's closing words for its last turn. */
+.card-quote {
+  margin-top: 7px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.card.density-rich .card-quote {
+  -webkit-line-clamp: 4;
+}
+.card.density-compact {
+  padding: 8px 12px;
+}
+.card.density-compact .title {
+  margin-top: 4px;
+}
 
-/* Kickoff button — start an agent with the ticket brief, from the card */
 .card-go {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
+  gap: 4px;
   height: 20px;
+  padding: 0 7px;
   border-radius: 5px;
-  color: var(--c-accent);
-  opacity: 0;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--fg-3);
   transition:
-    opacity 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
     background 0.12s ease;
 }
 .card:hover .card-go,
 .card-go:focus-visible {
-  opacity: 1;
+  color: var(--fg-1);
+  border-color: var(--border-strong);
 }
 .card-go:hover {
-  background: var(--c-review-bg);
+  background: var(--bg-elev);
 }

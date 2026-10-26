@@ -33,6 +33,21 @@
   --c-done: oklch(0.74 0.14 155); /* green */
   --c-done-bg: oklch(0.74 0.14 155 / 0.12);
 
+  /* Agent state — one colour per light, used on every surface (StatusLight).
+     Colour is reserved for state: amber needs you, blue working, green ready;
+     stopped is the absence of colour. PR/CI state never borrows these. */
+  --state-needs: oklch(0.8 0.15 75);
+  --state-needs-fg: oklch(0.86 0.13 75);
+  --state-needs-bg: oklch(0.8 0.15 75 / 0.13);
+  --state-needs-border: oklch(0.8 0.15 75 / 0.32);
+  --state-working: oklch(0.74 0.12 235);
+  --state-working-fg: oklch(0.82 0.1 235);
+  --state-working-bg: oklch(0.74 0.12 235 / 0.12);
+  --state-ready: oklch(0.76 0.14 155);
+  --state-ready-fg: oklch(0.82 0.12 155);
+  --state-ready-bg: oklch(0.76 0.14 155 / 0.11);
+  --state-stopped: var(--fg-3);
+
   --c-accent: oklch(0.72 0.16 290);
   --c-danger: oklch(0.68 0.18 25);
   --c-warn: oklch(0.78 0.15 70);

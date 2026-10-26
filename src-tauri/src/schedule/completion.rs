@@ -14,6 +14,10 @@
 //!    conversation file (`transcript_path` in the hook input), after the offset
 //!    captured when the Stop arrived — the CLI is still blocked on its Stop hooks
 //!    then, so nothing from a new turn can already be there.
+//!
+//! A turn that ends by scheduling its own wake-up (`wakeup`) is waiting, not
+//! done: "a few seconds later" becomes "after the wake-up is due", so a run
+//! watching a PR's reviews isn't killed between check-ins.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -23,13 +27,17 @@ use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
 use super::model::RunStatus;
-use super::{run, store};
+use super::{now_secs, run, store, wakeup};
 use crate::claude::hooks::{HookEvent, HookInput};
 use crate::state::AppState;
 
 /// Quiet period after a final-looking Stop before tearing down: long enough for
 /// a queued result to open a new turn, and for the TUI to paint the answer.
 const SETTLE: Duration = Duration::from_secs(5);
+
+/// Slack past a wake-up's due time before deciding it never came: the wake-up
+/// fires when the session is idle, so a late one is normal.
+const WAKE_GRACE: Duration = Duration::from_secs(120);
 
 /// Cap on the stored closing message — it's a summary, not the transcript.
 const MAX_SUMMARY: usize = 4_000;
@@ -56,6 +64,11 @@ pub fn on_turn(app: &AppHandle, ws: &str, event: HookEvent, input: HookInput) {
 
 fn on_stop(app: &AppHandle, ws: &str, live: &run::LiveRun, input: HookInput) {
     let pending = input.pending_tasks();
+    let wake_in = match pending {
+        0 => input.transcript_path.as_deref().and_then(wakeup::pending_wakeup),
+        _ => None,
+    };
+    let wakes_at = wake_in.map(|d| now_secs() + i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
     // The closing message of each turn, so the latest is the run's answer.
     let summary = input
         .last_assistant_message
@@ -63,6 +76,7 @@ fn on_stop(app: &AppHandle, ws: &str, live: &run::LiveRun, input: HookInput) {
         .map(|m| m.trim().chars().take(MAX_SUMMARY).collect::<String>());
     let updated = store::update_run(&live.run_id, |r| {
         r.background_tasks = pending;
+        r.wakes_at = wakes_at;
         if let Some(summary) = summary {
             if !summary.is_empty() {
                 r.summary = summary;
@@ -82,7 +96,7 @@ fn on_stop(app: &AppHandle, ws: &str, live: &run::LiveRun, input: HookInput) {
         .map(|m| m.len());
     let (app, ws, stops) = (app.clone(), ws.to_string(), live.stops);
     std::thread::spawn(move || {
-        std::thread::sleep(SETTLE);
+        std::thread::sleep(wake_in.map_or(SETTLE, |d| d + WAKE_GRACE));
         // A later Stop supersedes this check (and runs its own).
         let current = app
             .state::<AppState>()

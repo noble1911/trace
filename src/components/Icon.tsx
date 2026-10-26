@@ -215,6 +215,35 @@ export const I = {
       <path d="M3 6h18M7 12h10M10 18h4" />
     </Base>
   ),
+  Inbox: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </Base>
+  ),
+  Fleet: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <circle cx="4" cy="6" r="1" />
+      <circle cx="4" cy="12" r="1" />
+      <circle cx="4" cy="18" r="1" />
+    </Base>
+  ),
+  Play: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M7 5v14l11-7z" />
+    </Base>
+  ),
+  Grip: (p: IconProps) => (
+    <Base {...p}>
+      <circle cx="9" cy="6" r="1" />
+      <circle cx="15" cy="6" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="9" cy="18" r="1" />
+      <circle cx="15" cy="18" r="1" />
+    </Base>
+  ),
   Bolt: (p: IconProps) => (
     <Base {...p}>
       <path d="M13 2 3 14h8l-1 8 10-12h-8z" />

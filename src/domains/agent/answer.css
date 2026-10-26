@@ -1,0 +1,38 @@
+/* Answering a waiting agent from its detail: the answer bar under the chat, the
+   amber primary button it shares with the inbox, and the Esc hint on Back. */
+
+/* Docked under the chat while the agent waits on a permission / plan prompt. */
+.answer-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 12px 12px;
+  padding: 9px 12px;
+  min-inline-size: 0;
+  border: 1px solid var(--state-needs-border);
+  border-radius: var(--radius);
+  background: oklch(0.8 0.15 75 / 0.06);
+}
+.answer-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 12.5px;
+  color: var(--fg-1);
+}
+.btn.primary-needs {
+  background: var(--state-needs);
+  border-color: transparent;
+  color: oklch(0.2 0.04 75);
+  font-weight: 600;
+}
+.btn.primary-needs:hover {
+  background: var(--state-needs-fg);
+}
+/* The Esc hint on a detail's back button. */
+.detail-top .back .kbd,
+.back .kbd {
+  margin-left: 4px;
+  font-size: 9.5px;
+  padding: 0 4px;
+}

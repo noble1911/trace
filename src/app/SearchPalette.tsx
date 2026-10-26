@@ -3,6 +3,8 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
 import { useSessionsStore } from "@/domains/sessions/store";
+import { buildCommands, type Command } from "./commands";
+import type { NavId } from "./nav";
 import { runSearch, type SearchHit } from "./search";
 
 const GROUPS: { key: "issues" | "sessions" | "prs" | "chats"; label: string }[] = [
@@ -12,9 +14,18 @@ const GROUPS: { key: "issues" | "sessions" | "prs" | "chats"; label: string }[] 
   { key: "chats", label: "Chats" },
 ];
 
-// The topbar search: a command-palette dropdown over issues, sessions, PRs,
-// and live chat output. ⌘/ focuses it; arrows + Enter navigate; Esc closes.
-export function SearchPalette() {
+/** A palette row: something to do (`Command`) or something found (`SearchHit`). */
+type Row = { type: "command"; command: Command } | { type: "hit"; hit: SearchHit };
+
+const COMMAND_GROUPS: { key: Command["group"]; label: string }[] = [
+  { key: "needs", label: "Needs you" },
+  { key: "action", label: "Actions" },
+];
+
+// The topbar palette: agents that need you and actions first, then search over
+// issues, sessions, PRs and live chat output. ⌘K / ⌘/ focus it; a leading `>`
+// shows actions only; arrows + Enter navigate; Esc closes.
+export function SearchPalette({ onNav }: { onNav: (nav: NavId) => void }) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
@@ -31,8 +42,26 @@ export function SearchPalette() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const results = useMemo(() => runSearch(debounced), [debounced]);
-  const flat = useMemo(() => GROUPS.flatMap((g) => results[g.key]), [results]);
+  const commandsOnly = debounced.trimStart().startsWith(">");
+  const term = commandsOnly ? debounced.trimStart().slice(1) : debounced;
+  // Commands read live state, so rebuild them whenever the palette opens too.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `open` is the refresh trigger
+  const commands = useMemo(() => buildCommands(term, onNav), [term, onNav, open]);
+  const results = useMemo(
+    () => (commandsOnly ? runSearch("") : runSearch(term)),
+    [term, commandsOnly]
+  );
+  const flat = useMemo<Row[]>(
+    () => [
+      ...COMMAND_GROUPS.flatMap((g) =>
+        commands
+          .filter((c) => c.group === g.key)
+          .map((command): Row => ({ type: "command", command }))
+      ),
+      ...GROUPS.flatMap((g) => results[g.key].map((hit): Row => ({ type: "hit", hit }))),
+    ],
+    [commands, results]
+  );
   const hasResults = flat.length > 0;
 
   // ⌘/ (the hint on the box) and ⌘K both focus the search.
@@ -64,6 +93,12 @@ export function SearchPalette() {
     inputRef.current?.blur();
   };
 
+  const pickRow = (row: Row) => {
+    if (row.type === "hit") return pick(row.hit);
+    row.command.run();
+    close();
+  };
+
   const pick = (hit: SearchHit) => {
     if (hit.kind === "issue") openIssue(hit.key);
     else if (hit.kind === "session") selectSession(hit.id);
@@ -92,8 +127,8 @@ export function SearchPalette() {
       e.preventDefault();
       setActive((a) => (a - 1 + flat.length) % flat.length);
     } else if (e.key === "Enter") {
-      const hit = flat[Math.min(active, flat.length - 1)];
-      if (hit) pick(hit);
+      const row = flat[Math.min(active, flat.length - 1)];
+      if (row) pickRow(row);
     }
   };
 
@@ -105,7 +140,7 @@ export function SearchPalette() {
       <I.Search size={13} />
       <input
         ref={inputRef}
-        placeholder="Search tickets, sessions, chats…"
+        placeholder="Search, or > for actions…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -116,9 +151,36 @@ export function SearchPalette() {
         onKeyDown={onKeyDown}
       />
       <kbd>⌘ /</kbd>
-      {open && debounced.trim().length >= 2 && (
+      {open && (
         <div className="search-pop">
           {!hasResults && <div className="sr-empty">No matches.</div>}
+          {COMMAND_GROUPS.map((g) => {
+            const rows = commands.filter((c) => c.group === g.key);
+            if (rows.length === 0) return null;
+            return (
+              <div key={g.key}>
+                <div className="sr-group">{g.label}</div>
+                {rows.map((c) => {
+                  flatIndex++;
+                  const idx = flatIndex;
+                  return (
+                    <button
+                      type="button"
+                      key={c.id}
+                      className={`sr-row${idx === active ? " active" : ""}`}
+                      onMouseEnter={() => setActive(idx)}
+                      onClick={() => pickRow({ type: "command", command: c })}
+                    >
+                      {g.key === "needs" && <span className="light-dot attention" />}
+                      <span className="sr-title">{c.label}</span>
+                      {c.sub && <span className="sr-sub">{c.sub}</span>}
+                      {c.kbd && <kbd className="sr-kbd">{c.kbd}</kbd>}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
           {GROUPS.map((g) => {
             const hits = results[g.key];
             if (hits.length === 0) return null;

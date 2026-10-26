@@ -31,6 +31,9 @@ libc = "0.2"
 portable-pty = "0.8"
 base64 = "0.22"
 
+# Loopback MCP endpoint serving trace's tools to its own agents
+tiny_http = "0.12"
+
 # Jira Cloud REST client
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 

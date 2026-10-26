@@ -22,7 +22,7 @@ export function RunConversation({ run }: { run: ScheduleRun }) {
   const [showTools, setShowTools] = useState(false);
   // Re-read as a live run progresses: each turn (and its background tasks
   // reporting back) appends to the file.
-  const revision = `${run.status}:${run.backgroundTasks}:${run.summary.length}`;
+  const revision = `${run.status}:${run.backgroundTasks}:${run.wakesAt}:${run.summary.length}`;
 
   // `revision` isn't read in the body — it's the trigger: a live run's file grows
   // with every turn.

@@ -3,7 +3,7 @@
 //! `tauri.conf.json`); these wrappers expose check/install to the frontend.
 
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
 /// What the frontend needs to offer an update: versions + release notes.
@@ -44,6 +44,10 @@ pub async fn install_app_update(app: AppHandle) -> Result<(), String> {
         .download_and_install(|_, _| {}, || {})
         .await
         .map_err(|e| format!("Update install failed: {e}"))?;
+    // The restart kills every agent: remember them as interrupted.
+    app.state::<crate::state::AppState>()
+        .shutting_down
+        .store(true, std::sync::atomic::Ordering::SeqCst);
     app.request_restart();
     Ok(())
 }

@@ -1,7 +1,7 @@
 import { type DragEvent, useEffect, useState } from "react";
 import { I } from "@/components/Icon";
 import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "@/domains/agent/defaults";
-import { useBoardStore } from "@/domains/board/store";
+import { useLiveStore } from "@/domains/live/store";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { ArchiveBin } from "./ArchiveBin";
 import { sessionLight } from "./agentRoster";
@@ -39,9 +39,7 @@ export function SessionsView() {
   const remove = useSessionsStore((s) => s.remove);
   const saveGroups = useSessionsStore((s) => s.saveGroups);
   const assign = useSessionsStore((s) => s.assign);
-  const running = useBoardStore((s) => s.runningAgents);
-  const agentActivity = useBoardStore((s) => s.agentActivity);
-  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
+  const live = useLiveStore((s) => s.info);
   const [creating, setCreating] = useState(false);
   const [binOpen, setBinOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -111,7 +109,7 @@ export function SessionsView() {
     <div className="session-list">
       {items.map((s) => {
         // Across every agent on the session, not just the one it started with.
-        const { light, detail } = sessionLight(s, running, agentActivity, ackedWaiting);
+        const { light, detail } = sessionLight(s, live);
         return (
           <SessionRow
             key={s.id}

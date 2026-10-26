@@ -9,6 +9,7 @@ import type { NavId } from "./nav";
 interface RailProps {
   nav: NavId;
   onNav: (nav: NavId) => void;
+  /** Agents that need you — the inbox's badge. */
   waitingCount: number;
 }
 
@@ -26,12 +27,28 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
       <nav className="nav">
         <button
           type="button"
+          className={`nav-btn${nav === "inbox" ? " active" : ""}`}
+          onClick={() => onNav("inbox")}
+          title={waitingCount > 0 ? `Inbox — ${waitingCount} need you` : "Inbox"}
+        >
+          <I.Inbox size={16} />
+          {waitingCount > 0 && <span className="badge count">{waitingCount}</span>}
+        </button>
+        <button
+          type="button"
           className={`nav-btn${nav === "board" ? " active" : ""}`}
           onClick={() => onNav("board")}
           title="Board"
         >
           <I.Board size={16} />
-          {waitingCount > 0 && <span className="badge" />}
+        </button>
+        <button
+          type="button"
+          className={`nav-btn${nav === "fleet" ? " active" : ""}`}
+          onClick={() => onNav("fleet")}
+          title="Fleet — every running agent"
+        >
+          <I.Fleet size={16} />
         </button>
         <button
           type="button"

@@ -4,19 +4,24 @@
 //! Feature logic lives in `jira/`, `claude/`, `schedule/`, `git`, and thin `commands/*`.
 
 pub mod activity;
+pub mod agent_tools;
 pub mod claude;
 pub mod cleanup;
 pub mod commands;
 pub mod git;
 pub mod github;
 pub mod helpers;
+pub mod interrupted;
 pub mod issues;
 pub mod jira;
 pub mod pylon;
 pub mod schedule;
 pub mod state;
 
+use std::sync::atomic::Ordering;
+
 use state::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -33,6 +38,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(app_state)
         .setup(|app| {
+            // Agents the last run was cut off from, offered back by the renderer.
+            interrupted::collect_at_launch(&app.state::<AppState>());
             // The scheduled-prompt engine fires from Rust, whatever the UI is doing.
             schedule::runner::start(app.handle().clone());
             // Idle-workspace cleanup; a no-op until enabled in Settings.
@@ -41,6 +48,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::activity::list_activity,
+            commands::agent_tools::set_agent_tools,
+            commands::agent_tools::agent_tool_result,
+            commands::interrupted::interrupted_agents,
+            commands::interrupted::resume_interrupted_agents,
+            commands::interrupted::dismiss_interrupted_agents,
             commands::activity::record_activity,
             commands::activity::clear_activity,
             commands::activity::import_activity,
@@ -130,6 +142,13 @@ pub fn run() {
             commands::providers::deepseek_key_configured,
             commands::providers::set_deepseek_key,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // Quitting or restarting for an update kills every agent; mark it, so
+            // they're remembered as interrupted rather than finished.
+            if let tauri::RunEvent::Exit = event {
+                app.state::<AppState>().shutting_down.store(true, Ordering::SeqCst);
+            }
+        });
 }

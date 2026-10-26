@@ -107,6 +107,12 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
           Claude is waiting on you — answer in the terminal below and the run carries on.
         </div>
       )}
+      {live && run.wakesAt && background === 0 && !needsYou && (
+        <div className="sched-viewer-note muted">
+          Waiting until {formatWhen(run.wakesAt)}, when Claude checks back in. The run carries on
+          from there.
+        </div>
+      )}
       {live && background > 0 && !needsYou && (
         <div className="sched-viewer-note muted">
           Waiting on {tasks} — the run finishes once they report back.

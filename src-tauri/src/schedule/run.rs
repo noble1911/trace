@@ -69,6 +69,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
         needs_input: false,
         skipped: 0,
         background_tasks: 0,
+        wakes_at: None,
         summary: String::new(),
         error: None,
         has_transcript: false,
@@ -231,6 +232,7 @@ pub fn finish(app: &AppHandle, ws: &str, status: RunStatus, error: Option<String
     let updated = store::update_run(&live.run_id, |r| {
         r.status = status;
         r.ended_at = Some(ended_at);
+        r.wakes_at = None;
         r.has_transcript = has_transcript;
         if error.is_some() {
             r.error = error;

@@ -10,7 +10,8 @@
 //! - `timing` / `cron`: when a schedule fires next.
 //! - `model` / `store` / `prompts`: the persisted shapes, their files, and CRUD.
 //! - `run`: launching and finishing one run; `completion` decides when its work
-//!   (background tasks included) is done, from `claude::hooks` turn events.
+//!   (background tasks included) is done, from `claude::hooks` turn events;
+//!   `wakeup` spots a turn that ended by scheduling its own next check-in.
 //! - `transcript`: a finished run's PTY bytes on disk, replayable after restart.
 //! - `template`: `{date}`-style variables substituted into the prompt.
 //! - `handoff`: continuing a finished run as an exploratory session.
@@ -30,6 +31,7 @@ pub mod store;
 pub mod template;
 pub mod timing;
 pub mod transcript;
+pub mod wakeup;
 
 /// Workspace-id prefix of a run's PTY. Tells runs apart from issue keys, session
 /// ids and `term:` shells everywhere a workspace id flows (mirrored in the

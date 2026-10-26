@@ -3,15 +3,20 @@ import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
+import { StatusLight } from "@/components/StatusLight";
 import { agentArgs } from "@/domains/agent/defaults";
 import { editorItems } from "@/domains/agent/editorItems";
 import { FilesPane } from "@/domains/agent/FilesPane";
 import { useWorkspaceInfo } from "@/domains/agent/hooks/useWorkspaceInfo";
 import { agentLabel } from "@/domains/agent/providerLabel";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
+import { TurnSection } from "@/domains/agent/TurnSection";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
+import { useDetailKeys } from "@/domains/agent/useDetailKeys";
 import { WorkspaceSection } from "@/domains/agent/WorkspaceSection";
 import { useBoardStore } from "@/domains/board/store";
+import { shownAsk } from "@/domains/live/light";
+import { useLiveStore } from "@/domains/live/store";
 import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
 import { usePersistedFlag } from "@/hooks/usePersistedFlag";
@@ -19,16 +24,9 @@ import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { startSession, startSessionAgent } from "@/ipc/session";
 import { AddAgentMenu } from "./AddAgentMenu";
 import { AgentPane } from "./AgentPane";
-import {
-  agentLight,
-  agentRoster,
-  agentWorkspaceIds,
-  companionsOf,
-  MAX_COMPANIONS,
-} from "./agentRoster";
+import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
 import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
-import { StatusDot } from "./StatusDot";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -64,12 +62,11 @@ export function SessionDetail({
   // decide whether a finished turn is something the user is already watching.
   const selectedAgent = useSessionsStore((s) => s.selectedAgentId);
   const selectAgent = useSessionsStore((s) => s.selectAgent);
-  const runningAgents = useBoardStore((s) => s.runningAgents);
   const agentActivity = useBoardStore((s) => s.agentActivity);
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
-  const acked = useBoardStore((s) => s.ackedWaiting);
+  const live = useLiveStore((s) => s.info);
   const openIssue = useBoardStore((s) => s.openIssue);
 
   const roster = useMemo(() => agentRoster(session), [session]);
@@ -106,6 +103,12 @@ export function SessionDetail({
     setPane("agent");
     setConfirmRemove(false);
   };
+  // ⌘1… = each agent tab, then Files and Terminal; Esc goes back.
+  const keyTabs = [...turnIds, "files", "terminal"];
+  useDetailKeys(onBack, keyTabs, (t) => {
+    if (t === "files" || t === "terminal") setPane(t);
+    else showAgent(t);
+  });
 
   const onAddAgent = (cli: AgentCli, provider?: AgentProvider) => {
     void addAgent(session.id, cli, provider)
@@ -158,7 +161,7 @@ export function SessionDetail({
     <div className="detail detail-recents">
       <div className="detail-top">
         <button type="button" className="back" onClick={onBack}>
-          <I.Back size={14} /> Sessions
+          <I.Back size={14} /> Sessions <span className="kbd">esc</span>
         </button>
         <span className="session-avatar">
           <I.Sparkles size={18} />
@@ -191,9 +194,10 @@ export function SessionDetail({
         <div className="right">
           {/* The viewed agent's real state — "working" only mid-turn, not whenever its PTY lives. */}
           {run.running && (
-            <StatusDot
-              light={agentLight(active.workspaceId, runningAgents, agentActivity, acked)}
-              labelled
+            <StatusLight
+              light={live[active.workspaceId]?.light ?? "stopped"}
+              label={shownAsk(live[active.workspaceId])?.label}
+              variant="pill"
             />
           )}
           {confirmRemove && (
@@ -264,7 +268,7 @@ export function SessionDetail({
         <div className="detail-left">
           <div className="detail-tabs">
             {roster.map((entry) => {
-              const light = agentLight(entry.workspaceId, runningAgents, agentActivity, acked);
+              const light = live[entry.workspaceId]?.light ?? "stopped";
               const selected = pane === "agent" && entry.workspaceId === active.workspaceId;
               return (
                 <button
@@ -277,7 +281,7 @@ export function SessionDetail({
                   }
                 >
                   <I.Chat size={13} /> {entry.label}
-                  <StatusDot light={light} />
+                  <StatusLight light={light} />
                 </button>
               );
             })}
@@ -318,6 +322,7 @@ export function SessionDetail({
         {showRail && (
           <div className="detail-right">
             <PrRailSection urls={prUrls} />
+            <TurnSection workspaceId={active.workspaceId} hasPr={prUrls.length > 0} />
             <WorkspaceSection workspaceId={session.id} turnIds={turnIds} refreshKey={run.running} />
           </div>
         )}

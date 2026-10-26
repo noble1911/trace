@@ -2,11 +2,16 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DragEvent, MouseEvent } from "react";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
+import { StatusLight } from "@/components/StatusLight";
 import { epicColor } from "@/domains/board/epicColor";
-import { statusOf, useBoardStore } from "@/domains/board/store";
+import { useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
+import { ageLabel, shownAsk } from "@/domains/live/light";
+import { useLiveStore } from "@/domains/live/store";
+import { useNow } from "@/hooks/useNow";
+import { useDensity } from "./density";
 
 interface CardProps {
   issue: Issue;
@@ -25,9 +30,11 @@ function prStateClass(state: string): string {
 // nest a real `<button>` for the PR pill without breaking HTML's no-nested-interactives rule.
 export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
   const firstPr = prs && prs.length > 0 ? prs[0] : null;
-  const status = useBoardStore((s) =>
-    statusOf(s.runningAgents.has(issue.key), s.agentActivity[issue.key])
-  );
+  const live = useLiveStore((s) => s.info[issue.key]);
+  const light = live?.light ?? "stopped";
+  const density = useDensity((s) => s.density);
+  // Ages tick while an agent runs; an idle card has none to keep fresh.
+  const now = useNow(live ? 30_000 : null);
   const kickoff = useBoardStore((s) => s.kickoff);
   // Epic links are Jira-only (Pylon issues carry no epic).
   const site = useIssuesStore((s) => s.sessions.jira?.site ?? null);
@@ -58,7 +65,7 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
   return (
     // biome-ignore lint/a11y/useSemanticElements: needs to host a nested <button> for the PR pill (HTML forbids nested interactives) — keyboard activation handled
     <div
-      className={`card${status === "working" ? " glow" : ""}`}
+      className={`card light-${light} density-${density}`}
       draggable
       role="button"
       tabIndex={0}
@@ -70,24 +77,28 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
         <span className={`priority ${issue.priority}`} />
         <span className="ticket-id">{issue.key}</span>
         <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {status === "working" && <span className="thinking">working</span>}
-          {status === "waiting" && <span className="waiting">waiting</span>}
-          {status === "idle" && (
+          {live ? (
+            <StatusLight
+              light={light}
+              variant="pill"
+              label={shownAsk(live)?.label}
+              age={ageLabel(live.since, now * 1000)}
+            />
+          ) : (
             <button
               type="button"
               className="card-go"
               onClick={onKickoff}
               title={`Start an agent on ${issue.key} with the ticket brief`}
-              aria-label={`Start agent on ${issue.key}`}
             >
-              <I.Sparkles size={13} />
+              <I.Play size={10} /> Start
             </button>
           )}
           <AgentAvatar assignee={issue.assignee} />
         </span>
       </div>
 
-      {issue.epic && (
+      {issue.epic && density !== "compact" && (
         <div className="epic-line">
           {epicUrl ? (
             <button
@@ -115,28 +126,36 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
 
       <div className="title">{issue.summary}</div>
 
-      <div className="meta">
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <I.Ticket size={11} /> {issue.issueType}
-        </span>
-        {issue.labels.slice(0, 2).map((label) => (
-          <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span className="dot-sep">·</span>
-            {label}
+      {live?.lastMessage && density !== "compact" && (
+        <div className="card-quote" title={live.lastMessage}>
+          {live.lastMessage}
+        </div>
+      )}
+
+      {density !== "compact" && (
+        <div className="meta">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <I.Ticket size={11} /> {issue.issueType}
           </span>
-        ))}
-        {firstPr && (
-          <button
-            type="button"
-            className={`pr-pill ${prStateClass(firstPr.state)}`}
-            style={{ marginLeft: "auto", cursor: "pointer" }}
-            onClick={onPrClick}
-            title={`${firstPr.title || `PR #${firstPr.number}`} — opens on GitHub`}
-          >
-            <I.GitPR size={11} /> #{firstPr.number}
-          </button>
-        )}
-      </div>
+          {issue.labels.slice(0, 2).map((label) => (
+            <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span className="dot-sep">·</span>
+              {label}
+            </span>
+          ))}
+          {firstPr && (
+            <button
+              type="button"
+              className={`pr-pill ${prStateClass(firstPr.state)}`}
+              style={{ marginLeft: "auto", cursor: "pointer" }}
+              onClick={onPrClick}
+              title={`${firstPr.title || `PR #${firstPr.number}`} — opens on GitHub`}
+            >
+              <I.GitPR size={11} /> #{firstPr.number}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

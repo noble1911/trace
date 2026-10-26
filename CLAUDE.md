@@ -54,6 +54,7 @@ src/
     ├── schedules/          # scheduled prompts: list, form, run history + run viewer
     ├── prs/                # pull-request list view
     ├── activity/           # activity feed — renders the backend activity log (types + store)
+    ├── agentTools/         # the tools agents call on trace (board = the orchestrator's, + scheduled prompts)
     ├── buddy/              # rail pixel buddy: mood from board/activity, Haiku speech; art is data (art/ART.md)
     └── settings/           # repos, agent defaults, integrations
 ```
@@ -71,6 +72,8 @@ src-tauri/src/
 ├── jira/                   # Jira provider: auth, client, parse, board, dev  (Jira Cloud REST)
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
 ├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
+├── agent_tools/            # trace's own tools served to its agents over loopback MCP (renderer runs them)
+├── interrupted.rs          # ledger of live agents; ones cut off by quit/update/crash are offered back
 └── commands/               # thin wrappers: agent, session, schedules, issues, activity, pr, diff, tests, repos, editor
 ```
 
@@ -114,6 +117,19 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
   finishes when a turn ends with no background tasks pending and no new turn follows
   (`schedule/completion.rs`). Finished runs' output is saved to disk and
   replayed through `pty_snapshot`; "Continue as session" adopts the prompt's worktree + conversation.
+- **Agent tools:** every agent trace spawns gets `--mcp-config` for a loopback MCP endpoint
+  (`agent_tools/`, per-app bearer token, Host/Origin checked) plus an `mcp__trace` allow rule in its
+  `--settings`. The renderer registers the tools and runs each call (`domains/agentTools/`): the board ones
+  are the orchestrator's own (`get_board`, `move_issue`, `start_agent`, …) with no confirm card; the
+  scheduled-prompt ones read prompts and runs, update a prompt (keeping its on/off state), and create one
+  only paused. Agents are top-level Claude sessions: inherited Claude Code session markers
+  (`claude::env::INHERITED_SESSION_ENV`) are stripped, or a trace started from a Claude session would hand
+  its agents transcript saving off.
+- **Interrupted agents:** `interrupted.rs` keeps `running-agents.json` (what each live agent was spawned
+  with, and its pid). A natural exit removes the entry; quitting or an update restart (`shutting_down`)
+  doesn't, so the next launch offers those agents back (`app/InterruptedAgents.tsx`). Resuming is
+  `spawn_in` again, which `--resume`s the saved conversation; entries whose pid is alive belong to another
+  running trace and are left alone.
 - **Lifecycle:** moving a card transitions the tracker's issue AND triggers the matching action — start agent
   (→ in progress), raise PR (→ review), merge (→ done).
 - **Agent workspace tabs:** beyond the chat PTY, each agent has a ticket view, a diff/file viewer

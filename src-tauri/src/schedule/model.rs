@@ -89,6 +89,10 @@ pub struct ScheduleRun {
     /// its last turn ended — the run waits for them before finishing.
     #[serde(default)]
     pub background_tasks: u32,
+    /// When Claude ended its last turn by scheduling a wake-up (`ScheduleWakeup`):
+    /// the epoch secs it's due. The run waits for it rather than finishing.
+    #[serde(default)]
+    pub wakes_at: Option<i64>,
     /// Claude's closing message for the run's latest turn (from the Stop hook) —
     /// the answer, without replaying a terminal.
     #[serde(default)]

@@ -1,0 +1,110 @@
+/* StatusLight — the one way agent state is drawn (cards, rows, tabs, inbox,
+   fleet, headers). Colours come from the --state-* tokens. */
+
+.light-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.light-dot.stopped {
+  border: 1.5px solid var(--state-stopped);
+}
+.light-dot.ready {
+  background: var(--state-ready);
+}
+.light-dot.attention {
+  background: var(--state-needs);
+  box-shadow: 0 0 6px -1px var(--state-needs);
+  animation: light-blink 1.2s ease-in-out infinite;
+}
+/* Working is a spinner, not a fill: motion says "busy" without a colour fight. */
+.light-dot.working {
+  border: 1.5px solid oklch(0.74 0.12 235 / 0.3);
+  border-top-color: var(--state-working);
+  animation: light-spin 0.9s linear infinite;
+}
+@keyframes light-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes light-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .light-dot.attention,
+  .light-dot.working {
+    animation: none;
+  }
+}
+
+/* Dot + word (list rows). */
+.light-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--fg-3);
+  min-width: 0;
+}
+.light-word .light-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tinted pill (cards, headers, inbox). */
+.light-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--fg-3);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.light-pill .light-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.light-age {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  opacity: 0.85;
+}
+
+.light-word.attention,
+.light-pill.attention {
+  color: var(--state-needs-fg);
+}
+.light-pill.attention {
+  background: var(--state-needs-bg);
+  border-color: var(--state-needs-border);
+}
+.light-word.working,
+.light-pill.working {
+  color: var(--state-working-fg);
+}
+.light-pill.working {
+  background: var(--state-working-bg);
+  border-color: transparent;
+}
+.light-word.ready,
+.light-pill.ready {
+  color: var(--state-ready-fg);
+}
+.light-pill.ready {
+  background: var(--state-ready-bg);
+  border-color: transparent;
+}

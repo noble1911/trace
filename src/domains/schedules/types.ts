@@ -63,6 +63,11 @@ export interface ScheduleRun {
    * last turn ended — the run waits for them.
    */
   backgroundTasks: number;
+  /**
+   * When Claude ended its last turn by scheduling its own next check-in
+   * (`ScheduleWakeup`): epoch secs it's due. The run waits for it.
+   */
+  wakesAt?: number | null;
   /** Claude's closing message for the run's latest turn; "" until it has one. */
   summary: string;
   error?: string | null;

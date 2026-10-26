@@ -4,6 +4,8 @@ import { I } from "@/components/Icon";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
+import { shownAsk } from "@/domains/live/light";
+import { useLiveStore } from "@/domains/live/store";
 import { discoverPrs, usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
 import { primaryPr } from "@/domains/prs/primaryPr";
@@ -19,6 +21,7 @@ import {
 } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
 import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
+import { AnswerBar } from "./AnswerBar";
 import { ContextRail } from "./ContextRail";
 import { DetailHeader } from "./DetailHeader";
 import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "./defaults";
@@ -32,6 +35,7 @@ import { StartPrompt } from "./StartPrompt";
 import { TerminalPane } from "./TerminalPane";
 import { TestsPane } from "./TestsPane";
 import { TicketPane } from "./TicketPane";
+import { useDetailKeys } from "./useDetailKeys";
 
 type TabId = "chat" | "html" | "ticket" | "files" | "terminal" | "tests" | "pr";
 
@@ -45,6 +49,8 @@ const TABS: { id: TabId; label: string; icon: (p: { size?: number }) => ReactNod
   { id: "pr", label: "Pull request", icon: I.GitPR },
 ];
 
+const TAB_IDS = TABS.map((t) => t.id);
+
 interface AgentDetailProps {
   issue: Issue;
   site: string | null;
@@ -57,6 +63,7 @@ const EMPTY_PRS: PullRequest[] = [];
 
 export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const [tab, setTab] = useState<TabId>("chat");
+  useDetailKeys(onBack, TAB_IDS, setTab);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(agentCli);
@@ -73,6 +80,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
+  const live = useLiveStore((s) => s.info[issue.key]);
   const startingRef = useRef(false);
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);
   const refreshIssuePrs = useBoardStore((s) => s.refreshIssuePrs);
@@ -219,7 +227,8 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
       <DetailHeader
         issue={issue}
         site={site}
-        status={status}
+        light={live?.light ?? "stopped"}
+        askLabel={shownAsk(live)?.label}
         running={running}
         cli={cli}
         provider={provider}
@@ -263,20 +272,23 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
           {tab === "chat" && (
             // The terminal mounts even before the session starts so it can be
             // measured/fitted to the real pane; StartPrompt overlays it until then.
-            <div className="pty-host-wrap">
-              <PtyTerminal issueKey={issue.key} />
-              {!running && (
-                <StartPrompt
-                  onStart={start}
-                  onStartFresh={startFresh}
-                  repos={repos}
-                  repoChoice={repoChoice}
-                  onRepoChange={setRepoChoice}
-                  agentName={agentLabel(cli, provider)}
-                  cliName={cli}
-                />
-              )}
-            </div>
+            <>
+              <div className="pty-host-wrap">
+                <PtyTerminal issueKey={issue.key} />
+                {!running && (
+                  <StartPrompt
+                    onStart={start}
+                    onStartFresh={startFresh}
+                    repos={repos}
+                    repoChoice={repoChoice}
+                    onRepoChange={setRepoChoice}
+                    agentName={agentLabel(cli, provider)}
+                    cliName={cli}
+                  />
+                )}
+              </div>
+              <AnswerBar workspaceId={issue.key} />
+            </>
           )}
           {tab === "html" && <RichOutputPanel issueKey={issue.key} />}
           {tab === "ticket" && <TicketPane issue={issue} />}

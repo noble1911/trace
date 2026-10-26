@@ -147,7 +147,7 @@ fn handle_conn(stream: TcpStream, app: &AppHandle, token: &str) {
 
 /// Constant-time byte comparison so a token check can't be timed. (The length is
 /// not secret — the token is a fixed-width UUID — so an early length bail is fine.)
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }

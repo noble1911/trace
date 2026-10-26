@@ -1,4 +1,5 @@
 import { notifyOnWaiting, notifySoundOn, notifySoundPath } from "@/domains/agent/defaults";
+import { clearAsk } from "@/domains/live/sync";
 import { isScheduledRun } from "@/domains/schedules/ids";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
@@ -70,6 +71,7 @@ function clearTimer(timers: Map<string, ReturnType<typeof setTimeout>>, workspac
 export function armWaitingNotify(workspaceId: string): void {
   armed.add(workspaceId);
   askingForHuman.delete(workspaceId);
+  clearAsk(workspaceId);
 }
 
 /** Forget a workspace entirely (agent stopped or exited): arming + timers. */

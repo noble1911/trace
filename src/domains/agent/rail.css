@@ -202,3 +202,39 @@
   padding: 0;
   border-bottom: 0;
 }
+
+/* What the agent last said, and the next thing to do (TurnSection). */
+.turn-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.turn-next {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.turn-step {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-1);
+}
+.turn-step.attention {
+  color: var(--state-needs-fg);
+}
+.turn-step.working {
+  color: var(--state-working-fg);
+}
+.turn-said {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

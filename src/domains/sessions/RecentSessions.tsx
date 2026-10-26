@@ -1,9 +1,9 @@
 import { I } from "@/components/Icon";
-import { useBoardStore } from "@/domains/board/store";
+import { StatusLight } from "@/components/StatusLight";
+import { useLiveStore } from "@/domains/live/store";
 import { sessionLight, sessionNeedsYou } from "./agentRoster";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useRecentsCollapsed } from "./recentsLayout";
-import { StatusDot } from "./StatusDot";
 import { useSessionsStore } from "./store";
 import { relTime } from "./time";
 import type { ScratchSession } from "./types";
@@ -20,9 +20,7 @@ export function RecentSessions() {
   const recent = useSessionsStore((s) => s.recent);
   const selectedId = useSessionsStore((s) => s.selectedId);
   const select = useSessionsStore((s) => s.select);
-  const running = useBoardStore((s) => s.runningAgents);
-  const agentActivity = useBoardStore((s) => s.agentActivity);
-  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
+  const live = useLiveStore((s) => s.info);
 
   const items = recent
     .map((id) => sessions.find((s) => s.id === id))
@@ -37,7 +35,7 @@ export function RecentSessions() {
   // Collapsed: a slim strip with the way back, flagging any session that needs
   // you so closing the column doesn't hide that.
   if (collapsed) {
-    const needsYou = items.some((s) => sessionNeedsYou(s, running, agentActivity, ackedWaiting));
+    const needsYou = items.some((s) => sessionNeedsYou(s, live));
     return (
       <aside className="session-recents collapsed">
         <button
@@ -79,7 +77,7 @@ export function RecentSessions() {
           {items.map((s) => {
             // Covers every agent on the session (its own plus companions). Once
             // seen, "needs you" settles to "ready" so it stops nagging.
-            const { light, detail } = sessionLight(s, running, agentActivity, ackedWaiting);
+            const { light, detail } = sessionLight(s, live);
             const where = [tabName(s.tab), sectionName(s.section)].filter(Boolean).join(" · ");
             const stat = diffs[s.id];
             const hasDiff = stat != null && (stat.add > 0 || stat.del > 0);
@@ -92,7 +90,7 @@ export function RecentSessions() {
                   title={s.title}
                 >
                   <div className="rs-card-top">
-                    <StatusDot light={light} detail={detail} />
+                    <StatusLight light={light} title={detail} />
                     <span className="rs-name">{s.title}</span>
                     <span className="rs-time">{relTime(s.createdAt)}</span>
                   </div>

@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { activity } from "@/domains/activity/store";
+import type { ActivityActor } from "@/domains/activity/types";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { isScheduledRun } from "@/domains/schedules/ids";
@@ -131,8 +132,16 @@ export function actionSummary(name: string, input: unknown): string {
   }
 }
 
-/** Execute a confirmed mutating tool. Returns a result string for the model. */
-export async function runWriteTool(name: string, input: unknown): Promise<string> {
+/**
+ * Execute a confirmed mutating tool. Returns a result string for the model.
+ * `actor` is who the activity log credits (an agent calling over MCP, or the
+ * orchestrator).
+ */
+export async function runWriteTool(
+  name: string,
+  input: unknown,
+  actor: ActivityActor = "orchestrator"
+): Promise<string> {
   const board = useBoardStore.getState();
 
   if (name === "broadcast_to_agents") {
@@ -194,7 +203,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
       );
       activity.log({
         kind: "transition",
-        actor: "orchestrator",
+        actor,
         issueKey: key,
         title: `→ ${targetName}`,
       });
@@ -223,7 +232,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
           await transitionIssue(board.provider, key, [target.id]);
           activity.log({
             kind: "transition",
-            actor: "orchestrator",
+            actor,
             issueKey: key,
             title: `→ ${target.name}`,
           });
@@ -234,7 +243,7 @@ export async function runWriteTool(name: string, input: unknown): Promise<string
         }
       }
     }
-    board.kickoff(key, "orchestrator");
+    board.kickoff(key, actor);
     await board.refresh();
     return `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working — no follow-up message is needed.`;
   }

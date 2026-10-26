@@ -5,6 +5,7 @@ import { I } from "@/components/Icon";
 import type { Issue } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
+import { TurnSection } from "./TurnSection";
 import { WorkspaceSection } from "./WorkspaceSection";
 
 interface ContextRailProps {
@@ -59,7 +60,7 @@ function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
 
 // The ticket detail's right rail, ordered by how often it's looked at: the PRs
 // (they change constantly), where the agent is working, then the ticket's own
-// facts. Live agent status lives in the header only.
+// facts — under what the agent last said and what to do next.
 export function ContextRail({ issue, site, prUrls, running }: ContextRailProps) {
   // Providers that carry a web URL on the issue (Pylon's `link`) win; Jira's
   // browse URL is built from the site.
@@ -68,6 +69,7 @@ export function ContextRail({ issue, site, prUrls, running }: ContextRailProps) 
 
   return (
     <div className="detail-right">
+      <TurnSection workspaceId={issue.key} hasPr={prUrls.length > 0} />
       <PrRailSection urls={prUrls} />
       <WorkspaceSection workspaceId={issue.key} refreshKey={running} />
 
