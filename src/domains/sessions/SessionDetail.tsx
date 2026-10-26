@@ -19,9 +19,16 @@ import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { startSession, startSessionAgent } from "@/ipc/session";
 import { AddAgentMenu } from "./AddAgentMenu";
 import { AgentPane } from "./AgentPane";
-import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
+import {
+  agentLight,
+  agentRoster,
+  agentWorkspaceIds,
+  companionsOf,
+  MAX_COMPANIONS,
+} from "./agentRoster";
 import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
+import { StatusDot } from "./StatusDot";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -62,6 +69,7 @@ export function SessionDetail({
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
+  const acked = useBoardStore((s) => s.ackedWaiting);
   const openIssue = useBoardStore((s) => s.openIssue);
 
   const roster = useMemo(() => agentRoster(session), [session]);
@@ -181,7 +189,13 @@ export function SessionDetail({
           )}
         </div>
         <div className="right">
-          {run.running && <span className="thinking">working</span>}
+          {/* The viewed agent's real state — "working" only mid-turn, not whenever its PTY lives. */}
+          {run.running && (
+            <StatusDot
+              light={agentLight(active.workspaceId, runningAgents, agentActivity, acked)}
+              labelled
+            />
+          )}
           {confirmRemove && (
             <>
               <button type="button" className="btn ghost" onClick={() => setConfirmRemove(false)}>
@@ -250,8 +264,7 @@ export function SessionDetail({
         <div className="detail-left">
           <div className="detail-tabs">
             {roster.map((entry) => {
-              const live = runningAgents.has(entry.workspaceId);
-              const state = live ? (agentActivity[entry.workspaceId] ?? "working") : "off";
+              const light = agentLight(entry.workspaceId, runningAgents, agentActivity, acked);
               const selected = pane === "agent" && entry.workspaceId === active.workspaceId;
               return (
                 <button
@@ -264,7 +277,7 @@ export function SessionDetail({
                   }
                 >
                   <I.Chat size={13} /> {entry.label}
-                  <span className={`agent-dot ${state}`} />
+                  <StatusDot light={light} />
                 </button>
               );
             })}

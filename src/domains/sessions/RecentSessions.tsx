@@ -1,6 +1,6 @@
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
-import { sessionNeedsYou, sessionStatus } from "./agentRoster";
+import { sessionLight, sessionNeedsYou } from "./agentRoster";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useRecentsCollapsed } from "./recentsLayout";
 import { StatusDot } from "./StatusDot";
@@ -77,11 +77,9 @@ export function RecentSessions() {
       ) : (
         <ul className="rs-list">
           {items.map((s) => {
-            // Status covers every agent on the session (its own plus companions).
-            const status = sessionStatus(s, running, agentActivity);
-            // Attention (the blinking "needs you") only while unacknowledged;
-            // once seen it reads as a plain active session so it stops nagging.
-            const attention = sessionNeedsYou(s, running, agentActivity, ackedWaiting);
+            // Covers every agent on the session (its own plus companions). Once
+            // seen, "needs you" settles to "ready" so it stops nagging.
+            const { light, detail } = sessionLight(s, running, agentActivity, ackedWaiting);
             const where = [tabName(s.tab), sectionName(s.section)].filter(Boolean).join(" · ");
             const stat = diffs[s.id];
             const hasDiff = stat != null && (stat.add > 0 || stat.del > 0);
@@ -94,7 +92,7 @@ export function RecentSessions() {
                   title={s.title}
                 >
                   <div className="rs-card-top">
-                    <StatusDot working={status === "working"} needsYou={attention} />
+                    <StatusDot light={light} detail={detail} />
                     <span className="rs-name">{s.title}</span>
                     <span className="rs-time">{relTime(s.createdAt)}</span>
                   </div>

@@ -2,7 +2,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { type DragEvent, type MouseEvent, useState } from "react";
 import { I } from "@/components/Icon";
 import type { SessionOverview } from "@/ipc/workspace";
-import { companionsOf } from "./agentRoster";
+import { type AgentLight, companionsOf } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
 import type { SessionDiffStat } from "./hooks/useSessionDiffs";
 import { StatusDot } from "./StatusDot";
@@ -24,8 +24,9 @@ function meaningfulBranch(session: ScratchSession, branch: string | null): strin
 
 interface SessionRowProps {
   session: ScratchSession;
-  working: boolean;
-  needsYou: boolean;
+  light: AgentLight;
+  /** Per-agent breakdown for the light's tooltip. */
+  lightDetail: string;
   overview?: SessionOverview;
   diff?: SessionDiffStat;
   onOpen: () => void;
@@ -37,7 +38,7 @@ interface SessionRowProps {
 // diff and age — the facts that decide which one to open, and nothing else.
 // Rename/archive appear on hover; the row drags into sections, tabs and the bin.
 export function SessionRow(props: SessionRowProps) {
-  const { session, working, needsYou, overview, diff, onOpen, onArchive, onRename } = props;
+  const { session, light, lightDetail, overview, diff, onOpen, onArchive, onRename } = props;
   const [renaming, setRenaming] = useState(false);
   const companions = companionsOf(session);
   const branch = meaningfulBranch(session, overview?.branch ?? null);
@@ -72,7 +73,7 @@ export function SessionRow(props: SessionRowProps) {
         if (!renaming && (e.key === "Enter" || e.key === " ")) onOpen();
       }}
     >
-      <StatusDot working={working} needsYou={needsYou} />
+      <StatusDot light={light} detail={lightDetail} labelled />
       <div className="sr-name">
         {renaming ? (
           <TitleEditor

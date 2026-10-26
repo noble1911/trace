@@ -4,7 +4,7 @@ import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "@/domain
 import { useBoardStore } from "@/domains/board/store";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { ArchiveBin } from "./ArchiveBin";
-import { sessionNeedsYou, sessionStatus } from "./agentRoster";
+import { sessionLight } from "./agentRoster";
 import { sessionsDrag } from "./dragState";
 import {
   moveBefore,
@@ -109,20 +109,23 @@ export function SessionsView() {
 
   const list = (items: ScratchSession[]) => (
     <div className="session-list">
-      {items.map((s) => (
-        <SessionRow
-          key={s.id}
-          session={s}
-          // Across every agent on the session, not just the one it started with.
-          working={sessionStatus(s, running, agentActivity) === "working"}
-          needsYou={sessionNeedsYou(s, running, agentActivity, ackedWaiting)}
-          overview={overview[s.id]}
-          diff={diffs[s.id]}
-          onOpen={() => select(s.id)}
-          onArchive={() => void archive(s.id)}
-          onRename={(title) => void rename(s.id, title)}
-        />
-      ))}
+      {items.map((s) => {
+        // Across every agent on the session, not just the one it started with.
+        const { light, detail } = sessionLight(s, running, agentActivity, ackedWaiting);
+        return (
+          <SessionRow
+            key={s.id}
+            session={s}
+            light={light}
+            lightDetail={detail}
+            overview={overview[s.id]}
+            diff={diffs[s.id]}
+            onOpen={() => select(s.id)}
+            onArchive={() => void archive(s.id)}
+            onRename={(title) => void rename(s.id, title)}
+          />
+        );
+      })}
     </div>
   );
 

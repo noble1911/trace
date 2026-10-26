@@ -1,16 +1,24 @@
+import { type AgentLight, LIGHT_LABEL } from "./agentRoster";
+
 interface StatusDotProps {
-  working: boolean;
-  /** Waiting on you and not yet looked at — blinks. */
-  needsYou: boolean;
+  light: AgentLight;
+  /** Tooltip — per-agent breakdown for multi-agent sessions; the label otherwise. */
+  detail?: string;
+  /** Show the state as a word beside the dot (list rows have room; Recents doesn't). */
+  labelled?: boolean;
 }
 
-/** A session's state at a glance: blue working, blinking amber needs you, grey idle. */
-export function StatusDot({ working, needsYou }: StatusDotProps) {
-  const state = needsYou ? "attention" : working ? "working" : null;
+/**
+ * A session's state at a glance: amber pulsing working, blinking violet needs
+ * you, green ready (alive at its prompt, already seen), hollow grey stopped.
+ */
+export function StatusDot({ light, detail, labelled }: StatusDotProps) {
+  const title = detail ?? LIGHT_LABEL[light];
+  if (!labelled) return <span className={`session-dot ${light}`} title={title} />;
   return (
-    <span
-      className={`session-dot${state ? ` ${state}` : ""}`}
-      title={needsYou ? "Needs you" : working ? "Working" : "Idle"}
-    />
+    <span className={`session-light ${light}`} title={title}>
+      <span className={`session-dot ${light}`} />
+      {LIGHT_LABEL[light]}
+    </span>
   );
 }

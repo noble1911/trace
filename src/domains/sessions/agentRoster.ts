@@ -1,5 +1,4 @@
 import { agentLabel } from "@/domains/agent/providerLabel";
-import type { SessionStatus } from "@/domains/board/store";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import type { ScratchSession, SessionAgent } from "./types";
 
@@ -36,24 +35,53 @@ export function agentWorkspaceIds(session: ScratchSession): string[] {
 }
 
 /**
- * A session's status across *all* its agents: working beats waiting beats idle.
- * A card whose codex companion is mid-turn should read as busy even if the agent
- * the session was created with is stopped.
- *
- * (Only the type comes from the board store — deriving the state here rather than
- * calling into it keeps this module free of a runtime import cycle.)
+ * What a status light says about an agent. Four states, because "alive but
+ * idle" is not "stopped": an agent you've already looked at that's sitting at
+ * its prompt is `ready`, not off.
  */
-export function sessionStatus(
+export type AgentLight = "working" | "attention" | "ready" | "stopped";
+
+export const LIGHT_LABEL: Record<AgentLight, string> = {
+  working: "Working",
+  attention: "Needs you",
+  ready: "Ready",
+  stopped: "Stopped",
+};
+
+/** One agent's light: running + mid-turn, waiting unseen, waiting seen, or not running. */
+export function agentLight(
+  workspaceId: string,
+  running: Set<string>,
+  activity: Record<string, "working" | "waiting">,
+  acked: Set<string>
+): AgentLight {
+  if (!running.has(workspaceId)) return "stopped";
+  if ((activity[workspaceId] ?? "working") === "working") return "working";
+  return acked.has(workspaceId) ? "ready" : "attention";
+}
+
+// Which light a multi-agent session shows: the one most worth your attention.
+const LIGHT_RANK: AgentLight[] = ["attention", "working", "ready", "stopped"];
+
+/**
+ * A session's light across *all* its agents — a card whose codex companion is
+ * waiting on you reads as "needs you" even if its claude agent is mid-turn.
+ * `detail` breaks it down per agent when there's more than one (for a tooltip).
+ */
+export function sessionLight(
   session: ScratchSession,
   running: Set<string>,
-  activity: Record<string, "working" | "waiting">
-): SessionStatus {
-  const states = agentWorkspaceIds(session).map((id) =>
-    running.has(id) ? (activity[id] ?? "working") : "idle"
-  );
-  if (states.includes("working")) return "working";
-  if (states.includes("waiting")) return "waiting";
-  return "idle";
+  activity: Record<string, "working" | "waiting">,
+  acked: Set<string>
+): { light: AgentLight; detail: string } {
+  const roster = agentRoster(session);
+  const lights = roster.map((r) => agentLight(r.workspaceId, running, activity, acked));
+  const light = LIGHT_RANK.find((l) => lights.includes(l)) ?? "stopped";
+  const detail =
+    roster.length > 1
+      ? roster.map((r, i) => `${r.label}: ${LIGHT_LABEL[lights[i]].toLowerCase()}`).join(" · ")
+      : LIGHT_LABEL[light];
+  return { light, detail };
 }
 
 /**

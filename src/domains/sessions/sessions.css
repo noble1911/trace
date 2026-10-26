@@ -272,24 +272,8 @@
 
 /* ---- Agent tabs in the session detail -------------------------------------
    A session can host several agents in one worktree, so its tab bar leads with
-   one tab per agent (a live dot each), then the "+" that adds another, then the
+   one tab per agent (a status dot each), then the "+" that adds another, then the
    worktree-level panes (Files / Terminal) after a separator. */
-
-.agent-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  flex-shrink: 0;
-}
-.agent-dot.working {
-  background: var(--c-prog);
-  box-shadow: 0 0 6px -1px var(--c-prog);
-}
-.agent-dot.waiting {
-  background: var(--c-review);
-  box-shadow: 0 0 6px -1px var(--c-review);
-}
 
 .detail-tab-sep {
   width: 1px;
