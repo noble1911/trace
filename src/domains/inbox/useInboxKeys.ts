@@ -8,7 +8,7 @@ export interface InboxKeyActions {
   nudge: (by: -1 | 1) => void;
   open: () => void;
   markSeen: () => void;
-  /** 1–3: pick that answer on the selected agent's prompt. */
+  /** 1–9: pick that answer on the selected agent's prompt. */
   answer: (index: number) => void;
 }
 
@@ -22,7 +22,7 @@ function inList(target: EventTarget | null): boolean {
 
 /**
  * The inbox's keyboard: J/K (or ↑/↓ in the list) move, ⌥↑/⌥↓ reorder, ⏎ opens,
- * E marks seen, 1–3 answer. Inactive while typing, while a modal or menu is up,
+ * E marks seen, 1–9 answer. Inactive while typing, while a modal or menu is up,
  * and while a detail overlay covers the inbox.
  */
 export function useInboxKeys(actions: InboxKeyActions): void {
@@ -48,7 +48,7 @@ export function useInboxKeys(actions: InboxKeyActions): void {
         if (e.target instanceof HTMLButtonElement) return;
         a.open();
       } else if (e.key === "e") a.markSeen();
-      else if (e.key >= "1" && e.key <= "3") {
+      else if (e.key >= "1" && e.key <= "9") {
         if (e.target instanceof HTMLButtonElement) return;
         a.answer(Number(e.key) - 1);
       } else return;

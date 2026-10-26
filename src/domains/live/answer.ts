@@ -2,40 +2,64 @@ import { transcriptText } from "@/domains/agent/transcript";
 import { useBoardStore } from "@/domains/board/store";
 import { watchForQuiet } from "@/domains/board/waitingNotify";
 import { sendAgentInput } from "@/ipc/agent";
-import type { AskKind } from "./types";
+import type { Ask, AskKind } from "./types";
 
 // Answering an agent without opening its terminal: keystrokes into its PTY, the
-// same channel the orchestrator uses. Claude Code's permission and plan prompts
-// are select menus that open on their first option ("Yes"), so — checked against
-// a live prompt — Enter accepts it, Down then Enter takes the second ("Yes, and
-// don't ask again"), and Esc declines ("No, and tell Claude what to do").
+// same channel the orchestrator uses. Claude Code's dialogs are select menus
+// that open on their first option. Checked against live prompts: Enter takes
+// the highlighted option, Down moves one option down (so a question's option N
+// is N-1 Downs then Enter), and Esc declines ("No, and tell Claude what to do").
 
-export type Choice = "yes" | "always" | "no";
+const DOWN = "\x1b[B";
+const ESC = "\x1b";
+const ENTER = "\r";
 
-/** Buttons each kind of ask gets; others are answered in the terminal or with a reply. */
-export const CHOICES: Partial<Record<AskKind, { choice: Choice; label: string }[]>> = {
-  permission: [
-    { choice: "yes", label: "Allow once" },
-    { choice: "always", label: "Always allow" },
-    { choice: "no", label: "Deny" },
-  ],
-  plan: [
-    { choice: "yes", label: "Approve plan" },
-    { choice: "no", label: "Keep planning" },
-  ],
-};
+/** One button: its label, and the keys that pick it on the agent's menu. */
+export interface AnswerChoice {
+  label: string;
+  keys: string[];
+  /** Positional "don't ask again" on a dialog we couldn't confirm offers it. */
+  checkAlways?: boolean;
+}
+
+/**
+ * The answers an ask gets, in menu order — none where the prompt isn't a plain
+ * menu (a multi-question or multi-select question, a bare "needs you", a
+ * finished turn): those are answered in the terminal, or by a reply.
+ */
+export function choicesFor(ask: Ask | null): AnswerChoice[] {
+  if (!ask) return [];
+  if (ask.kind === "question") {
+    return ask.options.map((label, i) => ({
+      label,
+      keys: [...Array<string>(i).fill(DOWN), ENTER],
+    }));
+  }
+  if (ask.kind === "plan") {
+    return [
+      { label: "Approve plan", keys: [ENTER] },
+      { label: "Keep planning", keys: [ESC] },
+    ];
+  }
+  if (ask.kind !== "permission") return [];
+  const out: AnswerChoice[] = [{ label: "Allow once", keys: [ENTER] }];
+  // On a dialog without "don't ask again" the second option is "No" — never
+  // offer it positionally unless the hook said the option exists.
+  if (ask.canAlways !== false) {
+    out.push({ label: "Always allow", keys: [DOWN, ENTER], checkAlways: ask.canAlways === null });
+  }
+  out.push({ label: "Deny", keys: [ESC] });
+  return out;
+}
 
 /** Kinds whose prompt is a menu that has to be dismissed before typing a reply. */
 const MENU_KINDS = new Set<AskKind>(["permission", "plan"]);
 
 /**
- * Kinds a typed reply can't answer: a multiple-choice question is a menu too,
- * and Enter would pick its first option with the text ignored.
+ * Kinds a typed reply can't answer: a question is a menu too, and Enter would
+ * pick its highlighted option with the text ignored.
  */
 export const TERMINAL_ONLY = new Set<AskKind>(["question"]);
-
-const DOWN = "\x1b[B";
-const ESC = "\x1b";
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,29 +77,27 @@ function userActed(workspaceId: string) {
 }
 
 /**
- * Whether the prompt on screen has a "don't ask again" option. Not every
- * permission prompt does, and on one without it the second option is "No" —
- * so "Always allow" checks the screen rather than trusting the position.
+ * Whether the prompt on screen has a "don't ask again" option — the fallback
+ * for agents whose PermissionRequest hook didn't say (an older CLI).
  */
 function offersAlways(workspaceId: string): boolean {
   const chunks = useBoardStore.getState().outputBuffers[workspaceId] ?? [];
   // Cursor moves stand in for spaces in the TUI, so compare without whitespace.
   const screen = transcriptText(chunks.slice(-60), 6000).replace(/\s+/g, "").toLowerCase();
-  return screen.includes("don'taskagain") || screen.includes("don\u2019taskagain");
+  return screen.includes("don'taskagain") || screen.includes("don’taskagain");
 }
 
-/** Pick an option on the agent's pending permission / plan prompt. */
-export async function choose(workspaceId: string, choice: Choice): Promise<void> {
-  if (choice === "always" && !offersAlways(workspaceId)) {
+/** Pick an option on the agent's pending menu (permission, plan, question). */
+export async function choose(workspaceId: string, choice: AnswerChoice): Promise<void> {
+  if (choice.checkAlways && !offersAlways(workspaceId)) {
     throw new Error('this prompt has no "always allow" option — answer it in the terminal');
   }
   userActed(workspaceId);
-  if (choice === "yes") return sendAgentInput(workspaceId, "\r");
-  if (choice === "no") return sendAgentInput(workspaceId, ESC);
-  // Separate writes: the TUI must see the arrow land before Enter confirms.
-  await sendAgentInput(workspaceId, DOWN);
-  await pause(150);
-  return sendAgentInput(workspaceId, "\r");
+  // Separate writes: the TUI must see each arrow land before Enter confirms.
+  for (const [i, key] of choice.keys.entries()) {
+    if (i > 0) await pause(120);
+    await sendAgentInput(workspaceId, key);
+  }
 }
 
 /**
@@ -91,7 +113,7 @@ export async function reply(
   const message = text.trim();
   if (!message) return;
   if (pendingKind && TERMINAL_ONLY.has(pendingKind)) {
-    throw new Error("a multiple-choice question has to be answered in the terminal");
+    throw new Error("a question has to be answered from its options or in the terminal");
   }
   userActed(workspaceId);
   if (pendingKind && MENU_KINDS.has(pendingKind)) {

@@ -3,9 +3,9 @@ import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { useAgentTools } from "@/domains/agentTools/useAgentTools";
 import { useBoardStore } from "@/domains/board/store";
 import { noteAgentTurn } from "@/domains/board/waitingNotify";
-import { noteLiveTurn, useLiveSync } from "@/domains/live/sync";
+import { noteLiveAsk, noteLiveTurn, useLiveSync } from "@/domains/live/sync";
 import { useSessionsStore } from "@/domains/sessions/store";
-import { onAgentRunState, onAgentTurn, onPtyOutput, onRichHtml } from "@/ipc/events";
+import { onAgentAsk, onAgentRunState, onAgentTurn, onPtyOutput, onRichHtml } from "@/ipc/events";
 
 /**
  * App-level backend listeners. We capture pty-output here (not in PtyTerminal)
@@ -40,6 +40,8 @@ export function useAppEvents(): void {
     keep(onRichHtml((p) => useRichOutputStore.getState().push(p.issueKey, p.html)));
     // Claude agents' hook-reported turns: tells "busy with background work" from
     // "needs you" (the quiet timer alone can't), and says what the agent asks.
+    // What a permission dialog is really for — a question, a plan, a command.
+    keep(onAgentAsk(noteLiveAsk));
     keep(
       onAgentTurn((turn) => {
         noteAgentTurn(turn);

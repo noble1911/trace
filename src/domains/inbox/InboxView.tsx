@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { toast } from "@/app/toast";
 import { useBoardStore } from "@/domains/board/store";
-import { CHOICES, choose } from "@/domains/live/answer";
+import { choicesFor, choose } from "@/domains/live/answer";
 import { type LiveEntry, useLiveEntries } from "@/domains/live/entries";
 import { useLiveStore } from "@/domains/live/store";
 import { useRowDrag } from "@/domains/live/useRowDrag";
@@ -68,9 +69,10 @@ export function InboxView({ onOpen }: InboxViewProps) {
       // Only for a row the user picked: the fallback selection can shift to a
       // different agent when a row leaves the tab, and an answer must not.
       if (!selected || selectedId !== selected.id) return;
-      const kind = selected.info.ask?.kind;
-      const choice = kind ? CHOICES[kind]?.[i] : undefined;
-      if (selected && choice) void choose(selected.id, choice.choice);
+      const choice = choicesFor(selected.info.ask)[i];
+      if (choice) {
+        void choose(selected.id, choice).catch((err) => toast.error(`Couldn't answer: ${err}`));
+      }
     },
   });
 

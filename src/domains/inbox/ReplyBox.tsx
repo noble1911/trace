@@ -30,7 +30,7 @@ export function ReplyBox({ workspaceId, pendingKind, onSentNext }: ReplyBoxProps
   if (pendingKind && TERMINAL_ONLY.has(pendingKind)) {
     return (
       <div className="ib-reply ib-reply-off">
-        It's asking a multiple-choice question — open it to answer in the terminal.
+        It's asking a question — pick an answer above, or open it to type your own.
       </div>
     );
   }

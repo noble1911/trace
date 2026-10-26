@@ -42,6 +42,25 @@ export interface AgentTurn {
   lastMessage?: string | null;
 }
 
+/**
+ * What a Claude agent's permission dialog is for, from its PermissionRequest hook
+ * (`claude::permission_ask`) — sent just before the dialog shows. A summary only.
+ */
+export interface AgentAsk {
+  workspaceId: string;
+  /** `Bash`, `Edit`, `AskUserQuestion`, `ExitPlanMode`, an MCP tool, … */
+  tool: string;
+  /** The command, path, URL, question or plan it's about. */
+  detail: string | null;
+  /** AskUserQuestion: the first question's options, in menu order. */
+  options: string[];
+  multiSelect: boolean;
+  /** AskUserQuestion: how many questions it asks. */
+  questions: number;
+  /** Whether the dialog offers "Yes, and don't ask again". */
+  canAlwaysAllow: boolean;
+}
+
 /** A scheduled run started, changed (skips, needs input), or finished. */
 export interface ScheduleRunEvent {
   promptId: string;
@@ -86,6 +105,10 @@ export function onAgentToolCall(cb: (payload: AgentToolCall) => void): Promise<U
 
 export function onAgentTurn(cb: (payload: AgentTurn) => void): Promise<UnlistenFn> {
   return listen<AgentTurn>("agent-turn", (e) => cb(e.payload));
+}
+
+export function onAgentAsk(cb: (payload: AgentAsk) => void): Promise<UnlistenFn> {
+  return listen<AgentAsk>("agent-ask", (e) => cb(e.payload));
 }
 
 /** A new entry on the activity log (`activity::record`), from any producer. */

@@ -55,13 +55,15 @@ interface AgentDetailProps {
   issue: Issue;
   site: string | null;
   onBack: () => void;
+  /** The page Back returns to ("Inbox", "Board", …). */
+  backLabel: string;
 }
 
 // Stable reference so the board-store selector below doesn't return a brand-new
 // empty array on every render (which would churn re-renders).
 const EMPTY_PRS: PullRequest[] = [];
 
-export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
+export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps) {
   const [tab, setTab] = useState<TabId>("chat");
   useDetailKeys(onBack, TAB_IDS, setTab);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +238,7 @@ export function AgentDetail({ issue, site, onBack }: AgentDetailProps) {
         busy={busy}
         railOpen={railOpen}
         onBack={onBack}
+        backLabel={backLabel}
         onRaisePr={onRaisePr}
         onMergePr={onMergePr}
         onStart={start}

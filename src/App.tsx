@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { InterruptedAgents } from "@/app/InterruptedAgents";
-import type { NavId } from "@/app/nav";
+import { NAV_LABELS, type NavId } from "@/app/nav";
 import { openWorkspace } from "@/app/openWorkspace";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
@@ -142,6 +142,8 @@ export function App() {
   const openSession = selectedSessionId
     ? (sessions.find((s) => s.id === selectedSessionId) ?? null)
     : null;
+  // A detail overlays the current page; Back returns to it, so it says which.
+  const backLabel = NAV_LABELS[nav].replace(/^./, (c) => c.toUpperCase());
   const project = data?.boardName ?? trackerSessions.jira?.site ?? "trace";
 
   // The rail stays visible inside a detail view; clicking a nav item there should
@@ -226,12 +228,13 @@ export function App() {
             issue={openIssue}
             site={trackerSessions.jira?.site ?? null}
             onBack={closeIssue}
+            backLabel={backLabel}
           />
         </ErrorBoundary>
       )}
       {openSession && (
         <ErrorBoundary label="Session detail crashed" onBack={closeSession}>
-          <SessionDetail session={openSession} onBack={closeSession} />
+          <SessionDetail session={openSession} onBack={closeSession} backLabel={backLabel} />
         </ErrorBoundary>
       )}
       <OrchestratorFab />

@@ -6,6 +6,8 @@ import { type DiffSummary, gitDiffSummary } from "@/ipc/diff";
 import { AskCard } from "./AskCard";
 import { ReplyBox } from "./ReplyBox";
 
+const OPEN_WHAT = { ticket: "ticket", session: "session", scheduled: "run" } as const;
+
 const basename = (p: string) => p.replace(/\/+$/, "").split("/").pop() || p;
 
 /** The worktree's changes vs its base — refetched when the agent's state moves on. */
@@ -59,10 +61,14 @@ export function InboxDetail({ entry, now, onOpen, onSentNext }: InboxDetailProps
             <span className="mono">{entry.subtitle}</span>
             {where && <span className="mono">· {where}</span>}
           </div>
-          <h2>{entry.title}</h2>
+          <h2>
+            <button type="button" className="ib-title-link" onClick={onOpen} title="Open">
+              {entry.title}
+            </button>
+          </h2>
         </div>
-        <button type="button" className="btn" onClick={onOpen}>
-          Open <span className="kbd">⏎</span>
+        <button type="button" className="btn primary" onClick={onOpen}>
+          Open {OPEN_WHAT[entry.source]} <span className="kbd">⏎</span>
         </button>
       </div>
 

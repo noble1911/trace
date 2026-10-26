@@ -20,6 +20,12 @@ export interface Ask {
   label: string;
   /** The tool a permission prompt is for (`Bash`, `Edit`, …), when known. */
   tool: string | null;
+  /** What it's about: the command, path, question or plan. */
+  detail: string | null;
+  /** A single-choice question's options, in menu order — answerable from outside. */
+  options: string[];
+  /** Whether the dialog offers "don't ask again"; null when unknown (no PermissionRequest hook). */
+  canAlways: boolean | null;
 }
 
 /** Everything trace tracks about one live agent beyond its PTY. */

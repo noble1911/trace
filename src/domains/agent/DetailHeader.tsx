@@ -26,6 +26,8 @@ interface DetailHeaderProps {
   busy: "raise" | "merge" | null;
   railOpen: boolean;
   onBack: () => void;
+  /** The page Back returns to ("Inbox", "Board", …). */
+  backLabel: string;
   onRaisePr: () => void;
   onMergePr: () => void;
   onStart: () => void;
@@ -94,6 +96,7 @@ export function DetailHeader({
   busy,
   railOpen,
   onBack,
+  backLabel,
   onRaisePr,
   onMergePr,
   onStart,
@@ -106,7 +109,7 @@ export function DetailHeader({
   return (
     <div className="detail-top">
       <button type="button" className="back" onClick={onBack}>
-        <I.Back size={14} /> Board <span className="kbd">esc</span>
+        <I.Back size={14} /> {backLabel} <span className="kbd">esc</span>
       </button>
       <div>
         <div className="detail-meta">

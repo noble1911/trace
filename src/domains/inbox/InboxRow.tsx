@@ -23,7 +23,8 @@ interface InboxRowProps {
 }
 
 // One agent in the inbox list: its light and ask, title, last words, and how
-// long it's been like this. A drag handle reorders; double-click opens.
+// long it's been like this. A drag handle reorders; the arrow (or ⏎, or a
+// double-click) opens it.
 export function InboxRow(props: InboxRowProps) {
   const { entry, selected, now, dropAbove, isDragging, dragProps, onSelect, onOpen } = props;
   const { info } = entry;
@@ -56,10 +57,27 @@ export function InboxRow(props: InboxRowProps) {
             {ask && <StatusLight light="attention" variant="pill" label={ask.label} />}
           </span>
           <span className="ib-title">{entry.title}</span>
-          {info.lastMessage && <span className="ib-snip">{info.lastMessage}</span>}
+          {/* What it's asking (a command, a question) beats what it last said. */}
+          {(ask?.detail ?? info.lastMessage) && (
+            <span className="ib-snip">{ask?.detail ?? info.lastMessage}</span>
+          )}
         </span>
-        <span className={`ib-age${info.light === "attention" ? " hot" : ""}`}>
-          {ageLabel(info.since, now)}
+        <span className="ib-side">
+          <span className={`ib-age${info.light === "attention" ? " hot" : ""}`}>
+            {ageLabel(info.since, now)}
+          </span>
+          <button
+            type="button"
+            className="ib-open"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            title="Open"
+            aria-label={`Open ${entry.title}`}
+          >
+            <I.Chevron size={13} />
+          </button>
         </span>
       </div>
     </>

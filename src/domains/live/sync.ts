@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useBoardStore } from "@/domains/board/store";
 import { isScheduledRun } from "@/domains/schedules/ids";
-import type { AgentTurn } from "@/ipc/events";
-import { askFrom } from "./ask";
+import type { AgentAsk, AgentTurn } from "@/ipc/events";
+import { askFrom, askFromTool } from "./ask";
 import { lightOf } from "./light";
 import { loadOpenedAt, saveOpenedAt } from "./prefs";
 import { useLiveStore } from "./store";
@@ -99,6 +99,9 @@ function patchAndRecompute(workspaceId: string, patch: Partial<LiveInfo>) {
 export function noteLiveTurn(turn: AgentTurn): void {
   if (!isAgent(turn.workspaceId)) return;
   if (turn.event === "needsInput") {
+    // The PermissionRequest hook fires first and says far more; the generic
+    // Notification that follows mustn't overwrite it.
+    if (useLiveStore.getState().info[turn.workspaceId]?.ask) return;
     patchAndRecompute(turn.workspaceId, { ask: askFrom(turn.notificationType, turn.message) });
     return;
   }
@@ -108,6 +111,12 @@ export function noteLiveTurn(turn: AgentTurn): void {
     ask: null,
     lastMessage: turn.lastMessage ?? prev?.lastMessage ?? null,
   });
+}
+
+/** A permission dialog is about to show: what it's for (`claude::permission_ask`). */
+export function noteLiveAsk(event: AgentAsk): void {
+  if (!isAgent(event.workspaceId)) return;
+  patchAndRecompute(event.workspaceId, { ask: askFromTool(event) });
 }
 
 /** The user gave the agent input — whatever it asked has been answered. */

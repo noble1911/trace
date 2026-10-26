@@ -1,5 +1,5 @@
 import { useBoardStore } from "@/domains/board/store";
-import { choose } from "@/domains/live/answer";
+import { choicesFor, choose } from "@/domains/live/answer";
 import { orderIds } from "@/domains/live/order";
 import { useLiveStore } from "@/domains/live/store";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
@@ -65,14 +65,15 @@ export function buildCommands(query: string, setNav: (nav: NavId) => void): Comm
       sub: ask,
       run: () => openWorkspace(id, setNav),
     });
-    if (live.ask?.kind === "permission") {
+    const allowOnce = live.ask?.kind === "permission" ? choicesFor(live.ask)[0] : undefined;
+    if (allowOnce) {
       out.push({
         id: `allow:${id}`,
         group: "needs",
         label: `Allow once — ${title}`,
         sub: ask,
         run: () =>
-          void choose(id, "yes")
+          void choose(id, allowOnce)
             .then(() => toast.success("Allowed"))
             .catch((err) => toast.error(`Couldn't answer: ${err}`)),
       });

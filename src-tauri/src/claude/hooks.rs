@@ -132,8 +132,13 @@ pub fn settings_arg(allow: &[&str]) -> Result<String, String> {
         write_script().map_err(|e| format!("Couldn't write the trace-hook script: {e}"))?;
     let command = shell_quote(&script.to_string_lossy());
     let hook = |event: &str| json!([{ "hooks": [{ "type": "command", "command": format!("{command} {event}") }] }]);
-    let mut settings =
-        json!({ "hooks": { "Stop": hook("stop"), "Notification": hook("needs-input") } });
+    // PermissionRequest names what a dialog is for (`claude::permission_ask`);
+    // the hook prints nothing, so Claude still shows the dialog as usual.
+    let mut settings = json!({ "hooks": {
+        "Stop": hook("stop"),
+        "Notification": hook("needs-input"),
+        "PermissionRequest": hook("permission"),
+    } });
     if !allow.is_empty() {
         settings["permissions"] = json!({ "allow": allow });
     }
@@ -144,6 +149,10 @@ pub fn settings_arg(allow: &[&str]) -> Result<String, String> {
 /// from agent `ws`. Uninteresting notifications (`idle_prompt`, …) are dropped here.
 pub fn on_hook(app: &AppHandle, ws: &str, message: &str) {
     let (name, payload) = message.split_once(' ').unwrap_or((message, ""));
+    if name == "permission" {
+        super::permission_ask::on_request(app, ws, payload);
+        return;
+    }
     let Some(event) = HookEvent::parse(name) else {
         return;
     };

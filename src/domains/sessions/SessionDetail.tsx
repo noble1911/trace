@@ -46,9 +46,12 @@ type PaneId = "agent" | "files" | "terminal";
 export function SessionDetail({
   session,
   onBack,
+  backLabel,
 }: {
   session: ScratchSession;
   onBack: () => void;
+  /** The page Back returns to ("Inbox", "Sessions", …). */
+  backLabel: string;
 }) {
   const [pane, setPane] = useState<PaneId>("agent");
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -161,7 +164,7 @@ export function SessionDetail({
     <div className="detail detail-recents">
       <div className="detail-top">
         <button type="button" className="back" onClick={onBack}>
-          <I.Back size={14} /> Sessions <span className="kbd">esc</span>
+          <I.Back size={14} /> {backLabel} <span className="kbd">esc</span>
         </button>
         <span className="session-avatar">
           <I.Sparkles size={18} />
