@@ -3,6 +3,7 @@ import { dedupePrs } from "@/domains/board/prDedupe";
 import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
+import { liveLights } from "@/domains/live/store";
 import { computeBoardStats, filterByAssignee, type StatsInput } from "./stats";
 import { useOrchestratorStore } from "./store";
 
@@ -54,8 +55,7 @@ export function scopedStatsInput(): StatsInput | null {
     {
       board: data,
       runningAgents: board.runningAgents,
-      agentActivity: board.agentActivity,
-      ackedWaiting: board.ackedWaiting,
+      lights: liveLights(),
       pullRequests: board.pullRequests,
       activity: events,
       now: Date.now(),
@@ -88,7 +88,7 @@ export function buildBoardContext(): string {
     `SPRINT: ${data.sprintName ?? "—"} · board "${data.boardName}"`,
     `SCOPE: filtered to ${scopeName} — these are the only tickets in play; never recommend or act on tickets not listed below.`,
     `STATS: ${stats.total} tickets · ${stats.done} done (${stats.pctDone}%) · ${stats.inProgress} in progress · ${stats.todo} to do · ${stats.unassigned} unassigned`,
-    `AGENTS: ${stats.agents.running} running (${stats.agents.working} working, ${stats.agents.waiting} waiting)`,
+    `AGENTS: ${stats.agents.running} running (${stats.agents.working} working, ${stats.agents.needsYou} need you)`,
     `PRS: ${stats.prs.open} open · ${stats.prs.draft} draft · ${stats.prs.merged} merged · ${stats.prs.closed} closed`,
   ];
   if (stats.flags.length) lines.push(`FLAGS: ${stats.flags.join("; ")}`);

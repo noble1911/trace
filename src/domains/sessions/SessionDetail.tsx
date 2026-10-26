@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
-import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { StatusLight } from "@/components/StatusLight";
 import { agentArgs } from "@/domains/agent/defaults";
@@ -10,16 +9,12 @@ import { FilesPane } from "@/domains/agent/FilesPane";
 import { useWorkspaceInfo } from "@/domains/agent/hooks/useWorkspaceInfo";
 import { agentLabel } from "@/domains/agent/providerLabel";
 import { TerminalPane } from "@/domains/agent/TerminalPane";
-import { TurnSection } from "@/domains/agent/TurnSection";
 import { disposeTerminal } from "@/domains/agent/terminalRegistry";
 import { useDetailKeys } from "@/domains/agent/useDetailKeys";
-import { WorkspaceSection } from "@/domains/agent/WorkspaceSection";
 import { useBoardStore } from "@/domains/board/store";
 import { shownAsk } from "@/domains/live/light";
 import { useLiveStore } from "@/domains/live/store";
 import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
-import { PrRailSection } from "@/domains/prs/PrRailSection";
-import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import type { AgentCli, AgentProvider } from "@/ipc/agent";
 import { startSession, startSessionAgent } from "@/ipc/session";
 import { AddAgentMenu } from "./AddAgentMenu";
@@ -27,6 +22,7 @@ import { AgentPane } from "./AgentPane";
 import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
 import { useAgentRun } from "./hooks/useAgentRun";
 import { LinkTicketModal } from "./LinkTicketModal";
+import { SessionPanel } from "./SessionPanel";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -73,12 +69,10 @@ export function SessionDetail({
   const openIssue = useBoardStore((s) => s.openIssue);
 
   const roster = useMemo(() => agentRoster(session), [session]);
-  // PRs any of this session's agents raised. The rail only appears once there
-  // is one — until then the terminal keeps the full width.
+  // PRs any of this session's agents raised. The side panel offers them once
+  // there is one; until then it holds just the orchestrator (SessionPanel).
   const turnIds = useMemo(() => roster.map((r) => r.workspaceId), [roster]);
   const prUrls = usePrWatch(session.id, turnIds);
-  const [prRailOpen, togglePrRail] = usePersistedFlag("trace.sessionPrRailOpen", true);
-  const showRail = prUrls.length > 0 && prRailOpen;
   // Falls back to the session's own agent, which also self-heals the selection
   // when the companion whose tab was open is removed.
   const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
@@ -161,7 +155,7 @@ export function SessionDetail({
       : "The agent runs in your repo root and shares your working tree.";
 
   return (
-    <div className="detail detail-recents">
+    <div className="detail">
       <div className="detail-top">
         <button type="button" className="back" onClick={onBack}>
           <I.Back size={14} /> {backLabel} <span className="kbd">esc</span>
@@ -201,11 +195,12 @@ export function SessionDetail({
               light={live[active.workspaceId]?.light ?? "stopped"}
               label={shownAsk(live[active.workspaceId])?.label}
               variant="pill"
+              size="lg"
             />
           )}
           {confirmRemove && (
             <>
-              <button type="button" className="btn ghost" onClick={() => setConfirmRemove(false)}>
+              <button type="button" className="btn" onClick={() => setConfirmRemove(false)}>
                 Cancel
               </button>
               <button
@@ -250,14 +245,6 @@ export function SessionDetail({
               },
             ]}
           />
-          {prUrls.length > 0 && (
-            <PanelToggle
-              label="Pull requests"
-              count={prUrls.length}
-              open={prRailOpen}
-              onToggle={togglePrRail}
-            />
-          )}
         </div>
       </div>
 
@@ -267,7 +254,7 @@ export function SessionDetail({
         </div>
       )}
 
-      <div className={`detail-body${showRail ? "" : " no-rail"}`}>
+      <div className="detail-body">
         <div className="detail-left">
           <div className="detail-tabs">
             {roster.map((entry) => {
@@ -322,14 +309,14 @@ export function SessionDetail({
           {pane === "terminal" && <TerminalPane issueKey={session.id} />}
           {linking && <LinkTicketModal onClose={() => setLinking(false)} onPick={onPickIssue} />}
         </div>
-        {showRail && (
-          <div className="detail-right">
-            <PrRailSection urls={prUrls} />
-            <TurnSection workspaceId={active.workspaceId} hasPr={prUrls.length > 0} />
-            <WorkspaceSection workspaceId={session.id} turnIds={turnIds} refreshKey={run.running} />
-          </div>
-        )}
       </div>
+      <SessionPanel
+        sessionId={session.id}
+        activeWorkspaceId={active.workspaceId}
+        turnIds={turnIds}
+        prUrls={prUrls}
+        running={run.running}
+      />
     </div>
   );
 }

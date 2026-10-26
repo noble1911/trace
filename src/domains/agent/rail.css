@@ -1,12 +1,10 @@
 /* Agent context rail: PRs, workspace, ticket refs — extracted from globals.css; class names match the design handoff. */
 
 /* Right pane (context) */
+/* The context panel's sections, inside a SidePanel (which scrolls them). */
 .detail-right {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  background: var(--bg-1);
 }
 .ctx-section {
   border-bottom: 1px solid var(--border-faint);

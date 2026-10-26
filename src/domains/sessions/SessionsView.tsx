@@ -16,6 +16,7 @@ import {
   withoutSection,
   withoutTab,
 } from "./groupOps";
+import { useLastTab } from "./hooks/useLastTab";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionsOverview } from "./hooks/useSessionsOverview";
 import { NewSessionModal } from "./NewSessionModal";
@@ -42,7 +43,8 @@ export function SessionsView() {
   const live = useLiveStore((s) => s.info);
   const [creating, setCreating] = useState(false);
   const [binOpen, setBinOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  // The tab you were on last time, if you have several.
+  const [activeTab, setActiveTab] = useLastTab(groups.tabs.map((t) => t.id));
   const [addingSection, setAddingSection] = useState(false);
 
   useEffect(() => {

@@ -18,7 +18,7 @@
   padding: 16px 20px 12px;
 }
 .board-header h1 {
-  font-size: 17px;
+  font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: -0.015em;
   margin: 0;
@@ -97,7 +97,7 @@
   margin-right: 4px;
 }
 .seg button {
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 9px;
   font-size: 12px;
   color: var(--fg-3);
@@ -113,7 +113,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: var(--control-h-sm);
   padding: 0 10px;
   border: 1px solid var(--border-faint);
   border-radius: 999px;

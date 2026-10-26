@@ -1,6 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { I } from "@/components/Icon";
-import { PanelToggle } from "@/components/PanelToggle";
 import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { StatusLight } from "@/components/StatusLight";
 import { StatusPill } from "@/components/StatusPill";
@@ -24,7 +23,6 @@ interface DetailHeaderProps {
   provider: AgentProvider;
   openPr: PullRequest | null;
   busy: "raise" | "merge" | null;
-  railOpen: boolean;
   onBack: () => void;
   /** The page Back returns to ("Inbox", "Board", …). */
   backLabel: string;
@@ -34,7 +32,6 @@ interface DetailHeaderProps {
   onStop: () => void;
   onChooseCli: (cli: AgentCli) => void;
   onChooseProvider: (provider: AgentProvider) => void;
-  onToggleRail: () => void;
 }
 
 const isLive = (state: string) => state === "open" || state === "draft";
@@ -94,7 +91,6 @@ export function DetailHeader({
   provider,
   openPr,
   busy,
-  railOpen,
   onBack,
   backLabel,
   onRaisePr,
@@ -103,7 +99,6 @@ export function DetailHeader({
   onStop,
   onChooseCli,
   onChooseProvider,
-  onToggleRail,
 }: DetailHeaderProps) {
   const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
   return (
@@ -131,7 +126,7 @@ export function DetailHeader({
         <div className="ttl">{issue.summary}</div>
       </div>
       <div className="right">
-        {running && <StatusLight light={light} label={askLabel} variant="pill" />}
+        {running && <StatusLight light={light} label={askLabel} variant="pill" size="lg" />}
         <PrAction openPr={openPr} busy={busy} onRaisePr={onRaisePr} onMergePr={onMergePr} />
         {running ? (
           <button type="button" className="btn" onClick={onStop}>
@@ -152,7 +147,6 @@ export function DetailHeader({
           trigger={({ toggle }) => <MoreTrigger toggle={toggle} label="More actions" />}
           sections={[{ title: "Worktree", items: editorItems(issue.key) }]}
         />
-        <PanelToggle label="Details" open={railOpen} onToggle={onToggleRail} />
       </div>
     </div>
   );

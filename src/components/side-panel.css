@@ -1,0 +1,143 @@
+/* SidePanel — the right-edge panel (a detail's context, a page's orchestrator).
+   Open it's --side-w wide; closed, a --side-w-closed strip naming its views.
+   The .detail or .main it sits in pads its content clear of whichever shows. */
+
+.detail:has(> .side-panel),
+.main:has(> .side-panel) {
+  padding-right: var(--side-w-closed);
+  transition: padding-right 0.2s ease;
+}
+.detail:has(> .side-panel.open),
+.main:has(> .side-panel.open) {
+  padding-right: var(--side-w);
+}
+
+.side-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--side-w-closed);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border-faint);
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+.side-panel.open {
+  width: var(--side-w);
+}
+.side-panel.open > * {
+  animation: sp-in 0.2s ease;
+}
+@keyframes sp-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail:has(> .side-panel),
+  .main:has(> .side-panel),
+  .side-panel {
+    transition: none;
+  }
+  .side-panel.open > * {
+    animation: none;
+  }
+}
+
+/* Open: a header the height of the detail's own, then the scrolling body. */
+.sp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 57px;
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+.sp-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.sp-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0;
+  color: var(--fg-3);
+}
+.sp-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Several views: tabs in the header, one showing at a time. */
+.sp-tabs {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+.sp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--control-h-sm);
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui);
+  color: var(--fg-3);
+}
+.sp-tab:hover {
+  color: var(--fg-1);
+}
+.sp-tab.on {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+
+/* Closed: a strip naming each view; clicking a name opens it. */
+.sp-strip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 0;
+  color: var(--fg-3);
+}
+.sp-strip-icon {
+  margin-bottom: 8px;
+}
+.sp-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 0;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.sp-strip-item:hover {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+.sp-strip-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

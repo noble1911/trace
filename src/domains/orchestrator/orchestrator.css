@@ -1,201 +1,12 @@
-/* Orchestrator FAB + slide-out panel — ported from the design's orch-* styles. */
+/* Orchestrator pane (a view of the right-edge side panel) — ported from the design's orch-* styles. */
 
-.orch-fab {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px 0 10px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--fg-0);
-  font-size: 13px;
-  z-index: 30;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
-}
-.orch-fab:hover {
-  border-color: var(--border-strong);
-}
-.orch-fab-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 100%;
-  background: transparent;
-  color: inherit;
-  font-size: 13px;
-}
-.orch-fab-label {
-  font-weight: 500;
-}
-.orch-fab .glow,
-.orch-panel .head .glow {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--c-review), var(--c-prog));
-  box-shadow: 0 0 16px -2px var(--c-review);
-  display: grid;
-  place-items: center;
-  color: var(--bg-1);
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.orch-fab-badge {
-  font-size: 10.5px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--c-prog-bg);
-  color: var(--c-prog);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-.orch-fab-badge:hover {
-  background: var(--c-prog);
-  color: var(--bg-1);
-}
-.orch-fab kbd {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 1px 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--fg-3);
-  margin-left: 4px;
-}
-
-/* Width/height are set inline from usePanelResize (drag the left/top edges) —
-   deliberately not declared here, so there's one source of truth for the size. */
-.orch-panel {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  background: var(--bg-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+/* The orchestrator pane: a view of the right-edge side panel (OrchestratorPane). */
+.orch-pane {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  z-index: 40;
-  box-shadow: 0 30px 80px -10px rgba(0, 0, 0, 0.7);
-  overflow: hidden;
 }
-/* Resize handles. They sit inside the panel's rounded border (which clips at
-   overflow: hidden), above the content, and are invisible until hovered. */
-.orch-resize {
-  position: absolute;
-  z-index: 2;
-}
-.orch-resize::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: transparent;
-  transition: background 0.12s ease;
-}
-.orch-resize:hover::after,
-.orch-resize:focus-visible::after {
-  background: var(--border-strong);
-}
-.orch-resize:focus-visible {
-  outline: none;
-}
-.orch-resize.left {
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 6px;
-  cursor: ew-resize;
-}
-.orch-resize.left::after {
-  inset: 12px auto 12px 0;
-  width: 2px;
-}
-.orch-resize.top {
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  cursor: ns-resize;
-}
-.orch-resize.top::after {
-  inset: 0 12px auto 12px;
-  height: 2px;
-}
-.orch-resize.corner {
-  top: 0;
-  left: 0;
-  width: 14px;
-  height: 14px;
-  cursor: nwse-resize;
-  z-index: 3;
-}
-.orch-resize.corner::after {
-  inset: 0 auto auto 0;
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid transparent;
-  border-left: 2px solid transparent;
-  border-top-left-radius: var(--radius-lg);
-  background: transparent;
-  transition: border-color 0.12s ease;
-}
-.orch-resize.corner:hover::after,
-.orch-resize.corner:focus-visible::after {
-  border-color: var(--border-strong);
-  background: transparent;
-}
-
-/* While dragging, keep the gesture off the transcript: text selection and the
-   chart iframes would otherwise fight the pointer. */
-.orch-panel.resizing {
-  user-select: none;
-}
-.orch-panel.resizing .orch-body {
-  pointer-events: none;
-}
-
-.orch-panel .head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border-faint);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
-}
-.orch-panel .head .glow {
-  width: 22px;
-  height: 22px;
-}
-.orch-panel .head .title {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--fg-0);
-}
-.orch-panel .head .sub {
-  color: var(--fg-3);
-  font-size: 11.5px;
-  font-family: var(--font-mono);
-}
-.orch-panel .head .x {
-  margin-left: auto;
-  color: var(--fg-3);
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-}
-.orch-panel .head .x:hover {
-  color: var(--fg-1);
-  background: var(--bg-3);
-}
-
 .orch-tabs {
   display: flex;
   gap: 2px;
@@ -326,6 +137,12 @@
 }
 .stat-cell .v.prog {
   color: var(--c-prog);
+}
+.stat-cell .v.working {
+  color: var(--state-working-fg);
+}
+.stat-cell .v.needs {
+  color: var(--state-needs-fg);
 }
 .stat-cell .v.review {
   color: var(--c-review);

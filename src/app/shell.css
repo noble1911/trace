@@ -165,7 +165,9 @@
   padding: 12px 0 8px;
   border-right: 1px solid var(--border-faint);
   background: var(--bg-0);
-  z-index: 21;
+  /* Above detail overlays (50), so the recent-sessions flyout shows over an
+     open session; below modals (100+) and toasts. */
+  z-index: 60;
 }
 .rail .logo {
   width: 32px;

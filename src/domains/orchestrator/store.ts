@@ -46,7 +46,7 @@ function loadSpeed(): OrchSpeed {
 }
 
 interface OrchestratorStore {
-  open: boolean;
+  /** Stats or Chat — where the pane opens (it lives in the side panel; see useSidePanel). */
   tab: OrchTab;
   /** The user's stated objective for the sprint — frames the assistant's advice. */
   sprintGoal: string;
@@ -54,8 +54,6 @@ interface OrchestratorStore {
   backend: OrchBackend;
   /** Speed/quality trade for the assistant's model + thinking. */
   speed: OrchSpeed;
-  setOpen: (open: boolean) => void;
-  toggle: () => void;
   setTab: (tab: OrchTab) => void;
   setSprintGoal: (goal: string) => void;
   setBackend: (backend: OrchBackend) => void;
@@ -66,16 +64,13 @@ interface OrchestratorStore {
 // debounced so typing doesn't hit localStorage on every keystroke.
 let goalSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
-// UI + lightweight settings state for the orchestrator panel. The chat
+// UI + lightweight settings state for the orchestrator pane. The chat
 // conversation lives in its own slice (chatStore).
 export const useOrchestratorStore = create<OrchestratorStore>((set) => ({
-  open: false,
   tab: "stats",
   sprintGoal: loadGoal(),
   backend: loadBackend(),
   speed: loadSpeed(),
-  setOpen: (open) => set({ open }),
-  toggle: () => set((s) => ({ open: !s.open })),
   setTab: (tab) => set({ tab }),
   setBackend: (backend) => {
     try {

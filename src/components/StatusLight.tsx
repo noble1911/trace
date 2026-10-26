@@ -14,13 +14,22 @@ interface StatusLightProps {
   age?: string;
   /** Tooltip — e.g. a per-agent breakdown; the label otherwise. */
   title?: string;
+  /** `lg`: header size — the same height and corners as the buttons beside it. */
+  size?: "sm" | "lg";
 }
 
 /**
  * An agent's state, the same everywhere: blinking amber needs you, blue
  * spinner working, green ready, hollow grey stopped (see `--state-*` tokens).
  */
-export function StatusLight({ light, variant = "dot", label, age, title }: StatusLightProps) {
+export function StatusLight({
+  light,
+  variant = "dot",
+  label,
+  age,
+  title,
+  size = "sm",
+}: StatusLightProps) {
   const text = label ?? LIGHT_LABEL[light];
   const tip = title ?? (age ? `${text} · ${age}` : text);
   const dot = <span className={`light-dot ${light}`} aria-hidden={variant !== "dot"} />;
@@ -28,7 +37,7 @@ export function StatusLight({ light, variant = "dot", label, age, title }: Statu
     return <span className={`light-dot ${light}`} title={tip} role="img" aria-label={tip} />;
   }
   return (
-    <span className={`light-${variant} ${light}`} title={tip}>
+    <span className={`light-${variant} ${light}${size === "lg" ? " lg" : ""}`} title={tip}>
       {dot}
       <span className="light-text">{text}</span>
       {age && <span className="light-age">{age}</span>}

@@ -1,0 +1,107 @@
+/* Recent sessions in the rail (RailRecents): while Sessions is selected, resting
+   on its button slides a list out beside the rail. Left = navigation — the right
+   edge is the open thing's panel. */
+
+.rail-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* The flyout: hidden until the group is hovered (or reached by keyboard). It
+   waits a beat before showing, so a pointer passing over Sessions on its way
+   elsewhere doesn't pop it, and hides at once. `visibility` (not opacity alone)
+   keeps the invisible panel from catching clicks. Its left padding bridges the
+   gap from the rail so moving onto it never breaks the hover. */
+.rr-flyout {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  padding-left: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-8px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0s linear 0.15s;
+}
+.rail-group:hover .rr-flyout,
+.rail-group:has(:focus-visible) .rr-flyout {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.15s ease 0.35s,
+    transform 0.15s ease 0.35s,
+    visibility 0s linear 0.35s;
+}
+/* Reached by keyboard: no wait. */
+.rail-group:has(:focus-visible) .rr-flyout {
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No slide or fade: appear after the same wait, vanish at once. */
+  .rr-flyout {
+    transform: none;
+    transition: none;
+  }
+  .rail-group:hover .rr-flyout {
+    transition: visibility 0s linear 0.35s;
+  }
+}
+.rr-panel {
+  width: 260px;
+  padding: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rr-head {
+  padding: 4px 8px 6px;
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.rr-empty {
+  padding: 6px 8px 8px;
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.rr-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.rr-row:hover,
+.rr-row.active {
+  background: var(--bg-3);
+}
+.rr-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui);
+  color: var(--fg-1);
+}
+.rr-row.active .rr-title {
+  color: var(--fg-0);
+}
+.rr-time {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--fg-3);
+}

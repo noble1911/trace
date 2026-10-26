@@ -60,6 +60,24 @@
   --radius: 10px;
   --radius-lg: 14px;
 
+  /* Control heights — every interactive control is one of three sizes, so a
+     row of them lines up (see .claude/skills/trace-ui). */
+  --control-h: 30px; /* buttons, icon buttons, toggles, header status — headers & toolbars */
+  --control-h-sm: 26px; /* chips, segmented controls, filters */
+  --control-h-xs: 20px; /* pills inside cards and list rows */
+
+  /* The right-edge context panel (SidePanel): open, and folded to its strip. */
+  --side-w: 400px;
+  --side-w-closed: 40px;
+
+  /* Type scale — reach for these before a raw size. */
+  --text-title: 18px; /* a page's h1 (Board, Inbox, Fleet, Sessions, …) */
+  --text-detail-title: 15px; /* the title in a detail overlay's header */
+  --text-body: 13.5px; /* card titles, list primary text, prose */
+  --text-ui: 12.5px; /* buttons, inputs, secondary text */
+  --text-meta: 11.5px; /* metadata, timestamps, hints */
+  --text-label: 10.5px; /* uppercase section labels, mono counts */
+
   --font-sans: "Geist", -apple-system, "Helvetica Neue", Helvetica, system-ui, sans-serif;
   --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 

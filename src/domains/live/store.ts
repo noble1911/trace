@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { moveId, nudgeId } from "./order";
 import { loadManualOrder, saveManualOrder } from "./prefs";
-import type { LiveInfo } from "./types";
+import type { AgentLight, LiveInfo } from "./types";
 
 // Live state for every running agent (not shells), keyed by workspace id. The
 // board store owns the raw signals (running set, activity, acknowledgements);
@@ -72,4 +72,14 @@ export const useLiveStore = create<LiveStore>((set) => ({
 /** One agent's light — `stopped` when trace isn't running it. */
 export function useAgentLight(workspaceId: string) {
   return useLiveStore((s) => s.info[workspaceId]?.light ?? "stopped");
+}
+
+/** Every live agent's light, keyed by workspace id. */
+export function lightsOf(info: Record<string, LiveInfo>): Record<string, AgentLight> {
+  return Object.fromEntries(Object.entries(info).map(([id, i]) => [id, i.light]));
+}
+
+/** The current lights, outside React (context builders, commands). */
+export function liveLights(): Record<string, AgentLight> {
+  return lightsOf(useLiveStore.getState().info);
 }

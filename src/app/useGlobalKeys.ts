@@ -1,8 +1,8 @@
 import { useEffect } from "react";
+import { showView, toggleFrontView } from "@/components/useSidePanel";
 import { useBoardStore } from "@/domains/board/store";
 import { orderIds } from "@/domains/live/order";
 import { useLiveStore } from "@/domains/live/store";
-import { useOrchestratorStore } from "@/domains/orchestrator/store";
 import { useSessionsStore } from "@/domains/sessions/store";
 import type { NavId } from "./nav";
 import { openWorkspace } from "./openWorkspace";
@@ -24,13 +24,17 @@ export function nextNeedingYou(): string | null {
 
 /** App-wide shortcuts: ⌘J orchestrator, ⌘⇧N jump to the next agent needing you. */
 export function useGlobalKeys(setNav: (nav: NavId) => void): void {
-  const toggleOrchestrator = useOrchestratorStore((s) => s.toggle);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key === "j" && !e.shiftKey) {
         e.preventDefault();
-        toggleOrchestrator();
+        // The orchestrator lives in the right-edge panel of whatever's in front;
+        // a page without one (Inbox, Fleet, …) hands over to the board's.
+        if (!toggleFrontView("orchestrator")) {
+          showView("board", "orchestrator");
+          setNav("board");
+        }
       } else if (e.shiftKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         const next = nextNeedingYou();
@@ -39,5 +43,5 @@ export function useGlobalKeys(setNav: (nav: NavId) => void): void {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleOrchestrator, setNav]);
+  }, [setNav]);
 }

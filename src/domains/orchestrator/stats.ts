@@ -2,6 +2,7 @@ import type { ActivityEvent } from "@/domains/activity/types";
 import { groupIssuesByColumn } from "@/domains/board/columns";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import type { BoardData, PullRequest } from "@/domains/issues/types";
+import type { AgentLight } from "@/domains/live/types";
 
 // Deterministic board metrics. All numbers come from here — the orchestrator
 // LLM (later phases) only narrates these, never computes them, because LLMs
@@ -20,7 +21,8 @@ export interface BoardStats {
   todo: number;
   pctDone: number;
   unassigned: number;
-  agents: { running: number; working: number; waiting: number };
+  /** Live agents by light — the same counts the inbox and fleet show. */
+  agents: { running: number; working: number; needsYou: number };
   prs: { open: number; draft: number; merged: number; closed: number };
   /** Counts over the last 7 days, from the activity log. */
   throughput7d: { merged: number; raised: number; started: number };
@@ -42,15 +44,15 @@ function prBucket(state: string): "open" | "draft" | "merged" | "closed" {
 export interface StatsInput {
   board: BoardData | null;
   runningAgents: Set<string>;
-  agentActivity: Record<string, "working" | "waiting">;
-  ackedWaiting: Set<string>;
+  /** Each live agent's light (`domains/live`), so these counts match the inbox. */
+  lights: Record<string, AgentLight>;
   pullRequests: Record<string, PullRequest[]>;
   activity: ActivityEvent[];
   now: number;
 }
 
 export function computeBoardStats(input: StatsInput): BoardStats {
-  const { board, runningAgents, agentActivity, ackedWaiting, pullRequests, activity, now } = input;
+  const { board, runningAgents, lights, pullRequests, activity, now } = input;
   const issues = board?.issues ?? [];
   const columnDefs = board?.columns ?? [];
 
@@ -69,11 +71,8 @@ export function computeBoardStats(input: StatsInput): BoardStats {
 
   // Agents (exclude `term:` shells — only Claude/Codex agents count).
   const liveAgents = [...runningAgents].filter((k) => !k.startsWith("term:"));
-  const working = liveAgents.filter((k) => agentActivity[k] === "working").length;
-  const waiting = liveAgents.filter((k) => agentActivity[k] === "waiting").length;
-  const waitingUnattended = liveAgents.filter(
-    (k) => agentActivity[k] === "waiting" && !ackedWaiting.has(k)
-  ).length;
+  const working = liveAgents.filter((k) => lights[k] === "working").length;
+  const needsYou = liveAgents.filter((k) => lights[k] === "attention").length;
 
   // PRs — dedupe by url with state finality (a stale "open" must not shadow a
   // fresh "merged"), then count by bucket.
@@ -95,8 +94,8 @@ export function computeBoardStats(input: StatsInput): BoardStats {
   };
 
   const flags: string[] = [];
-  if (waitingUnattended > 0) {
-    flags.push(`${waitingUnattended} agent${waitingUnattended === 1 ? "" : "s"} waiting on you`);
+  if (needsYou > 0) {
+    flags.push(`${needsYou} agent${needsYou === 1 ? " needs" : "s need"} you`);
   }
   if (prCounts.open > 0) {
     flags.push(`${prCounts.open} PR${prCounts.open === 1 ? "" : "s"} open for review`);
@@ -113,7 +112,7 @@ export function computeBoardStats(input: StatsInput): BoardStats {
     todo,
     pctDone,
     unassigned,
-    agents: { running: liveAgents.length, working, waiting },
+    agents: { running: liveAgents.length, working, needsYou },
     prs: prCounts,
     throughput7d,
     flags,

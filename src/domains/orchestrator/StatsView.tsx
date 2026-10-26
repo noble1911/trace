@@ -3,6 +3,7 @@ import { useActivityStore } from "@/domains/activity/store";
 import { columnColor } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
+import { lightsOf, useLiveStore } from "@/domains/live/store";
 import { type BoardStats, computeBoardStats, filterByAssignee } from "./stats";
 import { useOrchestratorStore } from "./store";
 
@@ -11,8 +12,7 @@ import { useOrchestratorStore } from "./store";
 export function StatsView() {
   const board = useBoardStore((s) => s.data);
   const runningAgents = useBoardStore((s) => s.runningAgents);
-  const agentActivity = useBoardStore((s) => s.agentActivity);
-  const ackedWaiting = useBoardStore((s) => s.ackedWaiting);
+  const live = useLiveStore((s) => s.info);
   const pullRequests = useBoardStore((s) => s.pullRequests);
   const assigneeFilter = useBoardStore((s) => s.assigneeFilter);
   const activity = useActivityStore((s) => s.events);
@@ -34,8 +34,7 @@ export function StatsView() {
           {
             board,
             runningAgents,
-            agentActivity,
-            ackedWaiting,
+            lights: lightsOf(live),
             pullRequests,
             activity,
             now: Date.now(),
@@ -43,7 +42,7 @@ export function StatsView() {
           effectiveAssignee
         )
       ),
-    [board, runningAgents, agentActivity, ackedWaiting, pullRequests, activity, effectiveAssignee]
+    [board, runningAgents, live, pullRequests, activity, effectiveAssignee]
   );
 
   if (!board) {
@@ -109,8 +108,8 @@ export function StatsView() {
       <Section title="Agents">
         <div className="stat-row">
           <Stat label="Running" value={stats.agents.running} />
-          <Stat label="Working" value={stats.agents.working} accent="prog" />
-          <Stat label="Waiting" value={stats.agents.waiting} accent="prog" />
+          <Stat label="Working" value={stats.agents.working} accent="working" />
+          <Stat label="Needs you" value={stats.agents.needsYou} accent="needs" />
         </div>
       </Section>
 
@@ -141,7 +140,7 @@ function Stat({
 }: {
   label: string;
   value: number | string;
-  accent?: "prog" | "review" | "done";
+  accent?: "prog" | "working" | "needs" | "review" | "done";
 }) {
   return (
     <div className="stat-cell">

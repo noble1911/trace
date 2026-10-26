@@ -1,17 +1,19 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { I } from "@/components/Icon";
+import { SidePanel } from "@/components/SidePanel";
+import { useSidePanel } from "@/components/useSidePanel";
 import { activity } from "@/domains/activity/store";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { shownAsk } from "@/domains/live/light";
 import { useLiveStore } from "@/domains/live/store";
+import { OrchestratorPane } from "@/domains/orchestrator/OrchestratorPane";
 import { discoverPrs, usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { PrRailSection } from "@/domains/prs/PrRailSection";
 import { primaryPr } from "@/domains/prs/primaryPr";
 import { canonicalPrUrl } from "@/domains/prs/prUrl";
 import { usePrWatchStore } from "@/domains/prs/watchStore";
-import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import {
   type AgentCli,
   type AgentProvider,
@@ -70,7 +72,8 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
   const [busy, setBusy] = useState<"raise" | "merge" | null>(null);
   const [cli, setCli] = useState<AgentCli>(agentCli);
   const [provider, setProvider] = useState<AgentProvider>(agentProvider);
-  const [railOpen, toggleRail] = usePersistedFlag("trace.railOpen", true);
+  // Right edge: the ticket's details, or the orchestrator — one at a time.
+  const panel = useSidePanel("ticket", ["context", "orchestrator"]);
   const [repos, setRepos] = useState<string[]>([]);
   const [repoChoice, setRepoChoice] = useState("");
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
@@ -236,7 +239,6 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
         provider={provider}
         openPr={openPr}
         busy={busy}
-        railOpen={railOpen}
         onBack={onBack}
         backLabel={backLabel}
         onRaisePr={onRaisePr}
@@ -245,14 +247,13 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
         onStop={stop}
         onChooseCli={chooseCli}
         onChooseProvider={chooseProvider}
-        onToggleRail={toggleRail}
       />
 
       {error && (
         <div style={{ padding: "8px 20px", color: "var(--c-danger)", fontSize: 12.5 }}>{error}</div>
       )}
 
-      <div className={`detail-body${railOpen ? "" : " no-rail"}`}>
+      <div className="detail-body">
         <div className="detail-left">
           <div className="detail-tabs">
             {TABS.map((t) => {
@@ -311,9 +312,23 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
             </div>
           )}
         </div>
-
-        {railOpen && <ContextRail issue={issue} site={site} prUrls={prUrls} running={running} />}
       </div>
+      {/* PRs, workspace, ticket — docked on the right edge, folding to a strip. */}
+      <SidePanel
+        views={[
+          {
+            id: "context",
+            label: "Details",
+            count: prUrls.length,
+            content: <ContextRail issue={issue} site={site} prUrls={prUrls} running={running} />,
+          },
+          { id: "orchestrator", label: "Orchestrator", content: <OrchestratorPane /> },
+        ]}
+        active={panel.view}
+        open={panel.open}
+        onShow={panel.show}
+        onClose={panel.close}
+      />
     </div>
   );
 }

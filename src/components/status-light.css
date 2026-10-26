@@ -59,12 +59,12 @@
   text-overflow: ellipsis;
 }
 
-/* Tinted pill (cards, headers, inbox). */
+/* Tinted pill (cards, rows, inbox). */
 .light-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 20px;
+  height: var(--control-h-xs);
   padding: 0 8px;
   border-radius: 999px;
   font-size: 11px;
@@ -107,4 +107,17 @@
 .light-pill.ready {
   background: var(--state-ready-bg);
   border-color: transparent;
+}
+
+/* In a header beside buttons: the same height and corners as they have, so the
+   row reads as one strip. Tinted rather than filled — it's a state, not a control. */
+.light-pill.lg {
+  height: var(--control-h);
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  gap: 7px;
+}
+.light-pill.lg .light-age {
+  font-size: 11px;
 }

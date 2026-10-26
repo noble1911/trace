@@ -85,6 +85,9 @@ Detailed rules live in `.claude/rules/` — read the one relevant to your change
 - `.claude/rules/jira.md` — Jira auth, board→columns / sprint→cards mapping, transitions
 - `.claude/rules/agents.md` — PTY runner, worktrees, lifecycle ↔ actions, security
 
+UI changes of any kind: load the **`trace-ui` skill** (`.claude/skills/trace-ui/SKILL.md`) first — control
+sizes, which control to use, where panels go, how agent state is drawn — and run its checklist.
+
 ## Core concepts
 
 - **Issue ⇄ card:** every board card is an issue from a connected tracker (several can be connected at

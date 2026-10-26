@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { InterruptedAgents } from "@/app/InterruptedAgents";
 import { NAV_LABELS, type NavId } from "@/app/nav";
 import { openWorkspace } from "@/app/openWorkspace";
+import { PagePanel } from "@/app/PagePanel";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
 import { useAppEvents } from "@/app/useAppEvents";
@@ -20,14 +21,10 @@ import { InboxView } from "@/domains/inbox/InboxView";
 import { ProviderLogin } from "@/domains/issues/components/ProviderLogin";
 import { useIssuesStore } from "@/domains/issues/store";
 import { useLiveStore } from "@/domains/live/store";
-import { OrchestratorFab } from "@/domains/orchestrator/Fab";
-import { OrchestratorPanel } from "@/domains/orchestrator/Panel";
 import { PrsView } from "@/domains/prs/PrsView";
 import { useScheduleEvents } from "@/domains/schedules/hooks/useScheduleEvents";
 import { SchedulesView } from "@/domains/schedules/SchedulesView";
 import { useSchedulesStore } from "@/domains/schedules/store";
-import { RecentSessions } from "@/domains/sessions/RecentSessions";
-import { useRecentsCollapsed } from "@/domains/sessions/recentsLayout";
 import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
@@ -94,7 +91,6 @@ export function App() {
   }, []);
 
   useBoardAutoRefresh();
-  const [recentsCollapsed] = useRecentsCollapsed();
 
   const refreshAllPrs = useBoardStore((s) => s.refreshAllPrs);
   useEffect(() => {
@@ -189,21 +185,10 @@ export function App() {
     </>
   );
 
-  // The Recents sidebar sits beside an open session detail, for hopping between
-  // sessions without backing out. Not on the Sessions list — it would just
-  // repeat the list next to itself.
-  const showRecents = openSession != null;
-
-  // `has-recents` lives on the root wrapper (not `.app`) so it can inset both
-  // the app grid AND the fixed orchestrator FAB/panel — siblings of `.app` —
-  // away from the right-docked recents column.
   return (
-    <div
-      className={`app-root${showRecents ? " has-recents" : ""}${recentsCollapsed ? " recents-collapsed" : ""}`}
-    >
+    <div className="app-root">
       <div className="app">
         <Rail nav={nav} onNav={handleNav} waitingCount={waitingCount} />
-        {showRecents && <RecentSessions />}
         <Topbar
           nav={nav}
           project={project}
@@ -219,6 +204,8 @@ export function App() {
           {nav === "pr" && <PrsView />}
           {nav === "activity" && <ActivityView />}
           {nav === "settings" && <SettingsView />}
+          {/* The orchestrator, on the pages where it helps (⌘J). */}
+          {(nav === "board" || nav === "sessions") && <PagePanel key={nav} place={nav} />}
         </main>
       </div>
 
@@ -237,8 +224,6 @@ export function App() {
           <SessionDetail session={openSession} onBack={closeSession} backLabel={backLabel} />
         </ErrorBoundary>
       )}
-      <OrchestratorFab />
-      <OrchestratorPanel />
       <InterruptedAgents />
       <Toaster />
     </div>

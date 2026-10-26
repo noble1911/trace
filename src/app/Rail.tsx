@@ -4,6 +4,7 @@ import { Buddy } from "@/domains/buddy/Buddy";
 import { useBuddyStore } from "@/domains/buddy/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { useScheduledNeedsYou } from "@/domains/schedules/hooks/useScheduledNeedsYou";
+import { RailRecents } from "@/domains/sessions/RailRecents";
 import type { NavId } from "./nav";
 
 interface RailProps {
@@ -50,14 +51,19 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
         >
           <I.Fleet size={16} />
         </button>
-        <button
-          type="button"
-          className={`nav-btn${nav === "sessions" ? " active" : ""}`}
-          onClick={() => onNav("sessions")}
-          title="Sessions"
-        >
-          <I.Agents size={16} />
-        </button>
+        {/* While Sessions is selected, resting on it slides out its recent
+            sessions (RailRecents). */}
+        <div className="rail-group">
+          <button
+            type="button"
+            className={`nav-btn${nav === "sessions" ? " active" : ""}`}
+            onClick={() => onNav("sessions")}
+            title="Sessions"
+          >
+            <I.Agents size={16} />
+          </button>
+          {nav === "sessions" && <RailRecents />}
+        </div>
         <button
           type="button"
           className={`nav-btn${nav === "scheduled" ? " active" : ""}`}
