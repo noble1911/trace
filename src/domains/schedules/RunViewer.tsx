@@ -9,19 +9,20 @@ import { useNow } from "@/hooks/useNow";
 import { resizeAgent } from "@/ipc/agent";
 import { formatDuration, formatWhen } from "./describe";
 import { runWorkspaceId } from "./ids";
+import { PromptView } from "./PromptView";
 import { RunBadge, useRunNeedsYou } from "./RunBadge";
 import { RunConversation } from "./RunConversation";
 import { useSchedulesStore } from "./store";
-import type { ScheduleRun } from "./types";
+import type { ScheduledPrompt, ScheduleRun } from "./types";
 
-type RunView = "summary" | "log" | "terminal";
+type RunView = "summary" | "log" | "terminal" | "prompt";
 
-// One run, three ways, one tab at a time so each gets the full height: Claude's
+// One run, four ways, one tab at a time so each gets the full height: Claude's
 // closing summary (the default for a finished run — it's the answer), the whole
 // conversation as scrollable text (read from Claude's own log, since the PTY
-// recording can only replay the TUI's last screen), or the terminal itself,
-// which a live run can be typed into, e.g. to answer a permission prompt.
-export function RunViewer({ run }: { run: ScheduleRun }) {
+// recording can only replay the TUI's last screen), the terminal itself, which a
+// live run can be typed into (e.g. to answer a permission prompt), or the prompt.
+export function RunViewer({ run, prompt }: { run: ScheduleRun; prompt: ScheduledPrompt }) {
   const ws = runWorkspaceId(run.id);
   const live = run.status === "running";
   const ptyUp = useBoardStore((s) => s.runningAgents.has(ws));
@@ -159,6 +160,14 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
         >
           <I.Terminal size={12} /> Terminal
         </button>
+        <button
+          type="button"
+          className={`sched-view${view === "prompt" ? " active" : ""}`}
+          onClick={() => setView("prompt")}
+          title="The prompt this run was sent, and how it runs"
+        >
+          <I.File size={12} /> Prompt
+        </button>
       </div>
 
       {view === "summary" && run.summary && (
@@ -166,6 +175,7 @@ export function RunViewer({ run }: { run: ScheduleRun }) {
           <Markdown text={run.summary} />
         </div>
       )}
+      {view === "prompt" && <PromptView prompt={prompt} sent={run.prompt} />}
       {view === "log" && run.claudeSessionId && <RunConversation run={run} />}
       {view === "log" && !run.claudeSessionId && (
         <div className="empty-state">

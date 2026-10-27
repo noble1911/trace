@@ -4,6 +4,7 @@ import { I } from "@/components/Icon";
 import { Switch } from "@/components/Switch";
 import { useNow } from "@/hooks/useNow";
 import { describeSchedule, formatWhen, relative } from "./describe";
+import { PromptView } from "./PromptView";
 import { RunList } from "./RunList";
 import { RunViewer } from "./RunViewer";
 import { useSchedulesStore } from "./store";
@@ -104,22 +105,17 @@ export function ScheduleDetail({ prompt, onEdit }: ScheduleDetailProps) {
       </div>
 
       <div className="sched-body">
-        <RunList prompt={prompt} runs={runs} activeId={active?.id ?? null} onSelect={selectRun} />
+        <RunList runs={runs} activeId={active?.id ?? null} onSelect={selectRun} />
         {active ? (
-          <RunViewer key={active.id} run={active} />
+          <RunViewer key={active.id} run={active} prompt={prompt} />
         ) : (
-          <div className="empty-state">
-            <div className="inner">
-              <span className="ic">
-                <I.Clock size={28} />
-              </span>
-              <div className="title">No runs yet</div>
-              <div className="hint">
-                {prompt.enabled && prompt.nextRunAt
-                  ? `The first run is ${relative(prompt.nextRunAt, now)} — or start one now.`
-                  : "This prompt is paused. Run it by hand, or resume its schedule."}
-              </div>
+          <div className="sched-viewer">
+            <div className="sched-viewer-note muted">
+              {prompt.enabled && prompt.nextRunAt
+                ? `No runs yet. The first is ${relative(prompt.nextRunAt, now)} — or start one now.`
+                : "No runs yet. This prompt is paused: run it by hand, or resume its schedule."}
             </div>
+            <PromptView prompt={prompt} />
           </div>
         )}
       </div>
