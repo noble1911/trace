@@ -87,11 +87,31 @@ pub struct HookInput {
     pub message: Option<String>,
 }
 
+/// How Claude Code describes the watch it keeps on an Artifact it published
+/// (live updates and comment auto-replies). The watch lasts as long as the
+/// session and is listed as a background `monitor` task like any other, but
+/// nothing is waiting on it — the turn really is over.
+const ARTIFACT_WATCH: &str = "live updates for artifact ";
+
+/// Whether a `background_tasks` entry is work the agent is waiting on, rather
+/// than an ambient watch that never finishes. An MCP monitor names its server
+/// and tool; the artifact watch is a websocket monitor, which names neither.
+fn awaited(task: &serde_json::Value) -> bool {
+    let field = |k: &str| task.get(k).and_then(serde_json::Value::as_str);
+    let ambient = field("type") == Some("monitor")
+        && field("server").is_none()
+        && field("description").is_some_and(|d| d.starts_with(ARTIFACT_WATCH));
+    !ambient
+}
+
 impl HookInput {
-    /// Background tasks still running/pending at a Stop. A CLI too old to report
-    /// them counts as none — the pre-hook behaviour.
+    /// Background tasks still running/pending at a Stop, not counting ambient
+    /// watches. A CLI too old to report them counts as none — the pre-hook behaviour.
     pub fn pending_tasks(&self) -> u32 {
-        let n = self.background_tasks.as_ref().map_or(0, Vec::len);
+        let n = self
+            .background_tasks
+            .as_ref()
+            .map_or(0, |tasks| tasks.iter().filter(|t| awaited(t)).count());
         u32::try_from(n).unwrap_or(u32::MAX)
     }
 
@@ -265,6 +285,18 @@ mod tests {
         // Older CLIs / empty stdin: nothing to go on, but no panic.
         assert_eq!(decode("").pending_tasks(), 0);
         assert!(decode("not base64!").transcript_path.is_none());
+    }
+
+    #[test]
+    fn an_artifact_watch_is_not_pending_work() {
+        let json = r#"{"background_tasks":[
+            {"id":"s1","type":"monitor","status":"running","description":"live updates for artifact abc (comments)"},
+            {"id":"m1","type":"monitor","status":"running","description":"live updates for artifact x","server":"srv","tool":"watch"},
+            {"id":"b1","type":"shell","status":"running","description":"npm test"}
+        ]}"#;
+        let input = decode(&base64::engine::general_purpose::STANDARD.encode(json));
+        // The artifact watch is skipped; an MCP monitor and a shell still count.
+        assert_eq!(input.pending_tasks(), 2);
     }
 
     #[test]
