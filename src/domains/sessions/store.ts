@@ -44,6 +44,8 @@ interface SessionsStore {
     repo?: string | null,
     provider?: AgentProvider
   ) => Promise<ScratchSession>;
+  /** List a session created elsewhere (an agent's tool call) without opening it. */
+  adopt: (session: ScratchSession) => void;
   rename: (id: string, title: string) => Promise<void>;
   archive: (id: string) => Promise<void>;
   unarchive: (id: string) => Promise<void>;
@@ -125,6 +127,9 @@ export const useSessionsStore = create<SessionsStore>((set) => ({
     });
     activity.log({ kind: "session-created", title: `created session “${session.title}”` });
     return session;
+  },
+  adopt(session) {
+    set((s) => ({ sessions: [session, ...s.sessions.filter((x) => x.id !== session.id)] }));
   },
   async rename(id, title) {
     const updated = await renameSession(id, title);

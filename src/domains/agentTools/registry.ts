@@ -4,8 +4,10 @@ import { runWriteTool, WRITE_TOOL_NAMES, WRITE_TOOLS } from "@/domains/orchestra
 import { READ_TOOLS, runReadTool } from "@/domains/orchestrator/tools";
 import type { McpTool } from "@/ipc/agentTools";
 import { runScheduleTool, SCHEDULE_TOOLS } from "./scheduleTools";
+import { isSessionTool, runSessionTool, SESSION_TOOLS } from "./sessionTools";
 
-// The tools trace offers its own agents over MCP. The board ones are the
+// The tools trace offers its own agents over MCP: the board, scheduled prompts,
+// and standalone sessions (`sessionTools`). The board ones are the
 // orchestrator's — same definitions, same store, same effects as the in-app
 // assistant — so an agent on an epic can move its tickets and start agents on
 // them without spawning sub-agents. Unlike the assistant, there's no confirm
@@ -20,7 +22,13 @@ const GET_BOARD: Anthropic.Tool = {
 
 const SCHEDULE_TOOL_NAMES = new Set(SCHEDULE_TOOLS.map((t) => t.name));
 
-const TOOLS: Anthropic.Tool[] = [GET_BOARD, ...READ_TOOLS, ...WRITE_TOOLS, ...SCHEDULE_TOOLS];
+const TOOLS: Anthropic.Tool[] = [
+  GET_BOARD,
+  ...READ_TOOLS,
+  ...WRITE_TOOLS,
+  ...SCHEDULE_TOOLS,
+  ...SESSION_TOOLS,
+];
 
 /** The tool definitions in MCP's shape. */
 export function mcpTools(): McpTool[] {
@@ -36,5 +44,6 @@ export function runAgentTool(name: string, input: unknown): Promise<string> {
   if (name === GET_BOARD.name) return Promise.resolve(buildBoardContext());
   if (WRITE_TOOL_NAMES.has(name)) return runWriteTool(name, input, "agent");
   if (SCHEDULE_TOOL_NAMES.has(name)) return runScheduleTool(name, input);
+  if (isSessionTool(name)) return runSessionTool(name, input);
   return runReadTool(name, input);
 }

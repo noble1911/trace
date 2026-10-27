@@ -57,6 +57,11 @@ pub struct ScratchSession {
     /// conversation; the worktree belongs to the session.
     #[serde(default)]
     pub agents: Vec<SessionAgent>,
+    /// Started with Claude Code's Remote Control, so it can also be driven from
+    /// claude.ai/code and the Claude app. Kept on every start (and resume), not
+    /// just the first — Claude only enables it for the run it's passed to.
+    #[serde(default)]
+    pub remote_control: bool,
 }
 
 impl ScratchSession {
@@ -136,6 +141,7 @@ pub fn create_session(
     cli: String,
     provider: Option<String>,
     repo: Option<String>,
+    remote_control: Option<bool>,
 ) -> Result<ScratchSession, String> {
     let title = title.trim();
     let title = if title.is_empty() { "Exploration".to_string() } else { title.to_string() };
@@ -147,6 +153,10 @@ pub fn create_session(
     } else {
         None
     };
+    // Remote Control runs through the user's claude.ai account: Claude only,
+    // and on Anthropic — a third-party endpoint can't serve it.
+    let remote_control = remote_control.unwrap_or(false) && cli == "claude";
+    let provider = if remote_control { None } else { provider };
     // Only honor a repo that's actually configured; anything else falls back to
     // the default repo at start time (`None`).
     let repo = repo.and_then(|r| {
@@ -165,6 +175,7 @@ pub fn create_session(
         worktree: true,
         repo,
         agents: Vec::new(),
+        remote_control,
     };
     let mut list = load();
     list.push(session.clone());
@@ -253,56 +264,6 @@ pub(crate) fn session_cwd(id: &str, create: bool) -> Result<String, String> {
     Ok(worktree)
 }
 
-/// File a session under a tab and/or section (`None` = default/unsectioned).
-#[tauri::command]
-pub fn set_session_group(
-    id: String,
-    tab: Option<String>,
-    section: Option<String>,
-) -> Result<ScratchSession, String> {
-    let mut list = load();
-    let Some(s) = list.iter_mut().find(|s| s.id == id) else {
-        return Err("That session no longer exists.".to_string());
-    };
-    s.tab = tab;
-    s.section = section;
-    let updated = s.clone();
-    save(&list)?;
-    Ok(updated)
-}
-
-/// Clear session refs to tabs/sections that no longer exist (after a
-/// groups save deleted them). Sessions fall back to default/unsectioned.
-pub(crate) fn reconcile_groups(
-    groups: &crate::commands::groups::SessionGroups,
-) -> Result<(), String> {
-    let mut list = load();
-    let mut changed = false;
-    for s in &mut list {
-        if let Some(tab) = &s.tab {
-            if !groups.tabs.iter().any(|t| &t.id == tab) {
-                s.tab = None;
-                s.section = None;
-                changed = true;
-            }
-        }
-        if let Some(section) = &s.section {
-            let valid = groups
-                .sections
-                .iter()
-                .any(|sec| &sec.id == section && sec.tab == s.tab);
-            if !valid {
-                s.section = None;
-                changed = true;
-            }
-        }
-    }
-    if changed {
-        save(&list)?;
-    }
-    Ok(())
-}
-
 /// Move a session to the recycle bin: stop its PTYs (its own agent, its shell and
 /// any companions) but keep the metadata and Claude ids so it can be restored and
 /// resumed.
@@ -352,7 +313,9 @@ pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), Stri
     save(&list)
 }
 
-/// Start an exploratory session's agent in the configured repo root (no worktree).
+/// Start (or resume) an exploratory session's agent in its worktree.
+/// `initial_prompt` is submitted as its first message, fresh conversation or
+/// resumed — what an agent driving the session over trace's tools asks of it.
 #[tauri::command]
 pub fn start_session(
     app: AppHandle,
@@ -361,6 +324,7 @@ pub fn start_session(
     cols: u16,
     rows: u16,
     extra_args: Option<Vec<String>>,
+    initial_prompt: Option<String>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&id) {
         return Ok(());
@@ -376,6 +340,12 @@ pub fn start_session(
     // a ticket later), created on demand; legacy sessions stay in the repo root
     // where their Claude conversations live. Shared with the shell terminal.
     let cwd = session_cwd(&id, true)?;
+    let mut extra_args = extra_args.unwrap_or_default();
+    if session.remote_control {
+        // Named after the session, so it's recognisable in claude.ai/code.
+        extra_args.push("--remote-control".to_string());
+        extra_args.push(session.title.clone());
+    }
 
     spawn_in(
         app,
@@ -384,9 +354,9 @@ pub fn start_session(
         cwd,
         session.cli,
         None,
-        extra_args.unwrap_or_default(),
-        None,
-        None,
+        extra_args,
+        initial_prompt.clone(),
+        initial_prompt,
         session.provider,
         cols,
         rows,

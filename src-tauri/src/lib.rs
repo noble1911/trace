@@ -101,7 +101,7 @@ pub fn run() {
             commands::session::unarchive_session,
             commands::session::delete_session,
             commands::session::start_session,
-            commands::session::set_session_group,
+            commands::groups::set_session_group,
             commands::session_link::link_session_to_issue,
             commands::session_agents::add_session_agent,
             commands::session_agents::remove_session_agent,

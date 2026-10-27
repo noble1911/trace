@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::commands::session::{self, ScratchSession};
 use crate::helpers::restrict_perms;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -104,8 +105,56 @@ fn sanitize(mut groups: SessionGroups) -> SessionGroups {
 pub fn save_session_groups(groups: SessionGroups) -> Result<SessionGroups, String> {
     let groups = sanitize(groups);
     save(&groups)?;
-    crate::commands::session::reconcile_groups(&groups)?;
+    reconcile_groups(&groups)?;
     Ok(groups)
+}
+
+/// File a session under a tab and/or section (`None` = default/unsectioned).
+#[tauri::command]
+pub fn set_session_group(
+    id: String,
+    tab: Option<String>,
+    section: Option<String>,
+) -> Result<ScratchSession, String> {
+    let mut list = session::load();
+    let Some(s) = list.iter_mut().find(|s| s.id == id) else {
+        return Err("That session no longer exists.".to_string());
+    };
+    s.tab = tab;
+    s.section = section;
+    let updated = s.clone();
+    session::save(&list)?;
+    Ok(updated)
+}
+
+/// Clear session refs to tabs/sections that no longer exist (after a
+/// groups save deleted them). Sessions fall back to default/unsectioned.
+fn reconcile_groups(groups: &SessionGroups) -> Result<(), String> {
+    let mut list = session::load();
+    let mut changed = false;
+    for s in &mut list {
+        if let Some(tab) = &s.tab {
+            if !groups.tabs.iter().any(|t| &t.id == tab) {
+                s.tab = None;
+                s.section = None;
+                changed = true;
+            }
+        }
+        if let Some(section) = &s.section {
+            let valid = groups
+                .sections
+                .iter()
+                .any(|sec| &sec.id == section && sec.tab == s.tab);
+            if !valid {
+                s.section = None;
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        session::save(&list)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

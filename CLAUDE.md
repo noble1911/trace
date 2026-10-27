@@ -125,9 +125,11 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   `--settings`. The renderer registers the tools and runs each call (`domains/agentTools/`): the board ones
   are the orchestrator's own (`get_board`, `move_issue`, `start_agent`, …) with no confirm card; the
   scheduled-prompt ones read prompts and runs, update a prompt (keeping its on/off state), and create one
-  only paused. Agents are top-level Claude sessions: inherited Claude Code session markers
-  (`claude::env::INHERITED_SESSION_ENV`) are stripped, or a trace started from a Claude session would hand
-  its agents transcript saving off.
+  only paused; the session ones (`sessionTools.ts`) start a standalone session in a chosen repo —
+  optionally with Claude Code's Remote Control (`--remote-control`, persisted on the session so every
+  start keeps it) — type into it, slash commands included, and read its screen. Agents are top-level
+  Claude sessions: inherited Claude Code session markers (`claude::env::INHERITED_SESSION_ENV`) are
+  stripped, or a trace started from a Claude session would hand its agents transcript saving off.
 - **Interrupted agents:** `interrupted.rs` keeps `running-agents.json` (what each live agent was spawned
   with, and its pid). A natural exit removes the entry; quitting or an update restart (`shutting_down`)
   doesn't, so the next launch offers those agents back (`app/InterruptedAgents.tsx`). Resuming is

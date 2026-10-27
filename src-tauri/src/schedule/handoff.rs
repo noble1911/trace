@@ -48,6 +48,7 @@ pub fn continue_as_session(run_id: &str) -> Result<ScratchSession, String> {
         "claude".to_string(),
         prompt.provider,
         Some(repo.clone()),
+        None,
     )?;
     crate::commands::repos::adopt_workspace_dir(&session.id, &dirname, &repo)?;
     crate::claude::conversations::upsert_session_id(&session.id, &claude_id)?;

@@ -34,6 +34,8 @@ export interface ScratchSession {
   repo?: string | null;
   /** Extra agents sharing this session's worktree (empty/undefined = just one). */
   agents?: SessionAgent[];
+  /** Started with Remote Control — also drivable from claude.ai/code. */
+  remoteControl?: boolean;
 }
 
 /** A top-level view on the Sessions page (e.g. one per repo). */

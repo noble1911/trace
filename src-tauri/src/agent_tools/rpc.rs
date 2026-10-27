@@ -20,7 +20,10 @@ comment, start a coding agent on a ticket, message running agents) and its sched
 To fan work out across tickets, start trace agents on them with start_agent rather than spawning \
 sub-agents: each gets its own worktree, terminal and PR, and shows on the board. \
 Only create a scheduled prompt when the user asks for one; it is created paused for them to switch on. \
-Use update_scheduled_prompt to fix a prompt that isn't behaving as intended.";
+Use update_scheduled_prompt to fix a prompt that isn't behaving as intended. \
+For work that isn't a ticket, start_session opens a standalone session in one of trace's repos \
+(list_repos); send_to_session types into it (slash commands included) and read_session shows its \
+screen. Pass remote_control to make it drivable from claude.ai/code and the Claude app.";
 
 /// Answer one JSON-RPC message. `None` for a notification (no `id`), which gets
 /// no body. `call` runs a tool; it's only invoked for `tools/call`.

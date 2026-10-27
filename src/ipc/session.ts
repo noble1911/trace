@@ -9,13 +9,21 @@ export function listSessions(): Promise<ScratchSession[]> {
   return invoke("list_sessions");
 }
 
+/** `remoteControl` starts it with Claude Code's Remote Control (Claude on Anthropic only). */
 export function createSession(
   title: string,
   cli: AgentCli,
   repo?: string | null,
-  provider?: AgentProvider
+  provider?: AgentProvider,
+  remoteControl?: boolean
 ): Promise<ScratchSession> {
-  return invoke("create_session", { title, cli, repo: repo ?? null, provider: provider ?? null });
+  return invoke("create_session", {
+    title,
+    cli,
+    repo: repo ?? null,
+    provider: provider ?? null,
+    remoteControl: remoteControl ?? null,
+  });
 }
 
 export function renameSession(id: string, title: string): Promise<ScratchSession> {
@@ -58,13 +66,21 @@ export function setSessionGroup(
   return invoke("set_session_group", { id, tab, section });
 }
 
+/** Start (or resume) a session's agent; `prompt` is submitted as its first message. */
 export function startSession(
   id: string,
   cols: number,
   rows: number,
-  extraArgs?: string[]
+  extraArgs?: string[],
+  prompt?: string
 ): Promise<void> {
-  return invoke("start_session", { id, cols, rows, extraArgs: extraArgs ?? null });
+  return invoke("start_session", {
+    id,
+    cols,
+    rows,
+    extraArgs: extraArgs ?? null,
+    initialPrompt: prompt ?? null,
+  });
 }
 
 /**
