@@ -5,7 +5,8 @@
 //! agents or workflows goes as quiet as one waiting on you. So every Claude agent
 //! starts with `--settings` carrying two hooks — `Stop` (a turn ended; its input
 //! lists the background tasks still pending) and `Notification` (Claude may want
-//! a human, e.g. a permission prompt). Both call `trace-hook`, which relays the
+//! a human, e.g. a permission prompt) — plus `UserPromptSubmit`, which marks a
+//! turn starting for the interrupted-agents ledger (`interrupted`). Both call `trace-hook`, which relays the
 //! event plus the hook's JSON input through the render bridge's loopback listener
 //! with the same per-app token `trace-render` uses (`claude::render_bridge`).
 //!
@@ -137,6 +138,9 @@ pub fn settings_arg(allow: &[&str]) -> Result<String, String> {
     let mut settings = json!({ "hooks": {
         "Stop": hook("stop"),
         "Notification": hook("needs-input"),
+        // Marks the agent mid-turn, so one cut off by a restart is told to
+        // carry on (`interrupted`). Prints nothing: stdout here becomes context.
+        "UserPromptSubmit": hook("prompt"),
         "PermissionRequest": hook("permission"),
     } });
     if !allow.is_empty() {
@@ -153,10 +157,19 @@ pub fn on_hook(app: &AppHandle, ws: &str, message: &str) {
         super::permission_ask::on_request(app, ws, payload);
         return;
     }
+    if name == "prompt" {
+        crate::interrupted::record_busy(ws, true);
+        return;
+    }
     let Some(event) = HookEvent::parse(name) else {
         return;
     };
     let input = decode(payload);
+    if event == HookEvent::Stop {
+        // Background work still pending means the agent isn't done: a restart
+        // kills it, and the resumed agent should pick the work back up.
+        crate::interrupted::record_busy(ws, input.pending_tasks() > 0);
+    }
     let clip = crate::activity::clip;
     let turn = match event {
         HookEvent::Stop => AgentTurn {

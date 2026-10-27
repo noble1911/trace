@@ -95,12 +95,12 @@ pub fn spawn_agent_pty(
     // Extra CLI flags the user configured (e.g. --dangerously-skip-permissions),
     // appended verbatim after the managed flags.
     extra_args: Vec<String>,
-    // Kickoff prompt passed as the CLI's positional argument — the TUI starts
+    // First prompt passed as the CLI's positional argument — the TUI starts
     // with it already submitted. Far more robust than typing into the PTY
     // post-boot (no race with startup, and trust dialogs don't swallow it).
-    // Skipped when resuming a Claude conversation: re-greeting an existing
-    // session with the ticket brief would be noise.
-    initial_prompt: Option<String>,
+    // The caller picks it: the kickoff brief for a fresh conversation, a
+    // carry-on nudge (or nothing) for a resumed one (`commands::agent::spawn_in`).
+    prompt: Option<String>,
     env_overrides: HashMap<String, String>,
     cols: u16,
     rows: u16,
@@ -150,13 +150,9 @@ pub fn spawn_agent_pty(
     for arg in &extra_args {
         cmd.arg(arg);
     }
-    // The positional prompt goes at the very end. Fresh conversations only —
-    // a resumed Claude session already has its context.
-    if let Some(prompt) = initial_prompt.as_deref() {
-        let resuming = cli == "claude" && claude_session_id.is_some();
-        if !resuming && !prompt.trim().is_empty() {
-            cmd.arg(prompt);
-        }
+    // The positional prompt goes at the very end.
+    if let Some(prompt) = prompt.as_deref() {
+        cmd.arg(prompt);
     }
 
     // Start from a clean env, apply the effective env, skip model-override

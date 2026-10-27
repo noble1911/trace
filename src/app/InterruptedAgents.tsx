@@ -13,7 +13,8 @@ import {
 } from "@/ipc/interrupted";
 
 // On launch: agents that were running when trace last quit, updated or crashed,
-// offered back. Resuming carries on each one's conversation; nothing is resent.
+// offered back. Resuming carries on each one's conversation; the kickoff brief
+// isn't resent, but a Claude agent cut off mid-task is told to continue.
 
 type Sessions = ReturnType<typeof useSessionsStore.getState>["sessions"];
 type Issues = { key: string; summary: string }[];
@@ -25,6 +26,12 @@ function describe(id: string, issues: Issues, sessions: Sessions) {
   }
   const issue = issues.find((i) => i.key === id);
   return { title: issue?.summary ?? id, sub: id };
+}
+
+/** What resuming will do — mirrors `interrupted::resume_prompt`. */
+function onResume(agent: InterruptedAgent) {
+  if (agent.cli !== "claude") return "starts fresh";
+  return agent.busy ? "was mid-task · continues" : "was idle · waits for you";
 }
 
 export function InterruptedAgents() {
@@ -99,8 +106,8 @@ export function InterruptedAgents() {
       }
     >
       <p className="share-note">
-        These were running when trace last closed. Each one carries on its conversation where it
-        stopped.
+        These were running when trace last closed. Each one picks its conversation back up; the ones
+        cut off mid-task are told to continue.
       </p>
       <div className="share-list">
         {agents.map((a) => {
@@ -117,7 +124,7 @@ export function InterruptedAgents() {
                 <span className="share-row-text">
                   <span className="share-row-title">{title}</span>
                   <span className="share-row-sub">
-                    {sub} · started {relative(a.startedAt)}
+                    {sub} · {onResume(a)} · started {relative(a.startedAt)}
                   </span>
                 </span>
               </label>

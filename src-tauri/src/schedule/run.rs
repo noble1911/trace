@@ -181,6 +181,7 @@ fn spawn(
         prompt.model.clone(),
         args,
         Some(rendered.clone()),
+        None,
         prompt.provider.clone(),
         COLS,
         ROWS,

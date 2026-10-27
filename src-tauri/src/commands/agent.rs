@@ -49,6 +49,10 @@ pub(crate) fn spawn_in(
     model: Option<String>,
     extra_args: Vec<String>,
     initial_prompt: Option<String>,
+    // Sent instead of `initial_prompt` when a saved Claude conversation is
+    // resumed: re-greeting it with the kickoff brief would be noise, but one
+    // cut off mid-task needs telling to carry on (`interrupted`).
+    resume_prompt: Option<String>,
     // Model provider for the Claude harness: a registered Anthropic-compatible
     // endpoint (commands::providers::spec — "moonshot", "wafer" / "wafer-fast",
     // "deepseek" / "deepseek-pro"). Only meaningful with cli == "claude";
@@ -61,6 +65,9 @@ pub(crate) fn spawn_in(
         return Ok(());
     }
     let (resume_id, new_id_arg) = claude_session_ids(&workspace_id, &cli, &cwd);
+    let resuming = cli == "claude" && resume_id.is_some();
+    let prompt = if resuming { resume_prompt } else { initial_prompt }
+        .filter(|p| !p.trim().is_empty());
     // What the caller asked for, before trace adds its own flags below — enough
     // to start it again after an interrupted quit (`interrupted`).
     let launch = crate::interrupted::AgentLaunch {
@@ -72,6 +79,8 @@ pub(crate) fn spawn_in(
         extra_args: extra_args.clone(),
         started_at: 0,
         pid: None,
+        // A prompt starts a turn; the hooks keep this current from here on.
+        busy: prompt.is_some(),
     };
     // Start the loopback HTML bridge once (lazily) and hand this agent the
     // coordinates so its `trace-render` can post cards to the panel. Bind failure
@@ -136,7 +145,7 @@ pub(crate) fn spawn_in(
         new_id_arg,
         model,
         extra_args,
-        initial_prompt,
+        prompt,
         env_overrides,
         cols.max(20),
         rows.max(4),
@@ -216,6 +225,7 @@ pub fn start_agent(
         model,
         extra_args.unwrap_or_default(),
         initial_prompt,
+        None,
         provider,
         cols,
         rows,

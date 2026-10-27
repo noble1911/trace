@@ -386,6 +386,7 @@ pub fn start_session(
         None,
         extra_args.unwrap_or_default(),
         None,
+        None,
         session.provider,
         cols,
         rows,

@@ -126,6 +126,7 @@ pub fn start_session_agent(
         None,
         extra_args.unwrap_or_default(),
         None,
+        None,
         provider,
         cols,
         rows,

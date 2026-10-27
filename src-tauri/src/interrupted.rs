@@ -10,6 +10,12 @@
 //! carries on rather than starting over. The kickoff brief is never recorded, so
 //! it isn't sent twice.
 //!
+//! A resumed conversation just sits at its prompt, so an agent cut off mid-task
+//! is told to carry on (`resume_prompt`). Which ones were mid-task comes from the
+//! turn hooks (`claude::hooks`): a submitted prompt marks the agent busy, a turn
+//! that ends with nothing left in the background marks it idle. One that was
+//! idle — done, or waiting on you — is left waiting.
+//!
 //! Scheduled runs (`sched:`) aren't listed: the scheduler owns their lifecycle.
 
 use std::collections::BTreeMap;
@@ -38,6 +44,25 @@ pub struct AgentLaunch {
     /// The agent's process — still alive at launch means another trace (a dev
     /// build beside the installed one) is running it, so it wasn't interrupted.
     pub pid: Option<u32>,
+    /// Mid-turn: started with a prompt, or a prompt submitted since its last
+    /// turn ended. An entry from before this was tracked counts as busy.
+    #[serde(default = "busy_if_unknown")]
+    pub busy: bool,
+}
+
+fn busy_if_unknown() -> bool {
+    true
+}
+
+/// What a resumed agent that was mid-task is told, as its first prompt.
+const RESUME_NUDGE: &str = "trace was restarted while you were working, which cut your last \
+turn off. Continue where you left off.";
+
+/// The prompt to resume an agent with: the nudge for a Claude agent that was
+/// mid-task, none for one that was idle. Codex is left alone — it has no saved
+/// conversation to carry on.
+pub fn resume_prompt(launch: &AgentLaunch) -> Option<String> {
+    (launch.cli == "claude" && launch.busy).then(|| RESUME_NUDGE.to_string())
 }
 
 /// Serialises ledger read-modify-writes across spawn/exit threads.
@@ -96,6 +121,21 @@ pub fn record_exit(app: &AppHandle, workspace_id: &str) {
     }
 }
 
+/// An agent's turn state changed (`claude::hooks`): keep its ledger entry's
+/// `busy` in step. Only writes when it actually changes.
+pub fn record_busy(workspace_id: &str, busy: bool) {
+    if !tracked(workspace_id) {
+        return;
+    }
+    let _guard = LEDGER.lock();
+    let mut agents = read();
+    match agents.get_mut(workspace_id) {
+        Some(a) if a.busy != busy => a.busy = busy,
+        _ => return,
+    }
+    write(&agents);
+}
+
 /// At launch: move the agents the last session left behind into `interrupted`.
 /// Ones whose process is still alive belong to another running trace and stay
 /// in the ledger.
@@ -131,3 +171,37 @@ pub fn take(state: &AppState, ids: &[String]) -> Vec<AgentLaunch> {
 
 /// Held in `AppState`: the interrupted list for this launch.
 pub type Interrupted = Mutex<Vec<AgentLaunch>>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn launch(cli: &str, busy: bool) -> AgentLaunch {
+        AgentLaunch {
+            workspace_id: "TRACE-1".into(),
+            cwd: "/tmp".into(),
+            cli: cli.into(),
+            model: None,
+            provider: None,
+            extra_args: Vec::new(),
+            started_at: 0,
+            pid: None,
+            busy,
+        }
+    }
+
+    #[test]
+    fn only_a_busy_claude_agent_is_told_to_continue() {
+        assert!(resume_prompt(&launch("claude", true)).is_some());
+        assert!(resume_prompt(&launch("claude", false)).is_none());
+        assert!(resume_prompt(&launch("codex", true)).is_none());
+    }
+
+    #[test]
+    fn an_entry_from_before_busy_was_tracked_counts_as_busy() {
+        let json = r#"{"workspaceId":"TRACE-1","cwd":"/tmp","cli":"claude","model":null,
+            "provider":null,"extraArgs":[],"startedAt":0,"pid":null}"#;
+        let a: AgentLaunch = serde_json::from_str(json).unwrap();
+        assert!(a.busy);
+    }
+}

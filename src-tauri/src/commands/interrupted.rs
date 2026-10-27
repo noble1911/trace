@@ -28,8 +28,8 @@ pub struct Resumed {
 }
 
 /// Start the given interrupted agents again, each carrying on its saved
-/// conversation. One failing (say, its worktree was cleaned up) doesn't stop
-/// the rest.
+/// conversation — told to continue if it was mid-task. One failing (say, its
+/// worktree was cleaned up) doesn't stop the rest.
 #[tauri::command]
 pub fn resume_interrupted_agents(
     app: AppHandle,
@@ -54,6 +54,7 @@ fn resume(app: &AppHandle, state: &AppState, a: AgentLaunch) -> Result<(), Strin
         return Ok(()); // already being started
     };
     let ws = a.workspace_id.clone();
+    let nudge = interrupted::resume_prompt(&a);
     spawn_in(
         app.clone(),
         state,
@@ -63,6 +64,7 @@ fn resume(app: &AppHandle, state: &AppState, a: AgentLaunch) -> Result<(), Strin
         a.model,
         a.extra_args,
         None,
+        nudge,
         a.provider,
         COLS,
         ROWS,
