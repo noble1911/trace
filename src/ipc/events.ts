@@ -111,6 +111,13 @@ export function onAgentAsk(cb: (payload: AgentAsk) => void): Promise<UnlistenFn>
   return listen<AgentAsk>("agent-ask", (e) => cb(e.payload));
 }
 
+/** A question or plan dialog an agent showed has been answered (its tool returned). */
+export function onAgentAnswered(
+  cb: (payload: { workspaceId: string }) => void
+): Promise<UnlistenFn> {
+  return listen<{ workspaceId: string }>("agent-answered", (e) => cb(e.payload));
+}
+
 /** A new entry on the activity log (`activity::record`), from any producer. */
 export function onActivityEvent(cb: (payload: ActivityEvent) => void): Promise<UnlistenFn> {
   return listen<ActivityEvent>("activity-event", (e) => cb(e.payload));

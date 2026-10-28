@@ -6,7 +6,9 @@
 //! starts with `--settings` carrying two hooks — `Stop` (a turn ended; its input
 //! lists the background tasks still pending) and `Notification` (Claude may want
 //! a human, e.g. a permission prompt) — plus `UserPromptSubmit`, which marks a
-//! turn starting for the interrupted-agents ledger (`interrupted`). Both call `trace-hook`, which relays the
+//! turn starting for the interrupted-agents ledger (`interrupted`), and a
+//! `PostToolUse` on the question/plan tools, which says their dialog was
+//! answered (`agent-answered`) even when trace saw no keystroke. All call `trace-hook`, which relays the
 //! event plus the hook's JSON input through the render bridge's loopback listener
 //! with the same per-app token `trace-render` uses (`claude::render_bridge`).
 //!
@@ -162,6 +164,12 @@ pub fn settings_arg(allow: &[&str]) -> Result<String, String> {
         // carry on (`interrupted`). Prints nothing: stdout here becomes context.
         "UserPromptSubmit": hook("prompt"),
         "PermissionRequest": hook("permission"),
+        // A question or plan dialog was answered — however it was answered
+        // (keys, a click, Remote Control), the ask it raised is over.
+        "PostToolUse": [{
+            "matcher": "AskUserQuestion|ExitPlanMode",
+            "hooks": [{ "type": "command", "command": format!("{command} answered") }],
+        }],
     } });
     if !allow.is_empty() {
         settings["permissions"] = json!({ "allow": allow });
@@ -179,6 +187,10 @@ pub fn on_hook(app: &AppHandle, ws: &str, message: &str) {
     }
     if name == "prompt" {
         crate::interrupted::record_busy(ws, true);
+        return;
+    }
+    if name == "answered" {
+        let _ = app.emit("agent-answered", json!({ "workspaceId": ws }));
         return;
     }
     let Some(event) = HookEvent::parse(name) else {
@@ -237,7 +249,10 @@ fn log_turn(app: &AppHandle, ws: &str, event: HookEvent, input: &HookInput) {
             } else {
                 "finished a turn".to_string()
             };
-            let said = input.last_assistant_message.as_deref().map(|m| clip(m, 400));
+            let said = input
+                .last_assistant_message
+                .as_deref()
+                .map(|m| clip(m, 400));
             let data = json!({ "backgroundTasks": pending, "lastMessage": said });
             (ActivityKind::AgentTurnEnd, title, data)
         }
@@ -321,5 +336,18 @@ mod tests {
         assert!(!typed("agent_completed").asks_for_human());
         // Untyped (older CLI): assume it does, as before.
         assert!(decode("").asks_for_human());
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    #[test]
+    fn answered_dialogs_are_reported_for_questions_and_plans_only() {
+        let settings: serde_json::Value =
+            serde_json::from_str(&super::settings_arg(&[]).expect("settings")).expect("json");
+        let post = &settings["hooks"]["PostToolUse"][0];
+        assert_eq!(post["matcher"], "AskUserQuestion|ExitPlanMode");
+        let command = post["hooks"][0]["command"].as_str().unwrap_or_default();
+        assert!(command.ends_with(" answered"));
     }
 }

@@ -3,9 +3,17 @@ import { useRichOutputStore } from "@/domains/agent/richOutputStore";
 import { useAgentTools } from "@/domains/agentTools/useAgentTools";
 import { useBoardStore } from "@/domains/board/store";
 import { noteAgentTurn } from "@/domains/board/waitingNotify";
+import { userActed } from "@/domains/live/answer";
 import { noteLiveAsk, noteLiveTurn, useLiveSync } from "@/domains/live/sync";
 import { useSessionsStore } from "@/domains/sessions/store";
-import { onAgentAsk, onAgentRunState, onAgentTurn, onPtyOutput, onRichHtml } from "@/ipc/events";
+import {
+  onAgentAnswered,
+  onAgentAsk,
+  onAgentRunState,
+  onAgentTurn,
+  onPtyOutput,
+  onRichHtml,
+} from "@/ipc/events";
 
 /**
  * App-level backend listeners. We capture pty-output here (not in PtyTerminal)
@@ -42,6 +50,8 @@ export function useAppEvents(): void {
     // "needs you" (the quiet timer alone can't), and says what the agent asks.
     // What a permission dialog is really for — a question, a plan, a command.
     keep(onAgentAsk(noteLiveAsk));
+    // ...and when that dialog was answered, wherever (a click, Remote Control).
+    keep(onAgentAnswered((p) => userActed(p.workspaceId)));
     keep(
       onAgentTurn((turn) => {
         noteAgentTurn(turn);

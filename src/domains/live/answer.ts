@@ -67,9 +67,10 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * The user acted — re-arm notifications and clear the ask, as typing in the
  * terminal does — and the agent is back at work: without this the light would
  * read "Turn finished" until its first output. The quiet timer flips it back
- * if nothing comes.
+ * if nothing comes. Also what a hook-reported answer (`agent-answered`) does,
+ * for a dialog answered somewhere trace saw no keystroke.
  */
-function userActed(workspaceId: string) {
+export function userActed(workspaceId: string) {
   const board = useBoardStore.getState();
   board.noteUserTurn(workspaceId);
   board.setActivity(workspaceId, "working");
