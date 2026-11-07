@@ -25,6 +25,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar's width on both sides, so the column centres on the
+     same line as the chat composer below it (which has no scrollbar). Where
+     scrollbars overlay the content (macOS), this reserves nothing. */
+  scrollbar-gutter: stable both-edges;
   outline: none;
 }
 .tx-col {
