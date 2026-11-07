@@ -3,6 +3,7 @@ import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { runOrchestratorCli } from "./cli";
 import { buildBoardContext } from "./context";
+import { SESSIONS_RULE } from "./sessionSnapshot";
 import { speedModels, useOrchestratorStore } from "./store";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
@@ -17,12 +18,13 @@ You help the user run the board: summarize sprint status, recommend what to play
 Ground rules:
 - CURRENT BOARD STATE reflects the user's active board filter (see its SCOPE line). Only ever reason about, recommend, or act on tickets listed there — never suggest or touch a ticket that isn't in the snapshot, even if you remember it from earlier in the conversation.
 - Every NUMBER in CURRENT BOARD STATE is computed deterministically — trust it; never recount or estimate counts yourself.
+- ${SESSIONS_RULE} To see what a session agent is doing, call get_agent_transcript with its session id; send_to_agent also takes a session agent's id.
 - You can read (ticket details, agent transcripts) and act (move a ticket, start an agent, send input to an agent, comment on a ticket). Every action pops a confirmation card the user must approve before it runs — so propose and take actions freely; the user is the gate. Don't ask "shall I?" in prose and then wait — just call the tool; the card is the ask.
 - start_agent is the WHOLE "begin work" action: it moves the ticket to In Progress and launches the agent with the user's kickoff brief already submitted. After calling it for a ticket, do not call move_issue or send_to_agent for that same ticket in the same breath — the agent is already briefed and working. send_to_agent is only for nudging an agent that is already running and waiting.
 - You do NOT raise or merge pull requests — the coding agents do that themselves. If a ticket looks ready, say so and offer to move it, but never try to raise or merge a PR.
 - Proactively suggest completing finished work: when a ticket's work looks done — most clearly when its PR is merged — and it isn't already in the COMPLETION COLUMN, offer to move it there with move_issue. Like every action, it only runs after the user confirms the card.
 - Be concise and concrete. Reference tickets by key, lead with the recommendation, and keep answers skimmable.
-- You can draw a chart inline with a fenced \`chart\` code block. For BOARD stats use a deterministic kind — the app supplies the data, you only pick it: {"kind":"progress"} (done vs remaining), {"kind":"columns"} (tickets per column), {"kind":"assignees"} (tickets per assignee), {"kind":"throughput","days":14} (PRs merged per day); put ONLY the kind (never numbers) in these. For ANY OTHER data — figures you fetched from a tool/MCP (Jira velocity, Sentry trends, story points per sprint, …) — emit a Vega-Lite spec instead, with the data inline, e.g. {"mark":"line","data":{"values":[{"week":"W1","bugs":12}]},"encoding":{"x":{"field":"week","type":"nominal"},"y":{"field":"bugs","type":"quantitative"}}}. Only ever chart real data you have or fetched — never invented numbers. Reach for a chart when a distribution or trend reads better shown than told, with a one-line narration.
+- You can draw a chart inline with a fenced \`chart\` code block. For BOARD stats use a deterministic kind — the app supplies the data, you only pick it: {"kind":"progress"} (done vs remaining), {"kind":"columns"} (tickets per column), {"kind":"assignees"} (tickets per assignee), {"kind":"throughput","days":14} (PRs merged per day); for SESSIONS (these work with no board) {"kind":"agents"} (session agents by state), {"kind":"repos"} (sessions per repo); put ONLY the kind (never numbers) in these. For ANY OTHER data — figures you fetched from a tool/MCP (Jira velocity, Sentry trends, story points per sprint, …) — emit a Vega-Lite spec instead, with the data inline, e.g. {"mark":"line","data":{"values":[{"week":"W1","bugs":12}]},"encoding":{"x":{"field":"week","type":"nominal"},"y":{"field":"bugs","type":"quantitative"}}}. Only ever chart real data you have or fetched — never invented numbers. Reach for a chart when a distribution or trend reads better shown than told, with a one-line narration.
 - When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done. When a SPRINT GOAL is set, weight your recommendations toward it.`;
 
 export interface ChatMessage {
@@ -52,8 +54,8 @@ interface ChatStore {
   reset: () => void;
 }
 
-function systemPrompt(): string {
-  return `${SYSTEM_PREAMBLE}\n\nCURRENT BOARD STATE:\n${buildBoardContext()}`;
+async function systemPrompt(): Promise<string> {
+  return `${SYSTEM_PREAMBLE}\n\nCURRENT BOARD STATE:\n${await buildBoardContext()}`;
 }
 
 // Transient hooks for the in-flight turn, module-side (not serializable UI
@@ -124,7 +126,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           apiKey: key,
           model: models.sdk,
           extendedThinking: models.thinking,
-          system: systemPrompt(),
+          system: await systemPrompt(),
           history,
           signal: ac.signal,
           onTextDelta: (delta) => patch((m) => ({ ...m, text: m.text + delta, tool: undefined })),

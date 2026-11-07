@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type OrchTab = "stats" | "chat";
+export type OrchTab = "chat" | "stats";
 
 /** How the assistant reaches Claude: the in-renderer SDK (API key) or the
  * Claude CLI in print mode (`-p`, uses the logged-in CLI). */
@@ -46,7 +46,8 @@ function loadSpeed(): OrchSpeed {
 }
 
 interface OrchestratorStore {
-  /** Stats or Chat — where the pane opens (it lives in the side panel; see useSidePanel). */
+  /** Chat or Stats. Chat on every launch; kept while trace runs, so moving between
+   * pages returns to the tab you left (the pane lives in the side panel; see useSidePanel). */
   tab: OrchTab;
   /** The user's stated objective for the sprint — frames the assistant's advice. */
   sprintGoal: string;
@@ -67,7 +68,7 @@ let goalSaveTimer: ReturnType<typeof setTimeout> | null = null;
 // UI + lightweight settings state for the orchestrator pane. The chat
 // conversation lives in its own slice (chatStore).
 export const useOrchestratorStore = create<OrchestratorStore>((set) => ({
-  tab: "stats",
+  tab: "chat",
   sprintGoal: loadGoal(),
   backend: loadBackend(),
   speed: loadSpeed(),

@@ -1,4 +1,3 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { activity } from "@/domains/activity/store";
 import type { ActivityActor } from "@/domains/activity/types";
 import { sendToAgent } from "@/domains/agentChat/deliver";
@@ -6,88 +5,15 @@ import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { isScheduledRun } from "@/domains/schedules/ids";
 import { commentOnIssue, transitionIssue } from "@/ipc/issues";
+import { type AgentKey, resolveAgentKey } from "./agentKey";
 
-// Mutating tools. Every one passes through a human confirm-card before it runs
-// (the gate lives in agent.ts). Deliberately NO raise_pr / merge_pr: in this
-// workflow the coding agents raise and merge their own PRs.
+export { WRITE_TOOL_NAMES, WRITE_TOOLS } from "./writeTools";
 
-export const WRITE_TOOLS: Anthropic.Tool[] = [
-  {
-    name: "move_issue",
-    description:
-      "Move a ticket to a different board column by transitioning its status. On Jira, only legal workflow transitions succeed.",
-    input_schema: {
-      type: "object",
-      properties: {
-        issue_key: {
-          type: "string",
-          description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon).",
-        },
-        target_status: {
-          type: "string",
-          description:
-            "The destination status/column name exactly as it appears on the board, e.g. 'In Progress'.",
-        },
-      },
-      required: ["issue_key", "target_status"],
-    },
-  },
-  {
-    name: "start_agent",
-    description:
-      "The complete 'begin work' action for a ticket: creates its worktree, moves the ticket to the board's In Progress column (unless already in progress), and launches the session with the user's configured kickoff brief (the ticket's key, summary, description and recent discussion thread) already submitted to the agent. The agent starts working immediately. Do NOT also call move_issue for the In Progress transition, and do NOT call send_to_agent afterward to tell it to start — the kickoff brief already does that; a follow-up message would just type an unsent duplicate over it.",
-    input_schema: {
-      type: "object",
-      properties: {
-        issue_key: { type: "string", description: "The issue key to start an agent on." },
-      },
-      required: ["issue_key"],
-    },
-  },
-  {
-    name: "send_to_agent",
-    description:
-      "Send a line of input to an agent that is ALREADY running, as if typed into its terminal and followed by Enter. Use only to answer a question or nudge a blocked/waiting agent mid-task — NOT to start work on a freshly started agent (start_agent already delivers and submits the kickoff brief).",
-    input_schema: {
-      type: "object",
-      properties: {
-        issue_key: { type: "string", description: "The issue key whose agent to message." },
-        message: { type: "string", description: "The text to send to the agent." },
-      },
-      required: ["issue_key", "message"],
-    },
-  },
-  {
-    name: "comment_on_issue",
-    description:
-      "Add a comment to a ticket. Use to record a decision or a summary on the issue itself.",
-    input_schema: {
-      type: "object",
-      properties: {
-        issue_key: { type: "string", description: "The issue key to comment on." },
-        body: {
-          type: "string",
-          description: "The comment text (plain text; newlines become paragraphs).",
-        },
-      },
-      required: ["issue_key", "body"],
-    },
-  },
-  {
-    name: "broadcast_to_agents",
-    description:
-      "Send the same line of input to every running agent at once (each followed by Enter). Use for a fleet-wide instruction, e.g. 'rebase onto the latest main'.",
-    input_schema: {
-      type: "object",
-      properties: {
-        message: { type: "string", description: "The text to send to all running agents." },
-      },
-      required: ["message"],
-    },
-  },
-];
+// Runs the mutating tools (defined in writeTools.ts). Every one passes through a
+// human confirm-card before it runs (the gate lives in agent.ts).
 
-export const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((t) => t.name));
+/** How a tool that needs a tracker answers when none is loaded. */
+export const NO_BOARD = "No board is connected (no Jira or Pylon board is loaded),";
 
 function field(input: unknown, key: string): string {
   if (input && typeof input === "object" && key in input) {
@@ -121,8 +47,10 @@ export function actionSummary(name: string, input: unknown): string {
       return `Move ${key} → ${clip(field(input, "target_status"), 40)}`;
     case "start_agent":
       return startAgentSummary(key);
-    case "send_to_agent":
-      return `Send to ${key}'s agent: "${clip(field(input, "message"))}"`;
+    case "send_to_agent": {
+      const { label } = resolveAgentKey(field(input, "issue_key"));
+      return `Send to ${label}'s agent: "${clip(field(input, "message"))}"`;
+    }
     case "comment_on_issue":
       return `Comment on ${key}: "${clip(field(input, "body"))}"`;
     case "broadcast_to_agents":
@@ -168,12 +96,15 @@ export async function runWriteTool(
       : `Broadcast sent to ${ok}/${agents.length} — failed: ${failed.join(", ")}.`;
   }
 
-  const key = field(input, "issue_key").trim().toUpperCase();
-  if (!key) return "Error: missing issue_key.";
+  const raw = field(input, "issue_key");
+  if (!raw.trim()) return "Error: missing issue_key.";
+  // A session agent's id is case-sensitive; only ticket keys are upper-cased.
+  if (name === "send_to_agent") return sendTo(resolveAgentKey(raw), field(input, "message"));
+  const key = raw.trim().toUpperCase();
 
   if (name === "move_issue") {
     const data = board.data;
-    if (!data) return "No board is loaded.";
+    if (!data) return `${NO_BOARD} so there's no ticket to move.`;
     const issue = data.issues.find((i) => i.key === key);
     if (!issue) return `No ticket ${key} on the board.`;
     const want = field(input, "target_status").trim().toLowerCase();
@@ -194,7 +125,7 @@ export async function runWriteTool(
     }
     // Raw transition (not the board's optimistic moveIssue) so we report real
     // success/failure to the model, then resync the board.
-    if (!board.provider) return "No board is loaded.";
+    if (!board.provider) return `${NO_BOARD} so there's no ticket to move.`;
     try {
       await transitionIssue(
         board.provider,
@@ -216,7 +147,9 @@ export async function runWriteTool(
 
   if (name === "start_agent") {
     const data = board.data;
-    if (!data) return "No board is loaded.";
+    if (!data) {
+      return `${NO_BOARD} so start_agent has no ticket to start. For work that isn't a ticket, the user can start a session from the Sessions page.`;
+    }
     const issue = data.issues.find((i) => i.key === key);
     if (!issue) return `No ticket ${key} on the board.`;
     if (board.runningAgents.has(key)) return `An agent is already running on ${key}.`;
@@ -248,23 +181,10 @@ export async function runWriteTool(
     return `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working — no follow-up message is needed.`;
   }
 
-  if (name === "send_to_agent") {
-    if (!board.runningAgents.has(key)) return `No running agent on ${key} to message.`;
-    const message = field(input, "message");
-    if (!message.trim()) return "Error: empty message.";
-    try {
-      board.noteUserTurn(key);
-      await sendToAgent(key, message);
-      return `Sent to ${key}'s agent.`;
-    } catch (e) {
-      return `Couldn't send to ${key}: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-
   if (name === "comment_on_issue") {
     const body = field(input, "body");
     if (!body.trim()) return "Error: empty comment.";
-    if (!board.provider) return "No board is loaded.";
+    if (!board.provider) return `${NO_BOARD} so there's no ticket to comment on.`;
     try {
       await commentOnIssue(board.provider, key, body);
       return `Commented on ${key}.`;
@@ -274,4 +194,18 @@ export async function runWriteTool(
   }
 
   return `Unknown tool: ${name}`;
+}
+
+/** send_to_agent: a ticket's agent or a session's, once resolved. */
+async function sendTo({ key, label }: AgentKey, message: string): Promise<string> {
+  const board = useBoardStore.getState();
+  if (!board.runningAgents.has(key)) return `No running agent on ${label} to message.`;
+  if (!message.trim()) return "Error: empty message.";
+  try {
+    board.noteUserTurn(key);
+    await sendToAgent(key, message);
+    return `Sent to ${label}'s agent.`;
+  } catch (e) {
+    return `Couldn't send to ${label}: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }

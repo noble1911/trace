@@ -196,3 +196,34 @@
   font-size: 11.5px;
   color: var(--fg-3);
 }
+.stat-cell .v.ready {
+  color: var(--state-ready-fg);
+}
+.orch-cols-gap {
+  margin-top: 8px;
+}
+.orch-col-row .orch-subject {
+  color: var(--fg-2);
+  margin-right: 6px;
+}
+.orch-note {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui);
+  color: var(--fg-3);
+}
+.orch-section .orch-note + .stat-row,
+.orch-section .stat-row + .orch-note {
+  margin-top: 8px;
+}
+/* Where the sessions part begins below a board's stats. */
+.orch-divider {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--fg-2);
+}

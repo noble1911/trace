@@ -1,6 +1,7 @@
 import { orchestratorCli } from "@/ipc/orchestrator";
 import type { ChatTurn } from "./agent";
 import { buildBoardContext } from "./context";
+import { SESSIONS_RULE } from "./sessionSnapshot";
 
 // The Claude-CLI (`-p`) path: an alternative to the SDK that uses the user's
 // logged-in Claude CLI instead of an API key. One-shot per turn (prior turns are
@@ -16,6 +17,7 @@ Ground rules:
 - NEVER plan or describe how a ticket would be implemented, and NEVER enter "plan mode". To begin a ticket you DELEGATE it with a start_agent action block — you do not plan or do the work. A request like "start PM-12" means "delegate PM-12 to an agent", not "design PM-12".
 - CURRENT BOARD STATE reflects the user's active board filter (see its SCOPE line). Only reason about, recommend, or act on tickets listed there — never one that isn't in the snapshot.
 - Every NUMBER in CURRENT BOARD STATE is computed deterministically — trust it; never recount or estimate counts yourself.
+- ${SESSIONS_RULE} send_to_agent also takes a session agent's id in place of issue_key.
 - Take an action by emitting a fenced code block with language \`action\` containing a JSON spec. Each renders a Confirm button — nothing runs until the user approves, so propose actions freely; the card is the ask. One action per block; emit several if needed. Actions:
   {"action":"move_issue","issue_key":"PM-12","target_status":"In Progress"}
   {"action":"start_agent","issue_key":"PM-12"} — also moves it to In Progress and submits the kickoff brief; do NOT also emit move_issue or send_to_agent for that same ticket.
@@ -26,11 +28,11 @@ Ground rules:
 - You do NOT raise or merge pull requests — the coding agents do that. When a ticket's work looks done (e.g. its PR is merged), offer to move_issue it to the COMPLETION COLUMN.
 - You have MCP tools available (e.g. Atlassian/Jira, Pylon, Sentry). Use them to look things up beyond the board snapshot when it helps — full ticket descriptions, comments, history, linked issues, error reports. Do NOT use coding tools (Bash, file edits, etc.) and never plan an implementation. Make every board CHANGE through an \`action\` block (which the user confirms) — never mutate via MCP.
 - Be concise and concrete. Reference tickets by key, lead with the recommendation, and keep answers skimmable.
-- You can draw a chart inline with a fenced \`chart\` code block. For BOARD stats use a deterministic kind — the app supplies the data, you only pick it: {"kind":"progress"} (done vs remaining), {"kind":"columns"} (tickets per column), {"kind":"assignees"} (tickets per assignee), {"kind":"throughput","days":14} (PRs merged per day); put ONLY the kind (never numbers) in these. For ANY OTHER data — figures you fetched via an MCP tool (Jira velocity, Sentry trends, story points per sprint, …) — emit a Vega-Lite spec instead, with the data inline, e.g. {"mark":"line","data":{"values":[{"week":"W1","bugs":12}]},"encoding":{"x":{"field":"week","type":"nominal"},"y":{"field":"bugs","type":"quantitative"}}}. Only ever chart real data you have or fetched — never invented numbers. Reach for a chart when a distribution or trend reads better shown than told, with a one-line narration.
+- You can draw a chart inline with a fenced \`chart\` code block. For BOARD stats use a deterministic kind — the app supplies the data, you only pick it: {"kind":"progress"} (done vs remaining), {"kind":"columns"} (tickets per column), {"kind":"assignees"} (tickets per assignee), {"kind":"throughput","days":14} (PRs merged per day); for SESSIONS (these work with no board) {"kind":"agents"} (session agents by state), {"kind":"repos"} (sessions per repo); put ONLY the kind (never numbers) in these. For ANY OTHER data — figures you fetched via an MCP tool (Jira velocity, Sentry trends, story points per sprint, …) — emit a Vega-Lite spec instead, with the data inline, e.g. {"mark":"line","data":{"values":[{"week":"W1","bugs":12}]},"encoding":{"x":{"field":"week","type":"nominal"},"y":{"field":"bugs","type":"quantitative"}}}. Only ever chart real data you have or fetched — never invented numbers. Reach for a chart when a distribution or trend reads better shown than told, with a one-line narration.
 - When recommending what to play next: prefer unblocked over blocked, higher priority first, avoid piling new work on someone who already has agents waiting on them, and never recommend tickets already in progress or done. When a SPRINT GOAL is set, weight your recommendations toward it.`;
 
-function cliSystemPrompt(): string {
-  return `${CLI_PREAMBLE}\n\nCURRENT BOARD STATE:\n${buildBoardContext()}`;
+async function cliSystemPrompt(): Promise<string> {
+  return `${CLI_PREAMBLE}\n\nCURRENT BOARD STATE:\n${await buildBoardContext()}`;
 }
 
 /** Replay the conversation as a labelled transcript (print mode is stateless). */
@@ -40,6 +42,6 @@ function transcript(history: ChatTurn[]): string {
 }
 
 /** Run one orchestrator turn through the Claude CLI (print mode). */
-export function runOrchestratorCli(history: ChatTurn[], model: string): Promise<string> {
-  return orchestratorCli(cliSystemPrompt(), transcript(history), model);
+export async function runOrchestratorCli(history: ChatTurn[], model: string): Promise<string> {
+  return orchestratorCli(await cliSystemPrompt(), transcript(history), model);
 }

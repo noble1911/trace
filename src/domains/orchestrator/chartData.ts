@@ -1,5 +1,7 @@
 import { columnColor } from "@/domains/board/columns";
 import { scopedStatsInput } from "./context";
+import { sessionStatsInput } from "./sessionContext";
+import { computeSessionStats } from "./sessionStats";
 import { computeBoardStats } from "./stats";
 
 // Deterministic chart data. The assistant only ever picks a chart KIND (and a
@@ -37,9 +39,13 @@ function readNumber(spec: Record<string, unknown>, key: string, fallback: number
 
 /** Turn a `{kind, ...}` spec into a renderable chart model, or an error note. */
 export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
-  const input = scopedStatsInput();
-  if (!input?.board) return { error: "No board is loaded." };
   const kind = typeof spec.kind === "string" ? spec.kind : "";
+  const sessions = sessionChart(kind);
+  if (sessions) return sessions;
+  const input = scopedStatsInput();
+  if (!input?.board) {
+    return { error: "No board is connected. Session charts still work: agents, repos." };
+  }
   const stats = computeBoardStats(input);
 
   if (kind === "progress") {
@@ -99,5 +105,30 @@ export function chartFromSpec(spec: Record<string, unknown>): ChartResult {
     return { type: "bars", title: `PRs merged · last ${days} days`, orientation: "v", bars };
   }
 
-  return { error: `Unknown chart "${kind}". Try: progress, columns, assignees, throughput.` };
+  return {
+    error: `Unknown chart "${kind}". Try: progress, columns, assignees, throughput, agents, repos.`,
+  };
+}
+
+/** The session charts, which need no board; null for any other kind. */
+function sessionChart(kind: string): ChartModel | null {
+  if (kind !== "agents" && kind !== "repos") return null;
+  const stats = computeSessionStats(sessionStatsInput());
+  if (kind === "agents") {
+    const a = stats.agents;
+    const bars: ChartBar[] = [
+      { key: "attention", label: "Needs you", value: a.needsYou, color: "var(--state-needs)" },
+      { key: "working", label: "Working", value: a.working, color: "var(--state-working)" },
+      { key: "ready", label: "Ready", value: a.ready, color: "var(--state-ready)" },
+      { key: "stopped", label: "Stopped", value: a.stopped, color: "var(--state-stopped)" },
+    ];
+    return { type: "bars", title: "Session agents by state", orientation: "h", bars };
+  }
+  const bars = stats.repos.slice(0, 8).map((r) => ({
+    key: r.name,
+    label: r.name,
+    value: r.sessions,
+    color: "var(--c-accent)",
+  }));
+  return { type: "bars", title: "Sessions by repo", orientation: "h", bars };
 }

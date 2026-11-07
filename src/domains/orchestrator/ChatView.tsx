@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { I } from "@/components/Icon";
 import { Markdown } from "@/components/Markdown";
+import { useBoardStore } from "@/domains/board/store";
 import { ActionCard } from "./ActionCard";
 import { ChartBlock } from "./Chart";
 import { type ChatMessage, useChatStore } from "./chatStore";
@@ -12,6 +13,14 @@ const QUICK = [
   "What should I play next?",
   "What's blocked right now?",
   "Which agents are waiting on me?",
+];
+
+/** With no board connected there are no tickets: ask about the sessions. */
+const QUICK_SESSIONS = [
+  "What are my agents doing?",
+  "Which agents are waiting on me?",
+  "Chart my agents by state",
+  "Which sessions have open PRs?",
 ];
 
 const TOOL_LABEL: Record<string, string> = {
@@ -55,6 +64,7 @@ export function ChatView() {
   };
 
   const last = messages.length - 1;
+  const hasBoard = useBoardStore((s) => s.data !== null);
 
   return (
     <div className="orch-chat">
@@ -62,9 +72,9 @@ export function ChatView() {
         {messages.length === 0 ? (
           <div className="orch-chat-intro">
             <I.Sparkles size={20} />
-            <div className="t">Ask about the board</div>
+            <div className="t">{hasBoard ? "Ask about the board" : "Ask about your sessions"}</div>
             <div className="orch-quick">
-              {QUICK.map((q) => (
+              {(hasBoard ? QUICK : QUICK_SESSIONS).map((q) => (
                 <button key={q} type="button" onClick={() => submit(q)} disabled={busy}>
                   {q}
                 </button>

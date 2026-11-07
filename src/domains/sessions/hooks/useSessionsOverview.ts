@@ -8,6 +8,11 @@ const REFRESH_MS = 60_000;
 // (no pop-in), then refreshes behind it.
 let cache: Record<string, SessionOverview> = {};
 
+/** The last answer for every session asked about so far (the orchestrator's snapshot reads it). */
+export function cachedSessionsOverview(): Record<string, SessionOverview> {
+  return cache;
+}
+
 /**
  * Branch + PR per session for the list rows. One backend call for the whole
  * page (`sessions_overview` does one `gh pr list` per repo), refreshed every

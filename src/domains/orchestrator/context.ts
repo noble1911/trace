@@ -4,6 +4,9 @@ import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/sto
 import { useIssuesStore } from "@/domains/issues/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { liveLights } from "@/domains/live/store";
+import { ensureSessionJournals, sessionStatsInput } from "./sessionContext";
+import { NO_BOARD_LINES, sessionSnapshotLines } from "./sessionSnapshot";
+import { computeSessionStats } from "./sessionStats";
 import { computeBoardStats, filterByAssignee, type StatsInput } from "./stats";
 import { useOrchestratorStore } from "./store";
 
@@ -64,12 +67,23 @@ export function scopedStatsInput(): StatsInput | null {
   );
 }
 
-/** Build the current board state as text for the orchestrator's system prompt. */
-export function buildBoardContext(): string {
+/** The sessions block, from the same stats the panel shows. */
+function sessionLines(): string[] {
+  const input = sessionStatsInput();
+  return sessionSnapshotLines(computeSessionStats(input), input.now);
+}
+
+/**
+ * The current board state as text for the orchestrator's system prompt (and
+ * `get_board`): the board's tickets when one is loaded, plus the standalone
+ * sessions and their agents — or the sessions alone when no board is.
+ */
+export async function buildBoardContext(): Promise<string> {
+  await ensureSessionJournals();
   const board = useBoardStore.getState();
   const data = board.data;
   const input = scopedStatsInput();
-  if (!data || !input) return "No board is loaded.";
+  if (!data || !input) return [...NO_BOARD_LINES, "", ...sessionLines()].join("\n");
 
   const assignee = effectiveAssignee(board);
   const scopedIssues = input.board?.issues ?? data.issues;
@@ -113,6 +127,8 @@ export function buildBoardContext(): string {
       lines.push(`- ${e.issueKey ? `${e.issueKey} ` : ""}${e.title} [${e.kind}]`);
     }
   }
+
+  lines.push("", ...sessionLines());
 
   // The sprint goal, if set, frames everything below it.
   const goal = useOrchestratorStore.getState().sprintGoal.trim();

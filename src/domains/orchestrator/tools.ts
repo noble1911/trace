@@ -1,7 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { transcriptText } from "@/domains/agent/transcript";
+import { chatTail, runsAsChat } from "@/domains/agentChat/deliver";
 import { useBoardStore } from "@/domains/board/store";
+import { resolveAgentKey } from "./agentKey";
 import { describeConflicts } from "./conflicts";
+import { NO_BOARD } from "./mutations";
 
 // Read-only tools for Phase 2. The board snapshot in the system prompt answers
 // most questions; these let the model pull the two things the snapshot omits —
@@ -27,13 +30,13 @@ export const READ_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_agent_transcript",
     description:
-      "Read the recent terminal output of the Claude agent working on a ticket — use to explain why an agent is blocked or what it is doing. Returns the tail of the live PTY scrollback.",
+      "Read the recent output of an agent — a ticket's, or a standalone session's (pass the session id from CURRENT BOARD STATE) — to explain why it is blocked or what it is doing. Returns the tail of its terminal, or of its conversation for a chat agent.",
     input_schema: {
       type: "object",
       properties: {
         issue_key: {
           type: "string",
-          description: "The issue key whose agent transcript to read.",
+          description: "The issue key, or a session agent's id, whose transcript to read.",
         },
       },
       required: ["issue_key"],
@@ -61,11 +64,13 @@ export async function runReadTool(name: string, input: unknown): Promise<string>
   if (name === "check_conflicts") return describeConflicts();
 
   const board = useBoardStore.getState();
-  const key = readString(input, "issue_key").trim().toUpperCase();
-  if (!key) return "Error: missing issue_key.";
+  const raw = readString(input, "issue_key");
+  if (!raw.trim()) return "Error: missing issue_key.";
 
   if (name === "get_ticket_details") {
-    const issue = board.data?.issues.find((i) => i.key === key);
+    if (!board.data) return `${NO_BOARD} so there are no tickets to read.`;
+    const key = raw.trim().toUpperCase();
+    const issue = board.data.issues.find((i) => i.key === key);
     if (!issue) return `No ticket ${key} on the current board.`;
     return [
       `${issue.key}: ${issue.summary}`,
@@ -81,14 +86,22 @@ export async function runReadTool(name: string, input: unknown): Promise<string>
   }
 
   if (name === "get_agent_transcript") {
+    const { key, label } = resolveAgentKey(raw);
+    // A chat agent has no screen: the end of its conversation stands in for one.
+    if (await runsAsChat(key)) {
+      const tail = (await chatTail(key, 6_000)).trim();
+      return tail ? `Recent conversation for ${label}:\n\n${tail}` : `No output for ${label} yet.`;
+    }
     const chunks = board.outputBuffers[key];
     if (!chunks || chunks.length === 0) {
       return board.runningAgents.has(key)
-        ? `The agent for ${key} is running but hasn't produced output yet.`
-        : `No active agent for ${key}.`;
+        ? `The agent for ${label} is running but hasn't produced output yet.`
+        : `No active agent for ${label}.`;
     }
     const text = transcriptText(chunks).trim();
-    return text ? `Recent transcript for ${key}:\n\n${text}` : `No readable output for ${key} yet.`;
+    return text
+      ? `Recent transcript for ${label}:\n\n${text}`
+      : `No readable output for ${label} yet.`;
   }
 
   return `Unknown tool: ${name}`;
