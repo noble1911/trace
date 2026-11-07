@@ -1,0 +1,100 @@
+>> add_repo {"path":"E:\\trace-wt\\mcp-demo\\demo-repo"}
+[completed] Added E:\trace-wt\mcp-demo\demo-repo to trace's repositories (start_session repo: "demo-repo").
+
+>> add_repo {"path":"E:\\trace-wt\\mcp-demo\\deny-repo"}
+[completed] The user declined adding E:\trace-wt\mcp-demo\deny-repo. It wasn't done.
+
+>> start_session {"title":"MCPDEMO child","repo":"demo-repo","cli":"claude","prompt":"Append the line 'line three' to README.md and create notes.txt containing hello. Then run the shell command: powershell -Command Start-Sleep 300 and wait for it."}
+[completed] Started session "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606) in demo-repo.
+
+>> read_session {"session_id":"MCPDEMO child"}
+[completed] "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606) — working
+
+You: Append the line 'line three' to README.md and create notes.txt containing hello. Then run the shell command: powershell -Command Start-Sleep 300 and wait for it.
+
+AGENT: Session started and working; polling read_session until it edits files or starts the sleep.
+
+>> read_session {"session_id":"MCPDEMO child"}
+[completed] "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606) — working
+
+You: Append the line 'line three' to README.md and create notes.txt containing hello. Then run the shell command: powershell -Command Start-Sleep 300 and wait for it.
+  · Read E:\trace-wt\mcp-demo\demo-repo\.worktrees\2325bc96-315e-42bb-b90f-4c82959cb606\README.md (completed)
+
+>> get_session_changes {"session_id":"MCPDEMO child","diff":true}
+[completed] "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606): No changes against origin/main.
+
+>> get_session_pr {"session_id":"MCPDEMO child"}
+[completed] "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606) has no pull request yet.
+
+>> read_activity {"since":"last 1h","session_id":"MCPDEMO child"}
+[completed] 2026-11-07T23:26:05Z · session-created · agent · MCPDEMO child · created session “MCPDEMO child”
+
+>> interrupt_session {"session_id":"MCPDEMO child"}
+[completed] Interrupted "MCPDEMO child" (its agent). It's waiting at its prompt.
+
+>> stop_session {"session_id":"MCPDEMO child"}
+[completed] Stopped "MCPDEMO child" (its agent). send_to_session starts it again.
+
+AGENT: I've interrupted and stopped the child. Next is step 10: checking that the bystander session is refused.
+
+>> interrupt_session {"session_id":"MCPDEMO bystander"}
+[failed] Refused: "MCPDEMO bystander" wasn't started by you (or by a session you started), so you can't interrupt it. The user can interrupt it from trace.
+
+>> stop_session {"session_id":"MCPDEMO bystander"}
+[failed] Refused: "MCPDEMO bystander" wasn't started by you (or by a session you started), so you can't stop it. The user can stop it from trace.
+
+>> update_user {"message":"MCP tool test done"}
+[completed] Shown on the Fleet page.
+
+>> get_session_changes {"session_id":"MCPDEMO child","diff":true}
+[completed] "MCPDEMO child" (id 2325bc96-315e-42bb-b90f-4c82959cb606): 2 files changed against origin/main, +2 −0:
+M README.md +1 −0
+? notes.txt +1 −0
+(A added, M modified, D deleted, R renamed, ? untracked)
+
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -2,3 +2,4 @@
+ 
+ line one
+ line two
++line three
+
+diff --git a/notes.txt b/notes.txt
+--- /dev/null
++++ b/notes.txt
+@@ -0,0 +1 @@
++hello
+
+>> read_activity {"since":"last 1h","session_id":"MCPDEMO child"}
+[completed] 2026-11-07T23:26:39Z · agent-stopped · agent · MCPDEMO child · stopped “MCPDEMO child”
+2026-11-07T23:26:38Z · agent-exit · agent · MCPDEMO child · session ended
+2026-11-07T23:26:34Z · agent-interrupted · agent · MCPDEMO child · interrupted “MCPDEMO child”
+2026-11-07T23:26:05Z · session-created · agent · MCPDEMO child · created session “MCPDEMO child”
+
+>> clone_repo {"repo":"octocat/Hello-World"}
+[completed] octocat/Hello-World is cloned to C:\Users\rong0\src\Hello-World and added to trace's repositories (start_session repo: "Hello-World").
+
+>> add_repo {"path":"E:\\trace-wt\\mcp-demo\\deny-repo"}
+[failed] The operation timed out.
+
+>> add_repo {"path":"E:/trace-wt/mcp-demo/deny-repo"}
+[completed] Not done yet: waiting for the user to approve adding E:/trace-wt/mcp-demo/deny-repo in trace (or still doing it). Ask again later with the same arguments to get their answer; don't assume it happened.
+
+>> add_repo {"path":"E:/trace-wt/mcp-demo/deny-repo"}
+[completed] The user declined adding E:/trace-wt/mcp-demo/deny-repo. It wasn't done.
+
+AGENT: The first call was still waiting for an answer. The second call came back declined, so deny-repo wasn't added.
+
+**1st `add_repo` (path `E:/trace-wt/mcp-demo/deny-repo`)**
+```
+Not done yet: waiting for the user to approve adding E:/trace-wt/mcp-demo/deny-repo in trace (or still doing it). Ask again later with the same arguments to get their answer; don't assume it happened.
+```
+
+**2nd `add_repo` (same path)**
+```
+The user declined adding E:/trace-wt/mcp-demo/deny-repo. It wasn't done.
+```
+
+This time the first call returned the "Not done yet" message instead of timing out like the last one. Calling again with the same path then picked up the answer, as the tool's description says it should.
