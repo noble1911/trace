@@ -5,6 +5,8 @@ import { orderIds } from "@/domains/live/order";
 import { useLiveStore } from "@/domains/live/store";
 import { workspaceTitle } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
+import { pinnedPages } from "@/domains/sidebar/items";
+import { useSidebarStore } from "@/domains/sidebar/store";
 import { stopAgent } from "@/ipc/agent";
 import { hint } from "@/platform/shortcuts";
 import { isNavAvailable, NAV_LABELS, type NavId } from "./nav";
@@ -126,8 +128,10 @@ export function buildCommands(query: string, setNav: (nav: NavId) => void): Comm
     }
   }
 
+  // Every page it can show, hidden from the rail or not (Settings → Sidebar).
   const trackers = useIssuesStore.getState().sessions;
-  for (const nav of NAV_ORDER.filter((n) => isNavAvailable(n, trackers))) {
+  const pinned = pinnedPages(useSidebarStore.getState().entries);
+  for (const nav of NAV_ORDER.filter((n) => isNavAvailable(n, trackers, pinned))) {
     const label = `Go to ${NAV_LABELS[nav]}`;
     if (matches(label))
       out.push({ id: `nav:${nav}`, group: "action", label, run: () => setNav(nav) });

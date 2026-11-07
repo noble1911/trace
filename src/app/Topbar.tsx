@@ -20,7 +20,7 @@ export function Topbar({ nav, project, extra, onNav }: TopbarProps) {
       <div className="crumbs">
         <span>trace</span>
         <span className="sep">/</span>
-        {BOARD_SCOPED.has(nav) && (
+        {BOARD_SCOPED.has(nav) && project && (
           <>
             <span className="project">{project}</span>
             <span className="sep">/</span>

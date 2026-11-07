@@ -47,6 +47,7 @@ import "@/domains/github/github.css";
 import "@/domains/repos/repos.css";
 import "@/domains/settings/settings.css";
 import "@/domains/settings/shortcuts.css";
+import "@/domains/settings/sidebar.css";
 import "@/domains/settings/cleanup.css";
 import "@/domains/appearance/appearance.css";
 import "@/domains/appearance/previews.css";

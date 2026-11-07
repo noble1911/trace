@@ -13,7 +13,7 @@ import type { Os } from "../os.ts";
 /**
  * Where a shortcut is listened for, which decides what it may collide with and what
  * keys it may take: `app` fires everywhere, terminals and text boxes included. `reply` is the Inbox's
- * reply box, `chat` a chat agent's composer.
+ * reply box, `chat` a chat agent's composer, `settings` a list in Settings.
  */
 export type Scope =
   | "app"
@@ -24,9 +24,18 @@ export type Scope =
   | "reply"
   | "chat"
   | "search"
+  | "settings"
   | "mouse";
 
-export type GroupId = "app" | "detail" | "terminal" | "chat" | "inbox" | "search" | "board";
+export type GroupId =
+  | "app"
+  | "detail"
+  | "terminal"
+  | "chat"
+  | "inbox"
+  | "search"
+  | "board"
+  | "settings";
 
 export const GROUPS: { id: GroupId; label: string; desc: string }[] = [
   { id: "app", label: "Anywhere", desc: "Work on every page, in terminals too." },
@@ -36,6 +45,7 @@ export const GROUPS: { id: GroupId; label: string; desc: string }[] = [
   { id: "inbox", label: "Inbox", desc: "On the Inbox page, when you aren't typing." },
   { id: "search", label: "Search box", desc: "While the search box has focus." },
   { id: "board", label: "Board", desc: "On a tracker's board." },
+  { id: "settings", label: "Settings", desc: "In Settings → Sidebar's list of pages." },
 ];
 
 export interface ShortcutDef {
@@ -277,6 +287,22 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "search",
     scope: "search",
     ...both(["Escape"]),
+    isFixed: true,
+  },
+  {
+    id: "sidebarMoveUp",
+    label: "Move the page up the sidebar",
+    group: "settings",
+    scope: "settings",
+    ...both(["Alt+ArrowUp"]),
+    isFixed: true,
+  },
+  {
+    id: "sidebarMoveDown",
+    label: "Move the page down the sidebar",
+    group: "settings",
+    scope: "settings",
+    ...both(["Alt+ArrowDown"]),
     isFixed: true,
   },
   {

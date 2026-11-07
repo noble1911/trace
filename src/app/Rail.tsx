@@ -1,11 +1,14 @@
+import type { CSSProperties, ReactNode } from "react";
 import { AppLogo } from "@/components/AppLogo";
-import { I } from "@/components/Icon";
 import { Buddy } from "@/domains/buddy/Buddy";
 import { useBuddyStore } from "@/domains/buddy/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { useScheduledNeedsYou } from "@/domains/schedules/hooks/useScheduledNeedsYou";
 import { RailRecents } from "@/domains/sessions/RailRecents";
+import { railItems } from "@/domains/sidebar/items";
+import { useSidebarStore } from "@/domains/sidebar/store";
 import type { NavId } from "./nav";
+import { RAIL_ICONS } from "./railIcons";
 
 interface RailProps {
   nav: NavId;
@@ -14,126 +17,99 @@ interface RailProps {
   waitingCount: number;
 }
 
+/** Each page's tooltip (the inbox's also says how many need you). */
+const TITLES: Record<NavId, string> = {
+  inbox: "Inbox",
+  board: "Board",
+  pylon: "Pylon",
+  fleet: "Fleet — every running agent",
+  sessions: "Sessions",
+  scheduled: "Scheduled prompts",
+  pr: "Pull requests",
+  activity: "Activity",
+  integrations: "Integrations",
+  settings: "Settings",
+};
+
+interface RailButtonProps {
+  id: NavId;
+  active: boolean;
+  onNav: (nav: NavId) => void;
+  title?: string;
+  label?: string;
+  badge?: ReactNode;
+  style?: CSSProperties;
+}
+
+function RailButton({ id, active, onNav, title, label, badge, style }: RailButtonProps) {
+  const Icon = RAIL_ICONS[id];
+  return (
+    <button
+      type="button"
+      className={`nav-btn${active ? " active" : ""}`}
+      onClick={() => onNav(id)}
+      title={title ?? TITLES[id]}
+      aria-label={label ?? title ?? TITLES[id]}
+      style={style}
+    >
+      <Icon size={16} />
+      {badge}
+    </button>
+  );
+}
+
 export function Rail({ nav, onNav, waitingCount }: RailProps) {
   // Prefer the Jira identity for the rail avatar; fall back to any provider, or none.
   const user = useIssuesStore((s) => s.users.jira ?? s.users.pylon ?? null);
-  // A tracker's pages are only here while it's connected (`nav.ts`).
+  // Which pages show, and in what order, is the user's (Settings → Sidebar). By default
+  // a tracker's pages show only while it's connected (`domains/sidebar/items.ts`).
   const trackers = useIssuesStore((s) => s.sessions);
+  const entries = useSidebarStore((s) => s.entries);
   const scheduledNeedsYou = useScheduledNeedsYou();
   const buddyOn = useBuddyStore((s) => s.enabled);
+
+  const button = (id: NavId) => {
+    const active = nav === id;
+    if (id === "inbox") {
+      const n = waitingCount;
+      return (
+        <RailButton
+          key={id}
+          id={id}
+          active={active}
+          onNav={onNav}
+          title={n > 0 ? `Inbox — ${n} need you` : "Inbox"}
+          label={n > 0 ? `Inbox, ${n} need you` : "Inbox"}
+          badge={n > 0 && <span className="badge count">{n}</span>}
+        />
+      );
+    }
+    if (id === "sessions") {
+      // While Sessions is selected, resting on it slides out its recent sessions.
+      return (
+        <div key={id} className="rail-group">
+          <RailButton id={id} active={active} onNav={onNav} />
+          {active && <RailRecents />}
+        </div>
+      );
+    }
+    const badge = id === "scheduled" && scheduledNeedsYou && <span className="badge" />;
+    return <RailButton key={id} id={id} active={active} onNav={onNav} badge={badge} />;
+  };
 
   return (
     <aside className="rail">
       <div className="logo">
         <AppLogo size={32} />
       </div>
-      <nav className="nav">
-        <button
-          type="button"
-          className={`nav-btn${nav === "inbox" ? " active" : ""}`}
-          onClick={() => onNav("inbox")}
-          title={waitingCount > 0 ? `Inbox — ${waitingCount} need you` : "Inbox"}
-          aria-label={waitingCount > 0 ? `Inbox, ${waitingCount} need you` : "Inbox"}
-        >
-          <I.Inbox size={16} />
-          {waitingCount > 0 && <span className="badge count">{waitingCount}</span>}
-        </button>
-        {trackers.jira && (
-          <button
-            type="button"
-            className={`nav-btn${nav === "board" ? " active" : ""}`}
-            onClick={() => onNav("board")}
-            title="Board"
-            aria-label="Board"
-          >
-            <I.Board size={16} />
-          </button>
-        )}
-        {trackers.pylon && (
-          <button
-            type="button"
-            className={`nav-btn${nav === "pylon" ? " active" : ""}`}
-            onClick={() => onNav("pylon")}
-            title="Pylon"
-            aria-label="Pylon"
-          >
-            <I.Support size={16} />
-          </button>
-        )}
-        <button
-          type="button"
-          className={`nav-btn${nav === "fleet" ? " active" : ""}`}
-          onClick={() => onNav("fleet")}
-          title="Fleet — every running agent"
-          aria-label="Fleet"
-        >
-          <I.Fleet size={16} />
-        </button>
-        {/* While Sessions is selected, resting on it slides out its recent
-            sessions (RailRecents). */}
-        <div className="rail-group">
-          <button
-            type="button"
-            className={`nav-btn${nav === "sessions" ? " active" : ""}`}
-            onClick={() => onNav("sessions")}
-            title="Sessions"
-            aria-label="Sessions"
-          >
-            <I.Agents size={16} />
-          </button>
-          {nav === "sessions" && <RailRecents />}
-        </div>
-        <button
-          type="button"
-          className={`nav-btn${nav === "scheduled" ? " active" : ""}`}
-          onClick={() => onNav("scheduled")}
-          title="Scheduled prompts"
-          aria-label="Scheduled prompts"
-        >
-          <I.Clock size={16} />
-          {scheduledNeedsYou && <span className="badge" />}
-        </button>
-        {trackers.jira && (
-          <button
-            type="button"
-            className={`nav-btn${nav === "pr" ? " active" : ""}`}
-            onClick={() => onNav("pr")}
-            title="Pull requests"
-            aria-label="Pull requests"
-          >
-            <I.PR size={16} />
-          </button>
-        )}
-        <button
-          type="button"
-          className={`nav-btn${nav === "activity" ? " active" : ""}`}
-          onClick={() => onNav("activity")}
-          title="Activity"
-          aria-label="Activity"
-        >
-          <I.Activity size={16} />
-        </button>
-        <button
-          type="button"
-          className={`nav-btn${nav === "integrations" ? " active" : ""}`}
-          onClick={() => onNav("integrations")}
-          title="Integrations"
-          aria-label="Integrations"
-        >
-          <I.Plug size={16} />
-        </button>
-      </nav>
+      <nav className="nav">{railItems(entries, trackers).map(button)}</nav>
       {buddyOn && <Buddy />}
-      <button
-        type="button"
-        className={`nav-btn${nav === "settings" ? " active" : ""}`}
-        title="Settings"
-        aria-label="Settings"
+      <RailButton
+        id="settings"
+        active={nav === "settings"}
+        onNav={onNav}
         style={{ marginTop: "auto" }}
-        onClick={() => onNav("settings")}
-      >
-        <I.Settings size={16} />
-      </button>
+      />
       {/* The connected tracker account; opens Integrations (where the connection lives). */}
       <button
         type="button"

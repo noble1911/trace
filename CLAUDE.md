@@ -63,6 +63,7 @@ src/
     ├── live/               # each agent's live state (the source for StatusLight) + answering its prompts
     ├── orchestrator/       # the assistant in the side panel
     ├── agentTools/         # the tools agents call on trace (board = the orchestrator's, + scheduled prompts)
+    ├── sidebar/            # the rail's pages: order, show/hide, tracker-page rule (Settings → Sidebar)
     ├── appearance/         # themes (CSS in styles/themes.css), accent, density, fonts, xterm schemes
     ├── buddy/              # rail pixel buddy: mood from board/activity, Haiku speech; art is data (art/ART.md)
     └── settings/           # repos, agent defaults, integrations
@@ -103,7 +104,8 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
 
 - **Issue ⇄ card:** every board card is an issue from a connected tracker. Several can be connected at once, and
   each has its own page in the rail, shown only while it's connected (`app/nav.ts`: Board and Pull requests for
-  Jira, Pylon for Pylon). A page's switcher lists that tracker's boards, keyed `provider:boardId`. Only one board is loaded at a
+  Jira, Pylon for Pylon) unless the user pins it in Settings → Sidebar, which also orders and hides
+  the rail's pages (`domains/sidebar/`). A page's switcher lists that tracker's boards, keyed `provider:boardId`. Only one board is loaded at a
   time, and a ticket's detail needs its board, so open tickets through `board/openIssueAnywhere.ts` unless it's
   known to be on the loaded board. There is no local ticket
   store — the tracker is the source of truth. On Jira, a board shows exactly what its Jira board shows —

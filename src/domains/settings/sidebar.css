@@ -1,0 +1,93 @@
+/* Settings → Sidebar: the rail's pages as reorderable rows. */
+.sb-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.sb-row {
+  display: grid;
+  grid-template-columns: 14px 16px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--bg-1);
+}
+.sb-row:last-child {
+  border-bottom: 0;
+}
+.sb-row:focus-within {
+  background: var(--bg-2);
+}
+.sb-row.dragging {
+  opacity: 0.5;
+}
+.sb-grip {
+  display: grid;
+  place-items: center;
+  color: var(--fg-4);
+  cursor: grab;
+}
+.sb-row:hover .sb-grip {
+  color: var(--fg-2);
+}
+.sb-row.fixed .sb-grip {
+  cursor: default;
+}
+.sb-icon {
+  display: grid;
+  place-items: center;
+  color: var(--fg-2);
+}
+.sb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sb-text .label {
+  font-size: var(--text-body);
+  color: var(--fg-0);
+}
+.sb-text .hint {
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.sb-control {
+  display: flex;
+  justify-content: flex-end;
+}
+.sb-control .seg {
+  margin-right: 0;
+}
+.sb-fixed {
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.sb-move {
+  display: flex;
+  gap: 2px;
+  /* Two buttons' room, so a fixed row's control lines up with the rest. */
+  width: calc(var(--control-h-sm) * 2 + 2px);
+}
+.sb-move .btn.icon {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+}
+/* Not `disabled`: a disabled button drops focus, and Alt+↑ would lose its row at the top. */
+.sb-move .btn[aria-disabled="true"] {
+  color: var(--fg-4);
+  background: transparent;
+  cursor: default;
+}
+.sb-drop {
+  height: 2px;
+  margin: -1px 10px;
+  border-radius: 2px;
+  background: var(--c-accent);
+  position: relative;
+  z-index: 1;
+}

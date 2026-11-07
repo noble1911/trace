@@ -40,9 +40,15 @@ export function navTracker(nav: NavId): ProviderKind | undefined {
   return NAV_TRACKER[nav];
 }
 
-export function isNavAvailable(nav: NavId, trackers: TrackerSessions): boolean {
+/** Whether a page can be shown: its tracker is connected, or the user keeps it on the
+ * rail anyway (`pinned`, Settings → Sidebar), when it says how to connect one. */
+export function isNavAvailable(
+  nav: NavId,
+  trackers: TrackerSessions,
+  pinned: readonly NavId[] = []
+): boolean {
   const tracker = NAV_TRACKER[nav];
-  return !tracker || Boolean(trackers[tracker]);
+  return !tracker || Boolean(trackers[tracker]) || pinned.includes(nav);
 }
 
 /** Where to go when the wanted page isn't available: a board if there is one. */
@@ -52,7 +58,11 @@ export function landingNav(trackers: TrackerSessions): NavId {
   return "sessions";
 }
 
-/** The page to show: the wanted one, unless its tracker isn't connected. */
-export function resolveNav(nav: NavId, trackers: TrackerSessions): NavId {
-  return isNavAvailable(nav, trackers) ? nav : landingNav(trackers);
+/** The page to show: the wanted one, unless its tracker isn't connected (and it isn't pinned). */
+export function resolveNav(
+  nav: NavId,
+  trackers: TrackerSessions,
+  pinned: readonly NavId[] = []
+): NavId {
+  return isNavAvailable(nav, trackers, pinned) ? nav : landingNav(trackers);
 }

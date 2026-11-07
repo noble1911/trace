@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { BoardActions } from "@/app/BoardActions";
 import { InterruptedAgents } from "@/app/InterruptedAgents";
-import { NAV_LABELS, type NavId, resolveNav } from "@/app/nav";
+import { NAV_LABELS, type NavId, navTracker, resolveNav } from "@/app/nav";
 import { openWorkspace } from "@/app/openWorkspace";
 import { PagePanel } from "@/app/PagePanel";
 import { Rail } from "@/app/Rail";
 import { Topbar } from "@/app/Topbar";
+import { TrackerMissing } from "@/app/TrackerMissing";
 import { useAppEvents } from "@/app/useAppEvents";
 import { useBoardSelection } from "@/app/useBoardSelection";
 import { useFocusRefresh } from "@/app/useFocusRefresh";
@@ -33,6 +34,8 @@ import { SessionDetail } from "@/domains/sessions/SessionDetail";
 import { SessionsView } from "@/domains/sessions/SessionsView";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { SettingsView } from "@/domains/settings/SettingsView";
+import { pinnedPages } from "@/domains/sidebar/items";
+import { useSidebarStore } from "@/domains/sidebar/store";
 import { setDockBadge } from "@/ipc/notify";
 
 // Shell only — boot, nav routing, and the detail overlay. A tracker is optional: each one
@@ -44,9 +47,13 @@ export function App() {
   const initialized = useIssuesStore((s) => s.initialized);
   const trackerSessions = useIssuesStore((s) => s.sessions);
   const init = useIssuesStore((s) => s.init);
-  // Worked out on every render, so a page can't outlive the tracker it needs.
-  const nav = resolveNav(wantedNav, trackerSessions);
-  const isBoardPage = nav === "board" || nav === "pylon";
+  const sidebar = useSidebarStore((s) => s.entries);
+  // Worked out on every render, so a page can't outlive the tracker it needs — unless
+  // it's pinned to the rail (Settings → Sidebar), when it says how to connect one.
+  const nav = resolveNav(wantedNav, trackerSessions, pinnedPages(sidebar));
+  const tracker = navTracker(nav);
+  const missingTracker = tracker && !trackerSessions[tracker] ? tracker : null;
+  const isBoardPage = (nav === "board" || nav === "pylon") && !missingTracker;
 
   const data = useBoardStore((s) => s.data);
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
@@ -99,7 +106,8 @@ export function App() {
     : null;
   // A detail overlays the current page; Back returns to it, so it says which.
   const backLabel = NAV_LABELS[nav].replace(/^./, (c) => c.toUpperCase());
-  const project = data?.boardName ?? trackerSessions.jira?.site ?? "trace";
+  // A pinned tracker page with no tracker names no board in the crumbs.
+  const project = missingTracker ? "" : (data?.boardName ?? trackerSessions.jira?.site ?? "trace");
 
   // The rail stays visible inside a detail view; clicking a nav item there should
   // leave the detail and go to that view, not just swap the hidden content under it.
@@ -127,7 +135,10 @@ export function App() {
             {nav === "fleet" && <FleetView onOpen={(id) => openWorkspace(id, setNav)} />}
             {nav === "sessions" && <SessionsView />}
             {nav === "scheduled" && <SchedulesView />}
-            {nav === "pr" && <PrsView />}
+            {nav === "pr" && !missingTracker && <PrsView />}
+            {missingTracker && (
+              <TrackerMissing nav={nav} tracker={missingTracker} onNav={handleNav} />
+            )}
             {nav === "activity" && <ActivityView />}
             {nav === "integrations" && <IntegrationsView />}
             {nav === "settings" && <SettingsView />}
