@@ -1,0 +1,10 @@
+{
+  "data": [
+    { "slug": "new", "label": "New", "category": "new", "is_default_status": true, "is_archived": false },
+    { "slug": "waiting_on_you", "label": "Waiting on you", "category": "in_progress", "is_default_status": true, "is_archived": false },
+    { "slug": "escalated_to_eng", "label": "Escalated to Engineering", "category": "in_progress", "is_default_status": false, "is_archived": false },
+    { "slug": "retired_status", "label": "Retired", "category": "in_progress", "is_default_status": false, "is_archived": true },
+    { "slug": "closed", "label": "Closed", "category": "closed", "is_default_status": true, "is_archived": false }
+  ],
+  "request_id": "r-1"
+}

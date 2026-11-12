@@ -18,14 +18,15 @@ use crate::issues::models::{
     BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue, IssueComment,
 };
 
-const OPEN_BOARD_ID: &str = "open-issues";
+/// The one virtual board (shared with the MCP adapter, `pylon_mcp`).
+pub(crate) const OPEN_BOARD_ID: &str = "open-issues";
 /// Cap on issues fetched per board load (runaway guard, mirrors Jira's caps).
-const MAX_ISSUES: usize = 1000;
+pub(crate) const MAX_ISSUES: usize = 1000;
 /// Closed issues older than this are dropped — the Closed column shows recent
 /// completions, not the org's whole history.
 const CLOSED_KEEP_DAYS: i64 = 14;
 /// Cap on thread messages fetched per brief (runaway guard, mirrors MAX_ISSUES).
-const MAX_MESSAGES: usize = 200;
+pub(crate) const MAX_MESSAGES: usize = 200;
 
 /// Pylon's virtual boards — the UI's board picker gets exactly one choice.
 pub fn virtual_boards() -> Vec<BoardSummary> {
@@ -167,7 +168,7 @@ fn build_columns(issues: &[Issue]) -> Vec<BoardColumn> {
 }
 
 /// Keep closed issues only if resolved/updated recently (see CLOSED_KEEP_DAYS).
-fn visible(issue: &Value) -> bool {
+pub(crate) fn visible(issue: &Value) -> bool {
     let state = issue.get("state").and_then(Value::as_str).unwrap_or("new");
     if state != "closed" {
         return true;
@@ -237,6 +238,16 @@ pub async fn transition_to_state(
 /// Post an internal note on the issue (Pylon's comment equivalent). Plain text
 /// is HTML-escaped and wrapped one paragraph per line.
 pub async fn add_note(conn: &PylonConnection, issue_key: &str, text: &str) -> Result<(), String> {
+    let html = note_html(text)?;
+    let id = issue_key.trim_start_matches('#');
+    let path = format!("/issues/{id}/note");
+    client::post(conn, &path, json!({ "body_html": html })).await?;
+    Ok(())
+}
+
+/// A plain-text note as Pylon's `body_html`: HTML-escaped, one paragraph per
+/// line. Err when there's nothing to post. Shared with `pylon_mcp`.
+pub(crate) fn note_html(text: &str) -> Result<String, String> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Err("Comment body is empty.".to_string());
@@ -251,10 +262,7 @@ pub async fn add_note(conn: &PylonConnection, issue_key: &str, text: &str) -> Re
         .lines()
         .map(|l| format!("<p>{}</p>", escape(l)))
         .collect();
-    let id = issue_key.trim_start_matches('#');
-    let path = format!("/issues/{id}/note");
-    client::post(conn, &path, json!({ "body_html": paragraphs.join("") })).await?;
-    Ok(())
+    Ok(paragraphs.join(""))
 }
 
 /// The issue's full conversation thread — customer messages and internal

@@ -3,8 +3,9 @@ import { transcriptText } from "@/domains/agent/transcript";
 import { chatTail, runsAsChat } from "@/domains/agentChat/deliver";
 import { useBoardStore } from "@/domains/board/store";
 import { resolveAgentKey } from "./agentKey";
+import { locateIssue } from "./boardLookup";
+import { BOARD_READ_TOOLS, runGetBoard, runListBoards } from "./boardTools";
 import { describeConflicts } from "./conflicts";
-import { NO_BOARD } from "./mutations";
 
 // Read-only tools for Phase 2. The board snapshot in the system prompt answers
 // most questions; these let the model pull the two things the snapshot omits —
@@ -12,16 +13,22 @@ import { NO_BOARD } from "./mutations";
 // mutates anything (that's Phase 3, behind a confirm gate).
 
 export const READ_TOOLS: Anthropic.Tool[] = [
+  ...BOARD_READ_TOOLS,
   {
     name: "get_ticket_details",
     description:
-      "Get the full description and metadata for one ticket by key. Use when the one-line board summary isn't enough to reason about a ticket.",
+      "Get the full description and metadata for one ticket by key, from whichever board it is on. Use when the one-line board summary isn't enough to reason about a ticket.",
     input_schema: {
       type: "object",
       properties: {
         issue_key: {
           type: "string",
-          description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon).",
+          description: "The issue key: TRACE-12 (Jira), #123 (Pylon) or local-12 (a trace board).",
+        },
+        board: {
+          type: "string",
+          description:
+            "provider:boardId, when the ticket isn't on the shown board and trace can't tell where it is.",
         },
       },
       required: ["issue_key"],
@@ -62,27 +69,31 @@ function readString(input: unknown, field: string): string {
 export async function runReadTool(name: string, input: unknown): Promise<string> {
   // Board-wide tools take no issue_key.
   if (name === "check_conflicts") return describeConflicts();
+  if (name === "list_boards") return runListBoards();
+  if (name === "get_board") return runGetBoard(input);
 
   const board = useBoardStore.getState();
   const raw = readString(input, "issue_key");
   if (!raw.trim()) return "Error: missing issue_key.";
 
   if (name === "get_ticket_details") {
-    if (!board.data) return `${NO_BOARD} so there are no tickets to read.`;
-    const key = raw.trim().toUpperCase();
-    const issue = board.data.issues.find((i) => i.key === key);
-    if (!issue) return `No ticket ${key} on the current board.`;
-    return [
-      `${issue.key}: ${issue.summary}`,
-      `Type: ${issue.issueType} · Priority: ${issue.priority} · Status: ${issue.statusName}`,
-      `Assignee: ${issue.assignee?.displayName ?? "unassigned"}`,
-      issue.epic ? `Epic: ${issue.epic}${issue.epicKey ? ` (${issue.epicKey})` : ""}` : "",
-      issue.labels.length ? `Labels: ${issue.labels.join(", ")}` : "",
-      "",
-      issue.description?.trim() || "(no description)",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    try {
+      const { issue, board: where } = await locateIssue(raw, readString(input, "board"));
+      return [
+        `${issue.key}: ${issue.summary}`,
+        `Board: ${where.boardKey} "${where.data.boardName}"`,
+        `Type: ${issue.issueType} · Priority: ${issue.priority} · Status: ${issue.statusName}`,
+        `Assignee: ${issue.assignee?.displayName ?? "unassigned"}`,
+        issue.epic ? `Epic: ${issue.epic}${issue.epicKey ? ` (${issue.epicKey})` : ""}` : "",
+        issue.labels.length ? `Labels: ${issue.labels.join(", ")}` : "",
+        "",
+        issue.description?.trim() || "(no description)",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
   }
 
   if (name === "get_agent_transcript") {

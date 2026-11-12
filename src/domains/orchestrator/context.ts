@@ -1,9 +1,10 @@
 import { useActivityStore } from "@/domains/activity/store";
-import { dedupePrs } from "@/domains/board/prDedupe";
-import { type SessionStatus, statusOf, useBoardStore } from "@/domains/board/store";
+import { effectiveAssignee } from "@/domains/board/assignee";
+import { statusOf, useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
-import type { Issue, PullRequest } from "@/domains/issues/types";
 import { liveLights } from "@/domains/live/store";
+import { formatBoardLines } from "./boardFormat";
+import { loadBoardSetup } from "./boardSetup";
 import { ensureSessionJournals, sessionStatsInput } from "./sessionContext";
 import { NO_BOARD_LINES, sessionSnapshotLines } from "./sessionSnapshot";
 import { computeSessionStats } from "./sessionStats";
@@ -15,33 +16,13 @@ import { useOrchestratorStore } from "./store";
 // deterministic stats (the model narrates, never counts). Kept lean so it caches
 // cheaply and leaves room for the conversation.
 
-function oneLine(s: string, n: number): string {
-  const t = s.replace(/\s+/g, " ").trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
-}
-
-/** The most-final PR for an issue (a stale "open" hidden behind "merged"). */
-function issuePrTag(prs: PullRequest[] | undefined): string {
-  if (!prs || prs.length === 0) return "";
-  const [top] = dedupePrs(prs.map((pr): [PullRequest, null] => [pr, null]));
-  return top ? ` PR#${top[0].number}(${top[0].state})` : "";
-}
-
-function ticketLine(issue: Issue, agent: SessionStatus, prs: PullRequest[] | undefined): string {
-  const assignee = issue.assignee?.displayName ?? "unassigned";
-  const epic = issue.epic ? ` epic="${oneLine(issue.epic, 28)}"` : "";
-  const agentTag = agent !== "idle" ? ` agent=${agent}` : "";
-  const head = `- ${issue.key} [${issue.priority}] ${issue.issueType} · ${issue.statusName} · ${assignee}`;
-  return `${head}${epic}${agentTag}${issuePrTag(prs)}\n  ${oneLine(issue.summary, 100)}`;
-}
-
-/** Resolve the board's effective assignee filter (undefined → the current user). */
-function effectiveAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
+/** The board's assignee filter as the board applies it (`board/assignee.ts`). */
+function boardAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
   const provider = board.provider;
   const currentUserId = provider
     ? (useIssuesStore.getState().users[provider]?.accountId ?? null)
     : null;
-  return board.assigneeFilter === undefined ? currentUserId : board.assigneeFilter;
+  return effectiveAssignee(provider, board.assigneeFilter, currentUserId);
 }
 
 /**
@@ -63,7 +44,7 @@ export function scopedStatsInput(): StatsInput | null {
       activity: events,
       now: Date.now(),
     },
-    effectiveAssignee(board)
+    boardAssignee(board)
   );
 }
 
@@ -85,7 +66,7 @@ export async function buildBoardContext(): Promise<string> {
   const input = scopedStatsInput();
   if (!data || !input) return [...NO_BOARD_LINES, "", ...sessionLines()].join("\n");
 
-  const assignee = effectiveAssignee(board);
+  const assignee = boardAssignee(board);
   const scopedIssues = input.board?.issues ?? data.issues;
   const stats = computeBoardStats(input);
 
@@ -98,26 +79,19 @@ export async function buildBoardContext(): Promise<string> {
           : undefined) ??
         "the selected assignee");
 
-  const lines: string[] = [
-    `SPRINT: ${data.sprintName ?? "—"} · board "${data.boardName}"`,
-    `SCOPE: filtered to ${scopeName} — these are the only tickets in play; never recommend or act on tickets not listed below.`,
-    `STATS: ${stats.total} tickets · ${stats.done} done (${stats.pctDone}%) · ${stats.inProgress} in progress · ${stats.todo} to do · ${stats.unassigned} unassigned`,
-    `AGENTS: ${stats.agents.running} running (${stats.agents.working} working, ${stats.agents.needsYou} need you)`,
-    `PRS: ${stats.prs.open} open · ${stats.prs.draft} draft · ${stats.prs.merged} merged · ${stats.prs.closed} closed`,
-  ];
-  if (stats.flags.length) lines.push(`FLAGS: ${stats.flags.join("; ")}`);
-  lines.push("", `COLUMNS: ${stats.columns.map((c) => `${c.name} (${c.count})`).join(" · ")}`);
-  const doneCol = data.columns.find((c) => c.statuses.some((s) => s.category === "done"));
-  if (doneCol) {
-    lines.push(
-      `COMPLETION COLUMN: "${doneCol.name}" — move a ticket here once its work is finished (e.g. its PR is merged).`
-    );
-  }
-  lines.push("", "TICKETS:");
-  for (const issue of scopedIssues) {
-    const agent = statusOf(board.runningAgents.has(issue.key), board.agentActivity[issue.key]);
-    lines.push(ticketLine(issue, agent, board.pullRequests[issue.key]));
-  }
+  const boardKey = board.boardKey ?? `${board.provider}:${data.boardId}`;
+  const lines = formatBoardLines({
+    boardKey,
+    provider: board.provider ?? "jira",
+    data,
+    shown: true,
+    issues: scopedIssues,
+    scope: `filtered to ${scopeName} — these are the only tickets in play; never recommend or act on tickets not listed below.`,
+    stats,
+    agentOf: (key) => statusOf(board.runningAgents.has(key), board.agentActivity[key]),
+    prs: board.pullRequests,
+    setup: await loadBoardSetup(boardKey),
+  });
 
   // Per-turn agent events would crowd out everything else in 12 lines.
   const recent = input.activity.filter((e) => e.kind !== "agent-turn-end").slice(0, 12);

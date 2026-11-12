@@ -59,3 +59,24 @@ abstraction. Jira specifics follow. We never hardcode columns or maintain a loca
   Frontend talks to it only through `commands/issues.rs` → `src/ipc/issues.ts`.
 - Treat the API as paginated: follow `startAt`/`isLast` on Agile endpoints and `nextPageToken` on
   `/search/jql` — a single-page fetch silently truncates large orgs.
+
+## Jira over MCP (`jira_mcp/`)
+
+- A second adapter for the same tracker: Atlassian's Rovo MCP v2 server
+  (`https://mcp.atlassian.com/v2/mcp?tools=all`) with trace's own OAuth login (`mcp_auth`, the same
+  login as Integrations → MCP servers), no API token. `Provider::JiraMcp`, `kind()` = `Jira`,
+  `session_info().via` = `"mcp"`, `site` = the site's host (browse links still work).
+- Generic over `mcp_client::ToolCaller`; tests run on `FakeCaller` with fixtures in
+  `jira_mcp/fixtures/`. Tool names and argument shapes live only in `jira_mcp/tools.rs`; arguments
+  are built from each tool's advertised input schema (first listed name wins, values coerced to
+  its type), because Atlassian doesn't document v2's argument names. `route.rs` runs unlisted
+  tools through `executeRead`/`executeWrite` if the server only shows its `discover` front.
+- Same board semantics as REST: columns from `getJiraBoardConfig`, cards from `jira::scope`'s JQL
+  (`filter = <id>` when the config has no filter JQL) paged through `searchJiraIssuesUsingJql`
+  (`nextPageToken`). The board-config screen (done cutoff, Kanban backlog column) isn't reachable,
+  so `BoardSettings::defaults` per board type apply, as on REST without board-admin rights; a
+  column the config flags as the backlog is still dropped.
+- Every call names the site's `cloudId` (`getAccessibleAtlassianResources`; a site listed once per
+  product is merged by id, Confluence-only ones are left out). Several sites: the connect asks
+  which, and the choice is saved.
+- Which adapter is used: `issues::mcp_link` (see `providers.md`).

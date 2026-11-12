@@ -32,6 +32,7 @@ const NAV_ORDER: NavId[] = [
   "inbox",
   "board",
   "pylon",
+  "boards",
   "fleet",
   "sessions",
   "scheduled",

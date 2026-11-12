@@ -33,7 +33,7 @@ import {
   type Transport,
 } from "@/ipc/agent";
 import { mergePr, raisePr } from "@/ipc/pr";
-import { issueRepo, listRepos, setIssueRepo } from "@/ipc/repos";
+import { setIssueRepo } from "@/ipc/repos";
 import { ChatSurface } from "./ChatSurface";
 import { ContextRail } from "./ContextRail";
 import { useCapabilities } from "./capabilities";
@@ -46,6 +46,7 @@ import { usePrTab, useTestsTab } from "./reviewTabs";
 import { StartPrompt } from "./StartPrompt";
 import { TICKET_CHAT_TAB, ticketPanels } from "./ticketPanels";
 import { useDetailKeys } from "./useDetailKeys";
+import { useIssueRepos } from "./useIssueRepos";
 import { usePickableRepos } from "./usePickableRepos";
 import { useRunsOn } from "./useRunsOn";
 import { useViewerTabs } from "./viewerTabs";
@@ -75,8 +76,8 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
   const caps = useCapabilities(issue.key);
   // Right edge: the ticket's details, or the orchestrator — one at a time.
   const panel = useSidePanel("ticket", ["context", "orchestrator"]);
-  const [repos, setRepos] = useState<string[]>([]);
-  const [repoChoice, setRepoChoice] = useState("");
+  // The repos Start offers (the board's, when it has some) and the pick.
+  const { repos, repoChoice, setRepoChoice } = useIssueRepos(issue.key);
   const pickable = usePickableRepos(runsOn.host, repos, repoChoice, setRepoChoice);
   const running = useBoardStore((s) => s.runningAgents.has(issue.key));
   const exited = useHasExited(issue.key);
@@ -106,22 +107,6 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
   const prUrls = usePrWatch(issue.key, [issue.key], devUrls);
   const threads = usePrWatchStore((s) => s.threads);
   const openPr = primaryPr(prUrls, threads, prs);
-
-  // Load the configured repos and this issue's saved assignment, defaulting the
-  // picker to the assignment (or the first repo).
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([listRepos(), issueRepo(issue.key)])
-      .then(([all, assigned]) => {
-        if (cancelled) return;
-        setRepos(all);
-        setRepoChoice(assigned ?? all[0] ?? "");
-      })
-      .catch((err) => toast.error(`Couldn't load your repositories: ${String(err)}`));
-    return () => {
-      cancelled = true;
-    };
-  }, [issue.key]);
 
   // Viewing a waiting session acknowledges it: the rail/Dock badges clear
   // without requiring a reply. Re-runs when the status flips while open.

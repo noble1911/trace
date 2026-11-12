@@ -34,6 +34,10 @@ export interface KickoffValues {
   summary: string;
   description: string;
   comments: string;
+  /** The card's type ("Bug", "Story"; "Task" on a board without types). */
+  type: string;
+  /** The board the ticket is on, by name. */
+  board: string;
 }
 
 /** Fill the template's placeholders in one pass, with a replacer function. Chained
@@ -41,7 +45,7 @@ export interface KickoffValues {
  * would treat `$&` or `$1` in that text as replacement patterns. */
 export function fillKickoffTemplate(template: string, values: KickoffValues): string {
   return template.replace(
-    /\{(tracker|key|summary|description|comments)\}/g,
+    /\{(tracker|key|summary|description|comments|type|board)\}/g,
     (_match, name: keyof KickoffValues) => values[name]
   );
 }

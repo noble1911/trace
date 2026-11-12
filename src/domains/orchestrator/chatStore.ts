@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
+import { catalogModels } from "@/domains/agentChat/claudeCatalog";
 import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { runOrchestratorCli } from "./cli";
 import { buildBoardContext } from "./context";
+import { cliModel, sdkModelId, usesThinking } from "./model";
 import { SESSIONS_RULE } from "./sessionSnapshot";
-import { speedModels, useOrchestratorStore } from "./store";
+import { useOrchestratorStore } from "./store";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
 // within-turn tool round-trips happen inside runOrchestratorTurn and aren't
@@ -66,6 +68,8 @@ let confirmResolver: ((ok: boolean) => void) | null = null;
 let abortController: AbortController | null = null;
 let sendGen = 0;
 let nextMessageId = 0;
+/** How long a first turn waits for Claude Code's model list before using the fallbacks. */
+const CATALOG_WAIT_MS = 5_000;
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
@@ -76,8 +80,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const trimmed = text.trim();
     if (!trimmed || get().busy) return;
 
-    const { backend, speed } = useOrchestratorStore.getState();
-    const models = speedModels(speed);
+    const { backend, model } = useOrchestratorStore.getState();
     // The SDK path needs an API key; the CLI path uses the logged-in Claude CLI.
     let key: string | null = null;
     if (backend === "sdk") {
@@ -114,15 +117,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       if (backend === "cli") {
         // One-shot through the Claude CLI — no streaming, actions via blocks.
-        const reply = await runOrchestratorCli(history, models.cli);
+        const reply = await runOrchestratorCli(history, cliModel(model));
         patch((m) => ({ ...m, text: reply, tool: undefined }));
       } else if (key) {
         ac = new AbortController();
         abortController = ac;
+        // Claude Code's models give the API id. The first turn waits for them (briefly),
+        // so it uses the same model as the turns after; no answer: the hardcoded ids.
+        const catalog = await catalogModels(CATALOG_WAIT_MS);
         await runOrchestratorTurn({
           apiKey: key,
-          model: models.sdk,
-          extendedThinking: models.thinking,
+          model: sdkModelId(model, catalog),
+          extendedThinking: usesThinking(model, catalog),
           system: await systemPrompt(),
           history,
           signal: ac.signal,

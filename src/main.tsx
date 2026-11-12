@@ -28,6 +28,7 @@ import "@/domains/inbox/inbox.css";
 import "@/domains/inbox/inbox-row.css";
 import "@/domains/fleet/fleet.css";
 import "@/domains/board/card.css";
+import "@/domains/boards/boards.css";
 import "@/domains/agent/detail.css";
 import "@/domains/agent/header-fit.css";
 import "@/domains/agent/answer.css";

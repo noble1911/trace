@@ -58,6 +58,7 @@ describe("parseSidebar", () => {
       "inbox",
       "board",
       "pylon",
+      "boards",
       "fleet",
       "scheduled",
       "pr",

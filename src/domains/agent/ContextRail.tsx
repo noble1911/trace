@@ -4,7 +4,7 @@ import { AgentAvatar } from "@/components/AgentAvatar";
 import { I } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import type { Issue } from "@/domains/issues/types";
-import { jiraBrowseUrl } from "@/domains/issues/url";
+import { issueBrowseUrl, jiraBrowseUrl } from "@/domains/issues/url";
 import { StartedSessionsSection } from "@/domains/sessions/StartedSessions";
 import { copyPlain } from "@/ipc/clipboard";
 import { TurnSection } from "./TurnSection";
@@ -67,7 +67,7 @@ function LinkedRow({ icon: Icon, keyText, sub, url }: LinkedRowProps) {
 export function ContextRail({ issue, site, hasPr, running }: ContextRailProps) {
   // Providers that carry a web URL on the issue (Pylon's `link`) win; Jira's
   // browse URL is built from the site.
-  const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
+  const issueUrl = issueBrowseUrl(issue, site);
   const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
 
   return (

@@ -1,5 +1,6 @@
-//! Agent commands — start/stop interactive Claude sessions in per-issue
-//! worktrees, and pipe keystrokes/resize to the PTY.
+//! Agent commands — the shared start path (`spawn_in`), stop/detach, and
+//! piping keystrokes/resize to the PTY. Starting a ticket's agent in its
+//! worktree is `agent_start`.
 
 use std::path::PathBuf;
 
@@ -10,9 +11,7 @@ use crate::agent_session::transport::{self, Transport};
 use crate::claude::conversations::{claude_session_ids, forget_session_id};
 use crate::claude::launch;
 use crate::execution::SpawnSpec;
-use crate::git;
-use crate::helpers::slugify;
-use crate::state::{AppState, StartGuard};
+use crate::state::AppState;
 
 // ---- repo-path persistence ------------------------------------------------
 // The repo path is non-secret app config. We store it next to the Jira session
@@ -215,90 +214,6 @@ pub fn live_workspaces(state: State<'_, AppState>) -> Vec<String> {
     let mut ids: Vec<String> = state.pty_sessions.lock().keys().cloned().collect();
     ids.extend(state.chat_agents.workspaces());
     ids
-}
-
-/// Start an interactive Claude TUI for an issue, in its own git worktree.
-/// Idempotent: if a session already exists for the issue, it's a no-op.
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub fn start_agent(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    issue_key: String,
-    cols: u16,
-    rows: u16,
-    model: Option<String>,
-    cli: Option<String>,
-    provider: Option<String>,
-    extra_args: Option<Vec<String>>,
-    initial_prompt: Option<String>,
-    // The ticket's summary + labels, so repo mappings can match a tag like "[BE]"
-    // that lives in the title rather than the key.
-    match_text: Option<String>,
-    // "chat" | "terminal"; unset keeps what the ticket ran on last.
-    transport: Option<String>,
-    // "local" | "vercel": where it runs; unset keeps what the ticket ran on last.
-    host: Option<String>,
-) -> Result<(), String> {
-    if state.pty_sessions.lock().contains_key(&issue_key) {
-        return Ok(());
-    }
-    // Reserve the id for the whole start so a racing second request can't spawn a
-    // duplicate agent during the slow worktree step. Released when `_guard` drops.
-    let Some(_guard) = StartGuard::acquire(&state, &issue_key) else {
-        return Ok(());
-    };
-
-    let match_text = match_text.unwrap_or_default();
-    let cli = cli.unwrap_or_else(|| "claude".to_string());
-    // A sandbox clones the repo itself: no local worktree, and only Claude runs there.
-    let sandbox = crate::commands::issue_host::settle(&issue_key, &match_text, host.as_deref())?;
-    let worktree = match sandbox {
-        Some(_) if cli != "claude" => {
-            return Err("Only Claude runs in a cloud sandbox.".to_string());
-        }
-        Some(sandbox) => crate::commands::session_host::sandbox_cwd(&sandbox),
-        None => issue_worktree(&issue_key, &match_text)?,
-    };
-    spawn_in(
-        app,
-        &state,
-        issue_key,
-        worktree,
-        cli,
-        model,
-        extra_args.unwrap_or_default(),
-        initial_prompt,
-        None,
-        provider,
-        transport.as_deref().and_then(Transport::parse),
-        cols,
-        rows,
-    )
-}
-
-/// The worktree an issue's agent runs in, created if needed: the repo its
-/// mappings pick (pinned, so diff/PR/tests resolve the same one), on branch
-/// `workspace/<slug>`. Shared by terminal and chat agents.
-pub(crate) fn issue_worktree(issue_key: &str, match_text: &str) -> Result<String, String> {
-    let repo = crate::commands::repos::repo_for_matching(issue_key, match_text)?;
-    // Pin it so diff/PR/tests (which only know the key) resolve the same repo.
-    crate::commands::repos::assign_repo(issue_key, &repo)?;
-
-    let busy = git::git_busy_check(&repo);
-    if busy.starts_with("busy") {
-        return Err(format!(
-            "Repository is {busy} — finish that git operation first."
-        ));
-    }
-
-    // Path through the dirname helper: a linked issue adopted its session's
-    // worktree, in which case it already exists and create_worktree no-ops.
-    let worktree = crate::commands::repos::workspace_dir(&repo, issue_key);
-    let branch = format!("workspace/{}", slugify(issue_key));
-    let default_branch = git::get_default_branch(&repo);
-    git::create_worktree(&repo, &worktree, &branch, &default_branch)?;
-    Ok(worktree)
 }
 
 /// Forward keystrokes / pasted text from the xterm pane to the TUI.

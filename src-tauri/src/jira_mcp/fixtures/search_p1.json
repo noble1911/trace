@@ -1,0 +1,13 @@
+{ "isLast": false, "nextPageToken": "page-2", "issues": [
+  { "expand": "renderedFields", "id": "24706", "key": "PM-4831",
+    "fields": {
+      "summary": "Remove the dead getter",
+      "issuetype": { "id": "10043", "name": "Story" },
+      "reporter": { "accountId": "712020:abc", "displayName": "Ada Lovelace" },
+      "assignee": { "accountId": "712020:abc", "displayName": "Ada Lovelace", "avatarUrls": { "48x48": "https://example.invalid/ada48.png" } },
+      "priority": { "id": "2", "name": "High" },
+      "status": { "id": "3", "name": "In Progress", "statusCategory": { "id": 4, "key": "indeterminate", "name": "In Progress" } },
+      "labels": ["dead-code"],
+      "parent": { "id": "200", "key": "PM-100", "fields": { "summary": "Housekeeping", "issuetype": { "name": "Epic" } } },
+      "description": { "type": "doc", "version": 1, "content": [
+        { "type": "paragraph", "content": [ { "type": "text", "text": "Remove the getter." } ] } ] } } } ] }

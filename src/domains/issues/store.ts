@@ -1,12 +1,16 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
+import { forgetBoards } from "@/domains/board/boardCache";
 import {
   connectJira,
+  connectJiraMcp,
   connectPylon,
+  connectPylonMcp,
   disconnectProvider,
   listBoards,
   providerCurrentUser,
   providerSessions,
+  type TrackerSite,
 } from "@/ipc/issues";
 import {
   type BoardOption,
@@ -31,8 +35,16 @@ interface IssuesStore {
 
   init: () => Promise<void>;
   connectJira: (site: string, email: string, token: string) => Promise<void>;
+  /** Connect Jira over trace's Atlassian login (MCP). Resolves to the sites to pick from when
+   * the login reaches several (call again with one's id), else null; rejects with the reason. */
+  connectJiraMcp: (cloudId?: string) => Promise<TrackerSite[] | null>;
   connectPylon: (token: string) => Promise<void>;
+  /** Connect Pylon over trace's Pylon login (MCP). Always null (no sites to pick); rejects
+   * with the reason. Same shape as `connectJiraMcp`, for `TwoWayConnect`. */
+  connectPylonMcp: () => Promise<TrackerSite[] | null>;
   disconnect: (provider: ProviderKind) => Promise<void>;
+  /** Re-list one tracker's boards: after a custom board is made, renamed or deleted. */
+  reloadBoards: (provider: ProviderKind) => Promise<void>;
   selectBoard: (key: string) => void;
   /** The board last viewed on a tracker, or its first. */
   savedBoardFor: (provider: ProviderKind) => string | null;
@@ -115,7 +127,7 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
       const user = await connectJira(site, email, token);
       set((s) => ({
         connecting: false,
-        sessions: { ...s.sessions, jira: { provider: "jira", site, email } },
+        sessions: { ...s.sessions, jira: { provider: "jira", via: "api", site, email } },
         users: { ...s.users, jira: user },
       }));
       await loadProvider(set, "jira");
@@ -124,13 +136,37 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
     }
   },
 
+  async connectJiraMcp(cloudId) {
+    const result = await connectJiraMcp(cloudId);
+    if (result.status === "chooseSite") return result.sites;
+    set((s) => ({
+      error: null,
+      sessions: { ...s.sessions, jira: result.session },
+      users: { ...s.users, jira: result.user },
+    }));
+    await loadProvider(set, "jira");
+    return null;
+  },
+
+  async connectPylonMcp() {
+    const result = await connectPylonMcp();
+    if (result.status === "chooseSite") return result.sites;
+    set((s) => ({
+      error: null,
+      sessions: { ...s.sessions, pylon: result.session },
+      users: { ...s.users, pylon: result.user },
+    }));
+    await loadProvider(set, "pylon");
+    return null;
+  },
+
   async connectPylon(token) {
     set({ connecting: true, error: null });
     try {
       const user = await connectPylon(token);
       set((s) => ({
         connecting: false,
-        sessions: { ...s.sessions, pylon: { provider: "pylon" } },
+        sessions: { ...s.sessions, pylon: { provider: "pylon", via: "api" } },
         users: { ...s.users, pylon: user },
       }));
       await loadProvider(set, "pylon");
@@ -141,6 +177,8 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
 
   async disconnect(provider) {
     await disconnectProvider(provider);
+    // Its boards' last cards and PR badges, kept for going back to them, go with it.
+    forgetBoards();
     set((s) => {
       const sessions = { ...s.sessions };
       const users = { ...s.users };
@@ -153,6 +191,10 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
           : restoreBoardKey(boards);
       return { sessions, users, boards, selectedBoardKey };
     });
+  },
+
+  async reloadBoards(provider) {
+    await loadProvider(set, provider);
   },
 
   selectBoard(key) {

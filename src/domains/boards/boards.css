@@ -1,0 +1,337 @@
+/* Custom boards (trace's own): the editing a board made in trace adds to the shared
+   Board. Prefixed `bd-`. The Board, its columns and cards keep their own CSS. */
+
+/* ============ Columns ============ */
+
+/* The last track is "Add column", sized to its content; every column keeps its width. */
+.columns.bd-columns {
+  grid-template-columns: repeat(var(--bd-cols), minmax(260px, 1fr)) max-content;
+}
+
+/* A column head's "+" and ⋯: the reveal recipe. They keep their slot (so the count
+   doesn't shift), and show on hover, with focus in the column, while one is in use
+   (the add form open, the menu open), and always without a hovering pointer. */
+.bd-col-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.column:hover .bd-col-tools,
+.column:focus-within .bd-col-tools,
+.bd-col-tools.on,
+.bd-col-tools:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+@media (hover: none) {
+  .bd-col-tools {
+    opacity: 1;
+  }
+}
+.bd-col-tools .btn.icon {
+  color: var(--fg-3);
+}
+.bd-col-tools .btn.icon:hover:not(:disabled) {
+  color: var(--fg-0);
+}
+
+/* The column's name while it's renamed: the name's own size, in a field. */
+.bd-col-input {
+  min-width: 0;
+  flex: 1;
+  height: var(--control-h-xs);
+  padding: 0 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius-sm);
+  color: var(--fg-0);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The add-card form and the delete prompt sit at the top of the column's body. */
+.bd-col-form,
+.bd-col-band {
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.bd-col-band .inline-confirm {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.bd-col-band .inline-confirm-msg {
+  flex-basis: 100%;
+  line-height: 1.6;
+}
+.bd-col-band.bd-col-band .inline-confirm-msg {
+  white-space: normal;
+}
+.bd-col-select {
+  height: var(--control-h-xs);
+  max-width: 100%;
+  padding: 0 4px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--fg-0);
+  font-size: var(--text-ui);
+}
+
+/* "Add column": slim at rest, a column-wide form once opened. */
+.bd-add-col {
+  align-self: start;
+  white-space: nowrap;
+}
+.bd-add-col-form {
+  width: 260px;
+  align-self: start;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* ============ The card form (column, dialog, Ticket tab) ============ */
+.bd-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bd-card-form.sm textarea {
+  min-height: 64px;
+}
+.bd-form-row {
+  display: flex;
+  gap: 8px;
+}
+.bd-grow {
+  flex: 1;
+  min-width: 0;
+}
+.bd-form-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.bd-field-label {
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.bd-problem.bd-problem {
+  color: var(--c-danger);
+}
+.bd-card-modal {
+  width: 520px;
+}
+
+/* A card's delete prompt, at its foot. */
+.bd-card-delete {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+.bd-card-delete .inline-confirm {
+  display: flex;
+}
+.bd-card-delete .inline-confirm-msg {
+  flex: 1;
+}
+
+/* ============ Ticket tab ============ */
+.bd-ticket-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bd-ticket-form {
+  margin: 12px 0 18px;
+}
+
+/* ============ Board setup: the new-board and Board settings dialogs ============ */
+.bd-setup-modal {
+  width: 560px;
+}
+.bd-setup-modal .modal-body {
+  max-height: min(72vh, 680px);
+  overflow-y: auto;
+}
+.bd-setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bd-setup-form .seg {
+  align-self: flex-start;
+}
+.bd-template-line {
+  font-family: var(--font-mono);
+}
+.bd-prompt.bd-prompt {
+  min-height: 120px;
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+}
+.bd-repo-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-3);
+  font-size: var(--text-ui);
+}
+
+/* Repositories: a row per configured repo, picked or not; "Default" beside a picked
+   one while several are picked, lit in the accent when it's the one. */
+.bd-repo-list,
+.bd-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bd-repo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding-right: 8px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+}
+.bd-repo-row.picked {
+  border-color: var(--border-strong);
+}
+.bd-repo-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: stretch;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--fg-3);
+  font-size: var(--text-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.bd-repo-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--c-accent);
+}
+.bd-repo-row.picked .bd-repo-mark {
+  border-color: var(--c-accent);
+  background: var(--c-accent-bg);
+}
+.bd-repo-name {
+  font-weight: 500;
+  color: var(--fg-0);
+}
+.bd-repo-path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bd-repo-default[aria-pressed="true"],
+.bd-repo-default[aria-pressed="true"]:hover:not(:disabled) {
+  color: var(--c-accent);
+  background: var(--c-accent-bg);
+  border-color: color-mix(in oklch, var(--c-accent) 45%, transparent);
+}
+
+/* Card types: name, whose prompt it uses, and edit / delete on hover (reveal recipe). */
+.bd-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bd-type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  font-size: var(--text-ui);
+}
+.bd-type-row.editing {
+  display: block;
+  padding: 12px;
+}
+.bd-type-name {
+  font-weight: 500;
+  color: var(--fg-0);
+}
+.bd-type-meta {
+  color: var(--fg-3);
+  font-size: var(--text-meta);
+}
+.bd-type-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.bd-type-row:hover .bd-type-tools,
+.bd-type-row:focus-within .bd-type-tools,
+.bd-type-tools:has(.inline-confirm) {
+  opacity: 1;
+}
+/* Armed, the delete prompt (with its "move its cards to" select) takes the row. */
+.bd-type-row:has(.inline-confirm) .bd-type-name,
+.bd-type-row:has(.inline-confirm) .bd-type-meta {
+  display: none;
+}
+.bd-type-tools:has(.inline-confirm) {
+  flex: 1;
+  justify-content: flex-end;
+}
+@media (hover: none) {
+  .bd-type-tools {
+    opacity: 1;
+  }
+}
+.bd-type-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bd-type-form textarea {
+  min-height: 64px;
+}
+.bd-type-add {
+  align-self: flex-start;
+}
+
+/* The repo picker at a start: the board's default, named. */
+.repo-pick-hint {
+  margin-bottom: 4px;
+}
+.repo-pick-default {
+  flex: none;
+  color: var(--c-accent);
+  font-size: var(--text-meta);
+}

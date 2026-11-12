@@ -25,6 +25,7 @@ const TITLES: Record<NavId, string> = {
   inbox: "Inbox",
   board: "Board",
   pylon: "Pylon",
+  boards: "Boards",
   fleet: "Fleet — every running agent",
   sessions: "Sessions",
   scheduled: "Scheduled prompts",

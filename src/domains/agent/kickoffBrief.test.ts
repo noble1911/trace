@@ -9,6 +9,8 @@ const values = {
   summary: "Export fails",
   description: "It says {key} literally and costs $1",
   comments: "(no comments yet)",
+  type: "Task",
+  board: "Support",
 };
 
 describe("kickoff brief", () => {
@@ -24,5 +26,18 @@ describe("kickoff brief", () => {
       fillKickoffTemplate("{description}", values),
       "It says {key} literally and costs $1"
     );
+  });
+});
+
+describe("kickoff brief: type and board", () => {
+  const full = { ...values, type: "Bug", board: "Side projects" };
+  it("fills {type} and {board}", () => {
+    assert.equal(
+      fillKickoffTemplate("Fix {type} {key} on the {board} board", full),
+      "Fix Bug #1234 on the Side projects board"
+    );
+  });
+  it("leaves unknown placeholders as typed", () => {
+    assert.equal(fillKickoffTemplate("{epic} {type}", full), "{epic} Bug");
   });
 });

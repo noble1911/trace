@@ -5,20 +5,22 @@ import { useIssuesStore } from "@/domains/issues/store";
 import { useVercelStore } from "@/domains/vercel/store";
 
 interface FormFootProps {
+  /** Beside another way to connect, whose button is the dialog's primary. */
+  secondary?: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
   connecting: boolean;
   error: string | null;
 }
 
-function FormFoot({ canSubmit, onSubmit, connecting, error }: FormFootProps) {
+function FormFoot({ secondary, canSubmit, onSubmit, connecting, error }: FormFootProps) {
   return (
     <>
       {error && <div className="ig-error">{error}</div>}
       <div className="ig-form-foot">
         <button
           type="button"
-          className="btn primary"
+          className={secondary ? "btn" : "btn primary"}
           disabled={!canSubmit || connecting}
           onClick={onSubmit}
         >
@@ -29,7 +31,12 @@ function FormFoot({ canSubmit, onSubmit, connecting, error }: FormFootProps) {
   );
 }
 
-export function JiraForm() {
+interface TrackerFormProps {
+  /** Shown under `TwoWayConnect`, so its Connect isn't the primary. */
+  secondary?: boolean;
+}
+
+export function JiraForm({ secondary }: TrackerFormProps) {
   const connect = useIssuesStore((s) => s.connectJira);
   const connecting = useIssuesStore((s) => s.connecting);
   const error = useIssuesStore((s) => s.error);
@@ -77,12 +84,18 @@ export function JiraForm() {
           user account can read, and only ever sent to Atlassian.
         </span>
       </div>
-      <FormFoot canSubmit={canSubmit} onSubmit={submit} connecting={connecting} error={error} />
+      <FormFoot
+        secondary={secondary}
+        canSubmit={canSubmit}
+        onSubmit={submit}
+        connecting={connecting}
+        error={error}
+      />
     </div>
   );
 }
 
-export function PylonForm() {
+export function PylonForm({ secondary }: TrackerFormProps) {
   const connect = useIssuesStore((s) => s.connectPylon);
   const connecting = useIssuesStore((s) => s.connecting);
   const error = useIssuesStore((s) => s.error);
@@ -110,7 +123,13 @@ export function PylonForm() {
           your user account can read, and only ever sent to Pylon.
         </span>
       </div>
-      <FormFoot canSubmit={canSubmit} onSubmit={submit} connecting={connecting} error={error} />
+      <FormFoot
+        secondary={secondary}
+        canSubmit={canSubmit}
+        onSubmit={submit}
+        connecting={connecting}
+        error={error}
+      />
     </div>
   );
 }

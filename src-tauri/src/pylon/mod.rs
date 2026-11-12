@@ -9,7 +9,7 @@ pub mod client;
 pub mod models;
 
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
-use crate::issues::{IssueProvider, ProviderKind, ProviderSession};
+use crate::issues::{IssueProvider, ProviderKind, ProviderSession, Via};
 
 /// An authenticated Pylon connection (Bearer API token, Admin-generated).
 /// `token` is secret — it stays in the Rust process and a `0600` config file,
@@ -84,6 +84,7 @@ impl IssueProvider for PylonConnection {
             provider: ProviderKind::Pylon,
             site: None,
             email: None,
+            via: Via::Api,
         }
     }
 }

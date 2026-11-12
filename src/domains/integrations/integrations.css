@@ -139,7 +139,28 @@
 .ig-sub > .ig-form-foot {
   align-self: stretch;
 }
-.ig-sub h3 {
+/* A tracker's two ways to connect (`TwoWayConnect`): its login, then an API token. */
+.ig-ways {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ig-way {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ig-way + .ig-way {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-faint);
+}
+.ig-way > .ig-form,
+.ig-way > .field {
+  align-self: stretch;
+}
+.ig-sub h3,
+.ig-way h3 {
   margin: 0;
   font-size: var(--text-label);
   font-weight: 600;

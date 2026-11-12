@@ -38,10 +38,11 @@ interface FleetRowProps {
 
 const SOURCE_LABEL = { session: "Session", scheduled: "Scheduled" } as const;
 
-/** Where it came from: a ticket names its tracker ("Jira ticket", "Pylon ticket"). */
+/** Where it came from: a ticket names its tracker ("Jira ticket", "trace board card"). */
 function sourceLabel(entry: LiveEntry): string {
   if (entry.source !== "ticket") return SOURCE_LABEL[entry.source];
-  return `${TRACKER_NAMES[trackerForIssueKey(entry.id)]} ticket`;
+  const tracker = trackerForIssueKey(entry.id);
+  return `${TRACKER_NAMES[tracker]} ${tracker === "custom" ? "card" : "ticket"}`;
 }
 
 const clock = (t: number) =>

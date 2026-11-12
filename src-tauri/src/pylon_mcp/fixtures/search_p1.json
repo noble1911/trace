@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "id": "iss-101", "number": 101, "title": "Export button does nothing", "state": "new",
+      "body_html": "<p>Clicking <b>Export</b> does nothing.</p>", "link": "https://app.example.com/issues/101",
+      "created_at": "@days_ago:2", "updated_at": "@days_ago:1", "tags": ["bug"],
+      "assignee": { "id": "u-1", "email": "jo@example.com" },
+      "requester": { "id": "c-1", "email": "customer@example.org" }
+    },
+    {
+      "id": "iss-102", "number": "102", "title": "Needs a look", "state": { "slug": "needs_triage" },
+      "body_html": "", "created_at": "@days_ago:5", "updated_at": "@days_ago:5",
+      "assignee": { "id": "u-2", "email": "lee@example.com", "name": "Lee Example" }
+    }
+  ],
+  "pagination": { "cursor": "page-2", "has_next_page": true }
+}

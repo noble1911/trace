@@ -12,7 +12,7 @@ pub mod parse;
 pub mod scope;
 
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
-use crate::issues::{IssueProvider, ProviderKind, ProviderSession};
+use crate::issues::{IssueProvider, ProviderKind, ProviderSession, Via};
 
 /// An authenticated Jira connection. `token` is secret — it stays in the Rust
 /// process and a `0600` config file, and is never serialized to the frontend.
@@ -85,6 +85,7 @@ impl IssueProvider for JiraConnection {
             provider: ProviderKind::Jira,
             site: Some(self.site.clone()),
             email: Some(self.email.clone()),
+            via: Via::Api,
         }
     }
 }

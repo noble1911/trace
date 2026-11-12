@@ -17,6 +17,8 @@ const DEFAULT_PROTOCOL: &str = "2025-06-18";
 pub const INSTRUCTIONS: &str = "You are running inside trace, the desktop app that hosts this session. \
 These tools act on trace itself: the issue board it shows (read tickets, move them between columns, \
 comment, start a coding agent on a ticket, message running agents) and its scheduled prompts. \
+Its boards are Jira's, Pylon's and boards kept in trace: list_boards lists them, get_board reads any \
+with its columns, and cards on a trace board can be created and updated (create_card, update_card). \
 To fan work out across tickets, start trace agents on them with start_agent rather than spawning \
 sub-agents: each gets its own worktree, terminal and PR, and shows on the board. \
 Only create a scheduled prompt when the user asks for one; it is created paused for them to switch on. \

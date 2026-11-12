@@ -14,6 +14,13 @@ export const NAV_ICONS = {
       <rect x="14" y="3" width="7" height="12" rx="1.5" />
     </Base>
   ),
+  /** Boards made in trace (square-kanban): the Boards page. Not `Board`, a tracker's. */
+  Kanban: (p: IconProps) => (
+    <Base {...p}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M8 7v7M12 7v4M16 7v9" />
+    </Base>
+  ),
   Agents: (p: IconProps) => (
     <Base {...p}>
       <circle cx="9" cy="8" r="3" />

@@ -34,6 +34,8 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
+mod windows_awake;
+#[cfg(windows)]
 mod windows_job;
 #[cfg(windows)]
 mod windows_pdf;

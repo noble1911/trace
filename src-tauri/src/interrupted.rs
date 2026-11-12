@@ -142,6 +142,23 @@ pub fn collect_at_launch(state: &AppState) {
     *state.interrupted.lock() = gone.into_values().collect();
 }
 
+/// Workspaces the ledger lists with a live process: this trace's agents and
+/// any another running trace started (a dev build beside the installed one),
+/// which this one's `AppState` can't see. For refusing to delete a card whose
+/// agent is running anywhere. A read failure is logged and lists none.
+pub fn live_anywhere() -> Vec<String> {
+    let ledger: BTreeMap<String, AgentLaunch> = persist::read_or_log(&ledger_file());
+    alive_ids(&ledger, process_alive)
+}
+
+fn alive_ids(ledger: &BTreeMap<String, AgentLaunch>, alive: impl Fn(u32) -> bool) -> Vec<String> {
+    ledger
+        .values()
+        .filter(|a| a.pid.is_some_and(&alive))
+        .map(|a| a.workspace_id.clone())
+        .collect()
+}
+
 fn process_alive(pid: u32) -> bool {
     use crate::platform::{ports::ProcessHost, Os};
     Os::is_alive(pid)
@@ -188,6 +205,22 @@ mod tests {
         assert!(resume_prompt(&launch("claude", true)).is_some());
         assert!(resume_prompt(&launch("claude", false)).is_none());
         assert!(resume_prompt(&launch("codex", true)).is_none());
+    }
+
+    #[test]
+    fn only_entries_with_a_live_process_count_as_running() {
+        let mut ledger = BTreeMap::new();
+        for (id, pid) in [
+            ("local-1", Some(10)),
+            ("local-2", Some(11)),
+            ("local-3", None),
+        ] {
+            let mut a = launch("claude", true);
+            a.workspace_id = id.into();
+            a.pid = pid;
+            ledger.insert(id.to_string(), a);
+        }
+        assert_eq!(alive_ids(&ledger, |pid| pid == 10), ["local-1"]);
     }
 
     #[test]

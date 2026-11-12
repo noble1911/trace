@@ -6,11 +6,13 @@
 pub mod activity;
 pub mod agent_session;
 pub mod agent_tools;
+pub mod board_settings;
 pub mod browser;
 pub mod claude;
 pub mod cleanup;
 pub mod commands;
 pub mod conductor_import;
+pub mod custom_boards;
 pub mod diff_parse;
 pub mod diff_summary;
 pub mod execution;
@@ -21,12 +23,16 @@ pub mod helpers;
 pub mod interrupted;
 pub mod issues;
 pub mod jira;
+pub mod jira_mcp;
+pub mod keep_awake;
 mod mcp_auth;
+pub mod mcp_client;
 pub mod permissions;
 pub mod plans;
 pub mod platform;
 pub mod preflight;
 pub mod pylon;
+pub mod pylon_mcp;
 // The homepage clip recorder's hooks; never in a release build (site/README.md).
 #[cfg(feature = "recording")]
 pub mod recording;
@@ -75,6 +81,8 @@ pub fn run() {
             schedule::runner::start(app.handle().clone());
             // Idle-workspace cleanup; a no-op until enabled in Settings.
             cleanup::runner::start(app.handle().clone());
+            // The computer stays awake while agents run, unless switched off in Settings.
+            keep_awake::start(app.handle().clone());
             // Worktree setup hooks report progress to the renderer.
             repo_catalog::setup::init(app.handle().clone());
             Ok(())
@@ -93,6 +101,8 @@ pub fn run() {
             commands::activity::import_activity,
             commands::issues::connect_jira,
             commands::issues::connect_pylon,
+            commands::issues_mcp::connect_jira_mcp,
+            commands::issues_mcp::connect_pylon_mcp,
             commands::issues::provider_sessions,
             commands::issues::provider_current_user,
             commands::issues::disconnect_provider,
@@ -102,6 +112,22 @@ pub fn run() {
             commands::issues::transition_issue,
             commands::issues::comment_on_issue,
             commands::issues::list_issue_comments,
+            commands::board_settings::board_settings_get,
+            commands::board_settings::board_settings_set,
+            commands::custom_boards::custom_board_create,
+            commands::custom_boards::custom_board_config,
+            commands::custom_boards::custom_board_rename,
+            commands::custom_boards::custom_board_delete,
+            commands::custom_boards::custom_column_add,
+            commands::custom_boards::custom_column_update,
+            commands::custom_boards::custom_column_move,
+            commands::custom_boards::custom_column_delete,
+            commands::custom_boards::custom_card_create,
+            commands::custom_boards::custom_card_update,
+            commands::custom_boards::custom_card_delete,
+            commands::custom_boards::custom_card_type_add,
+            commands::custom_boards::custom_card_type_update,
+            commands::custom_boards::custom_card_type_delete,
             commands::conductor_import::conductor_import_available,
             commands::conductor_import::conductor_import_preview,
             commands::conductor_import::conductor_import_apply,
@@ -130,7 +156,7 @@ pub fn run() {
             commands::github::github_clone,
             commands::agent::agent_running,
             commands::agent::live_workspaces,
-            commands::agent::start_agent,
+            commands::agent_start::start_agent,
             commands::issue_host::issue_host,
             commands::terminal::start_terminal,
             commands::tailscale::tailscale_status,
@@ -255,6 +281,8 @@ pub fn run() {
             commands::cleanup::set_cleanup_settings,
             commands::cleanup::preview_cleanup,
             commands::cleanup::run_cleanup_now,
+            commands::keep_awake::get_keep_awake,
+            commands::keep_awake::set_keep_awake,
             commands::orchestrator::get_anthropic_key,
             commands::orchestrator::set_anthropic_key,
             commands::orchestrator::orchestrator_cli,
@@ -305,6 +333,7 @@ pub fn run() {
                 state.shutting_down.store(true, Ordering::SeqCst);
                 // A PTY's agent ends with its pseudo-terminal; a chat agent has to be stopped.
                 agent_session::runtime::stop_all_now(&state);
+                keep_awake::release_blocking();
             }
         });
 }

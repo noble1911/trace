@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_MODEL, migrateModel } from "./model";
 
 export type OrchTab = "chat" | "stats";
 
@@ -6,20 +7,11 @@ export type OrchTab = "chat" | "stats";
  * Claude CLI in print mode (`-p`, uses the logged-in CLI). */
 export type OrchBackend = "sdk" | "cli";
 
-/** Speed/quality trade: `fast` = Sonnet, no extended thinking; `thorough` =
- * Opus + adaptive thinking. */
-export type OrchSpeed = "fast" | "thorough";
-
 const GOAL_KEY = "trace.sprintGoal";
 const BACKEND_KEY = "trace.orchBackend";
-const SPEED_KEY = "trace.orchSpeed";
-
-/** Resolve the API model id (SDK) and CLI alias for a speed setting. */
-export function speedModels(speed: OrchSpeed): { sdk: string; cli: string; thinking: boolean } {
-  return speed === "thorough"
-    ? { sdk: "claude-opus-4-8", cli: "opus", thinking: true }
-    : { sdk: "claude-sonnet-4-6", cli: "sonnet", thinking: false };
-}
+const MODEL_KEY = "trace.orchModel";
+/** The old Fast/Thorough setting, read once to pick the closest model. */
+const LEGACY_SPEED_KEY = "trace.orchSpeed";
 
 function loadGoal(): string {
   try {
@@ -37,11 +29,11 @@ function loadBackend(): OrchBackend {
   }
 }
 
-function loadSpeed(): OrchSpeed {
+function loadModel(): string {
   try {
-    return localStorage.getItem(SPEED_KEY) === "thorough" ? "thorough" : "fast";
+    return migrateModel(localStorage.getItem(MODEL_KEY), localStorage.getItem(LEGACY_SPEED_KEY));
   } catch {
-    return "fast";
+    return DEFAULT_MODEL;
   }
 }
 
@@ -53,12 +45,12 @@ interface OrchestratorStore {
   sprintGoal: string;
   /** Which Claude transport the assistant uses. */
   backend: OrchBackend;
-  /** Speed/quality trade for the assistant's model + thinking. */
-  speed: OrchSpeed;
+  /** The assistant's model, as Claude Code names it (`opus`, `sonnet`, a full id). */
+  model: string;
   setTab: (tab: OrchTab) => void;
   setSprintGoal: (goal: string) => void;
   setBackend: (backend: OrchBackend) => void;
-  setSpeed: (speed: OrchSpeed) => void;
+  setModel: (model: string) => void;
 }
 
 // State updates immediately (the assistant reads the goal live); persistence is
@@ -71,7 +63,7 @@ export const useOrchestratorStore = create<OrchestratorStore>((set) => ({
   tab: "chat",
   sprintGoal: loadGoal(),
   backend: loadBackend(),
-  speed: loadSpeed(),
+  model: loadModel(),
   setTab: (tab) => set({ tab }),
   setBackend: (backend) => {
     try {
@@ -81,13 +73,13 @@ export const useOrchestratorStore = create<OrchestratorStore>((set) => ({
     }
     set({ backend });
   },
-  setSpeed: (speed) => {
+  setModel: (model) => {
     try {
-      localStorage.setItem(SPEED_KEY, speed);
+      localStorage.setItem(MODEL_KEY, model);
     } catch {
       // best-effort persistence
     }
-    set({ speed });
+    set({ model });
   },
   setSprintGoal: (goal) => {
     set({ sprintGoal: goal });

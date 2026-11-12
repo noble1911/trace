@@ -28,6 +28,7 @@ export const SIDEBAR_ITEMS: SidebarItemDef[] = [
   { id: "inbox", label: "Inbox", desc: "Agents that need you, with a count." },
   { id: "board", label: "Board", desc: "Your Jira board's tickets." },
   { id: "pylon", label: "Pylon", desc: "Your Pylon issues." },
+  { id: "boards", label: "Boards", desc: "Boards you make in trace, with your own columns." },
   { id: "fleet", label: "Fleet", desc: "Every running agent." },
   { id: "sessions", label: "Sessions", desc: "Sessions not tied to a ticket." },
   { id: "scheduled", label: "Scheduled prompts", desc: "Prompts that run on a schedule." },
@@ -48,7 +49,12 @@ export function sidebarItem(id: NavId): SidebarItemDef | undefined {
   return BY_ID.get(id);
 }
 
-export const TRACKER_NAMES: Record<ProviderKind, string> = { jira: "Jira", pylon: "Pylon" };
+/** Each tracker's name in a sentence ("Jira ticket", "trace board ticket"). */
+export const TRACKER_NAMES: Record<ProviderKind, string> = {
+  jira: "Jira",
+  pylon: "Pylon",
+  custom: "trace board",
+};
 
 type TrackerSessions = Partial<Record<ProviderKind, ProviderSession>>;
 

@@ -24,6 +24,26 @@ target provider as an argument. Each provider implements `issues::IssueProvider`
   independently. A tracker's pages are only in the rail while it's connected (`app/nav.ts`), and the
   app lands on Sessions with none.
 
+## REST or MCP: choosing the adapter
+
+A tracker can have two adapters: its REST API (a saved key) and its MCP server (trace's own
+`mcp_auth` login). Both are the same `ProviderKind`, so `AppState.providers` still holds one
+connection per tracker. `issues/mcp_link.rs` holds the rule and the record:
+
+- **Saved API credentials win.** Else a `<tracker>-mcp.json` record (`McpLink`: server URL, and for
+  Jira the site's cloudId, URL and name; no token) **plus** a login to that server → the MCP
+  adapter. A record without a login is not connected (logging in again brings it back).
+- `connect_<tracker>_mcp` (`commands/issues_mcp.rs`) logs in through `mcp_auth::flow` if needed,
+  validates with `current_user`, saves the record, and only then deletes the API credentials.
+  Connecting by API key clears the record. Disconnecting clears both, never the MCP login
+  (agents use it).
+- A new MCP adapter plugs in with a `from_link(&McpLink)`, one `mcp_link::restore` arm in
+  `session::restore_all`, a connect command, and a `login` way in `domains/integrations/registry.ts`
+  (the dialog's `TwoWayConnect` offers it beside the token form).
+- MCP adapters (`jira_mcp/`, `pylon_mcp/`) are generic over `mcp_client::ToolCaller` and build
+  arguments from each tool's advertised schema with `mcp_client::args` (candidate names, type
+  coercion): the vendors document tool names, not argument shapes. Tests run on `FakeCaller`.
+
 ## Pylon specifics
 
 - Bearer-token auth; validate with `GET /me`. API base `https://api.usepylon.com`.
@@ -40,6 +60,11 @@ target provider as an argument. Each provider implements `issues::IssueProvider`
   internal notes) — powers the `{comments}` placeholder in the agent kickoff brief.
 - No dev-status integration → `get_pull_requests` returns empty; the frontend skips PR fan-out for
   non-Jira providers.
+- Over MCP (`pylon_mcp/`): the same board, from `search_issues` (window as a `filter_json`, else
+  newest-first to the window's edge; pages capped), `get_issue_statuses` for custom columns
+  (else discovered), `update_issue` (state), `send_issue_note`, `get_issue_messages`.
+  **Never `send_issue_reply`**: it writes to the customer. US or EU server by
+  `pylon_mcp/region.rs`'s rule (the one logged in to, else the known region, else US).
 
 ## Adding a provider
 

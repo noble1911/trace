@@ -1,19 +1,17 @@
-import { activity } from "@/domains/activity/store";
 import type { ActivityActor } from "@/domains/activity/types";
 import { sendToAgent } from "@/domains/agentChat/deliver";
+import { CARD_TOOL_NAMES, cardActionSummary, runCardTool } from "@/domains/agentTools/cardTools";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { isScheduledRun } from "@/domains/schedules/ids";
-import { commentOnIssue, transitionIssue } from "@/ipc/issues";
 import { type AgentKey, resolveAgentKey } from "./agentKey";
+import { issueKeyFrom } from "./boardLookup";
+import { commentTool, moveIssueTool, startAgentTool } from "./ticketActions";
 
 export { WRITE_TOOL_NAMES, WRITE_TOOLS } from "./writeTools";
 
 // Runs the mutating tools (defined in writeTools.ts). Every one passes through a
 // human confirm-card before it runs (the gate lives in agent.ts).
-
-/** How a tool that needs a tracker answers when none is loaded. */
-export const NO_BOARD = "No board is connected (no Jira or Pylon board is loaded),";
 
 function field(input: unknown, key: string): string {
   if (input && typeof input === "object" && key in input) {
@@ -41,7 +39,7 @@ function startAgentSummary(key: string): string {
 
 /** A short, human-readable description of a pending action for the confirm card. */
 export function actionSummary(name: string, input: unknown): string {
-  const key = field(input, "issue_key").toUpperCase();
+  const key = issueKeyFrom(field(input, "issue_key"));
   switch (name) {
     case "move_issue":
       return `Move ${key} → ${clip(field(input, "target_status"), 40)}`;
@@ -55,6 +53,9 @@ export function actionSummary(name: string, input: unknown): string {
       return `Comment on ${key}: "${clip(field(input, "body"))}"`;
     case "broadcast_to_agents":
       return `Broadcast to ALL agents: "${clip(field(input, "message"))}"`;
+    case "create_card":
+    case "update_card":
+      return cardActionSummary(name, input);
     default:
       return name;
   }
@@ -66,6 +67,8 @@ const ACTION_VERB: Record<string, string> = {
   send_to_agent: "Send",
   comment_on_issue: "Comment",
   broadcast_to_agents: "Broadcast",
+  create_card: "Create",
+  update_card: "Update",
 };
 
 /** The confirm card's go button: the action's verb, so the button says what it does. */
@@ -109,102 +112,16 @@ export async function runWriteTool(
       : `Broadcast sent to ${ok}/${agents.length} — failed: ${failed.join(", ")}.`;
   }
 
+  if (CARD_TOOL_NAMES.has(name)) return runCardTool(name, input);
+
   const raw = field(input, "issue_key");
   if (!raw.trim()) return "Error: missing issue_key.";
-  // A session agent's id is case-sensitive; only ticket keys are upper-cased.
+  // A session agent's id is case-sensitive; only ticket keys are normalised.
   if (name === "send_to_agent") return sendTo(resolveAgentKey(raw), field(input, "message"));
-  const key = raw.trim().toUpperCase();
-
-  if (name === "move_issue") {
-    const data = board.data;
-    if (!data) return `${NO_BOARD} so there's no ticket to move.`;
-    const issue = data.issues.find((i) => i.key === key);
-    if (!issue) return `No ticket ${key} on the board.`;
-    const want = field(input, "target_status").trim().toLowerCase();
-    // The model names what it sees in the snapshot — a COLUMN. Match that first;
-    // fall back to a specific status name. Pass every candidate status id so
-    // transitionIssue picks whichever transition the workflow allows.
-    const column = data.columns.find((c) => c.name.toLowerCase() === want);
-    const statuses = column
-      ? column.statuses
-      : data.columns.flatMap((c) => c.statuses).filter((s) => s.name.toLowerCase() === want);
-    if (statuses.length === 0) {
-      const names = data.columns.map((c) => c.name).join(", ");
-      return `No column or status named "${field(input, "target_status")}". Board columns: ${names}.`;
-    }
-    const targetName = column ? column.name : statuses[0].name;
-    if (statuses.some((s) => s.id === issue.statusId)) {
-      return `${key} is already in ${targetName}.`;
-    }
-    // Raw transition (not the board's optimistic moveIssue) so we report real
-    // success/failure to the model, then resync the board.
-    if (!board.provider) return `${NO_BOARD} so there's no ticket to move.`;
-    try {
-      await transitionIssue(
-        board.provider,
-        key,
-        statuses.map((s) => s.id)
-      );
-      activity.log({
-        kind: "transition",
-        actor,
-        issueKey: key,
-        title: `→ ${targetName}`,
-      });
-      await board.refresh();
-      return `Moved ${key} to ${targetName}.`;
-    } catch (e) {
-      return `Couldn't move ${key}: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-
-  if (name === "start_agent") {
-    const data = board.data;
-    if (!data) {
-      return `${NO_BOARD} so start_agent has no ticket to start. For work that isn't a ticket, the user can start a session from the Sessions page.`;
-    }
-    const issue = data.issues.find((i) => i.key === key);
-    if (!issue) return `No ticket ${key} on the board.`;
-    if (board.runningAgents.has(key)) return `An agent is already running on ${key}.`;
-
-    // Move to In Progress first (mirrors dragging a card there to begin work),
-    // unless it's already in an in-progress column.
-    let moved = "";
-    if (issue.statusCategory !== "indeterminate") {
-      const target = startOfWorkStatus(data.columns);
-      if (target) {
-        try {
-          if (!board.provider) throw new Error("no provider");
-          await transitionIssue(board.provider, key, [target.id]);
-          activity.log({
-            kind: "transition",
-            actor,
-            issueKey: key,
-            title: `→ ${target.name}`,
-          });
-          moved = ` and moved it to ${target.name}`;
-        } catch (e) {
-          // A transition failure shouldn't block the agent — surface it and go on.
-          moved = ` (couldn't move it: ${e instanceof Error ? e.message : String(e)})`;
-        }
-      }
-    }
-    board.kickoff(key, actor);
-    await board.refresh();
-    return `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working — no follow-up message is needed.`;
-  }
-
-  if (name === "comment_on_issue") {
-    const body = field(input, "body");
-    if (!body.trim()) return "Error: empty comment.";
-    if (!board.provider) return `${NO_BOARD} so there's no ticket to comment on.`;
-    try {
-      await commentOnIssue(board.provider, key, body);
-      return `Commented on ${key}.`;
-    } catch (e) {
-      return `Couldn't comment on ${key}: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
+  // The ticket tools find the ticket's board themselves: the shown one, or any other.
+  if (name === "move_issue") return moveIssueTool(input, actor);
+  if (name === "start_agent") return startAgentTool(input, actor);
+  if (name === "comment_on_issue") return commentTool(input);
 
   return `Unknown tool: ${name}`;
 }

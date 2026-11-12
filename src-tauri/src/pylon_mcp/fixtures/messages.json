@@ -1,0 +1,8 @@
+{
+  "data": [
+    { "id": "m-2", "message_html": "<p>Looking into it.</p>", "is_private": true, "author": { "name": "Jo Example" }, "timestamp": "2026-11-02T10:00:00Z" },
+    { "id": "m-1", "message_html": "<p>It broke after the update.</p>", "is_private": false, "author": { "contact": { "id": "c-1" }, "name": "A Customer" }, "timestamp": "2026-11-01T09:00:00Z" },
+    { "id": "m-3", "message_html": "", "is_private": false, "timestamp": "2026-11-03T09:00:00Z" }
+  ],
+  "pagination": { "cursor": "m-page-2", "has_next_page": true }
+}

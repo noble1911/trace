@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { useIssuesStore } from "@/domains/issues/store";
 import { JiraForm, PylonForm } from "./ConnectForms";
 import type { Integration } from "./registry";
+import { TwoWayConnect } from "./TwoWayConnect";
 
 interface IntegrationDialogProps {
   integration: Integration;
@@ -13,11 +14,15 @@ interface IntegrationDialogProps {
 
 // One integration's details: the connect form, or its account and Disconnect.
 export function IntegrationDialog({ integration, onClose }: IntegrationDialogProps) {
-  const { kind, name, logo, description, account } = integration;
+  const { kind, name, logo, description, account, login } = integration;
   const session = useIssuesStore((s) => s.sessions[kind]);
   const user = useIssuesStore((s) => s.users[kind]);
   const disconnect = useIssuesStore((s) => s.disconnect);
   const clearConnectError = useIssuesStore((s) => s.clearConnectError);
+  // Each tracker with a `login` way names its store action here.
+  const connectWithLogin = useIssuesStore((s) =>
+    kind === "jira" ? s.connectJiraMcp : kind === "pylon" ? s.connectPylonMcp : undefined
+  );
   const wasConnected = useState(() => Boolean(session))[0];
 
   // Don't greet this dialog with the last attempt's failure.
@@ -34,6 +39,15 @@ export function IntegrationDialog({ integration, onClose }: IntegrationDialogPro
       .catch((err) => toast.error(`Couldn't disconnect ${name}: ${String(err)}`));
   };
 
+  const loginWay = login && connectWithLogin ? login : undefined;
+  const tokenForm =
+    kind === "jira" ? (
+      <JiraForm secondary={Boolean(loginWay)} />
+    ) : (
+      <PylonForm secondary={Boolean(loginWay)} />
+    );
+  const viaMcp = session?.via === "mcp";
+
   return (
     <Modal title={name} onClose={onClose}>
       <div className="ig-dialog">
@@ -47,14 +61,32 @@ export function IntegrationDialog({ integration, onClose }: IntegrationDialogPro
                 {account(session)}
               </div>
             )}
+            {session && (
+              <div className="ig-account">
+                {viaMcp
+                  ? (login?.connected ?? "Connected with your login")
+                  : "Connected with an API token"}
+              </div>
+            )}
           </div>
         </div>
-        {!session && (kind === "jira" ? <JiraForm /> : <PylonForm />)}
+        {!session &&
+          (loginWay && connectWithLogin ? (
+            <TwoWayConnect way={loginWay} onLogin={connectWithLogin}>
+              {tokenForm}
+            </TwoWayConnect>
+          ) : (
+            tokenForm
+          ))}
         {session && (
           <div className="ig-form-foot">
             <InlineConfirm
               label="Disconnect"
-              message={`Disconnect ${name} and delete its token?`}
+              message={
+                viaMcp
+                  ? `Disconnect ${name}? Your login stays, for agents.`
+                  : `Disconnect ${name} and delete its token?`
+              }
               confirmLabel="Disconnect"
               onConfirm={confirmDisconnect}
             />

@@ -8,7 +8,7 @@ import type { BoardData, ColumnStatus, ProviderKind, PullRequest } from "@/domai
 import { useSessionsStore } from "@/domains/sessions/store";
 import { getBoard, getIssuePullRequests, transitionIssue } from "@/ipc/issues";
 import { noteAgentGone } from "./adopt";
-import { boardSnapshot, forgetBoards, lookUpPrs, rememberBoard } from "./boardCache";
+import { boardSnapshot, lookUpPrs, rememberBoard } from "./boardCache";
 import { isStartOfWork } from "./columns";
 import {
   type BoardFilter,
@@ -20,6 +20,7 @@ import {
   saveTypeFilter,
 } from "./filterPrefs";
 import { rememberIssues } from "./issueBoards";
+import { boardLoads } from "./loadGuard";
 import { appendChunk, type OutputChunk } from "./outputBuffer";
 import type { TypeSelection } from "./typeSelection";
 import { armWaitingNotify, cancelWaitingWatch, watchForQuiet } from "./waitingNotify";
@@ -95,7 +96,7 @@ interface BoardStore {
   outputBuffers: Record<string, OutputChunk[]>;
 
   loadBoard: (boardKey: string) => Promise<void>;
-  /** Forget the loaded board: its tracker was disconnected. */
+  /** Show no board (none selected). Other boards' snapshots stay (`boardCache`). */
   clearBoard: () => void;
   refresh: () => Promise<void>;
   moveIssue: (key: string, status: ColumnStatus) => Promise<void>;
@@ -149,18 +150,17 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       error: null,
       pullRequests: same ? get().pullRequests : (snapshot?.pullRequests ?? {}),
     });
+    const ticket = boardLoads.start();
     try {
       const data = await getBoard(option.provider, option.boardId);
-      // The user switched board (or disconnected) while this was loading.
+      // Another board was picked meanwhile, or an edit landed (newer than this: `loadGuard`).
       if (get().boardKey !== boardKey) return;
+      if (boardLoads.isStale(ticket)) return void set({ loading: false });
       set({ data, loading: false });
       rememberBoard(boardKey, data, get().pullRequests);
       // Keeps the titles of running agents' tickets once this board is off screen.
-      const { runningAgents } = get();
-      rememberIssues(
-        boardKey,
-        data.issues.filter((i) => runningAgents.has(i.key))
-      );
+      const withAgents = data.issues.filter((i) => get().runningAgents.has(i.key));
+      rememberIssues(boardKey, withAgents);
       // PR lookups in the background, a few at a time (`boardCache`): cards render
       // at once and a badge pops in as each issue's dev-status answer lands. Only
       // Jira has a dev-status integration; other providers would all return empty.
@@ -178,7 +178,6 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   clearBoard() {
-    forgetBoards();
     set({
       boardKey: null,
       provider: null,

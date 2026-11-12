@@ -1,0 +1,6 @@
+[
+  { "id": "c-acme", "url": "https://acme.atlassian.net", "name": "acme", "scopes": ["read:page:confluence", "search:confluence"], "avatarUrl": "https://example.invalid/a.png" },
+  { "id": "c-acme", "url": "https://acme.atlassian.net", "name": "acme", "scopes": ["read:jira-work", "write:jira-work"], "avatarUrl": "https://example.invalid/a.png" },
+  { "id": "c-wiki", "url": "https://wiki-only.atlassian.net", "name": "wiki-only", "scopes": ["read:page:confluence"] },
+  { "id": "c-beta", "url": "https://beta.atlassian.net", "name": "beta", "scopes": ["read:jira-work"] }
+]

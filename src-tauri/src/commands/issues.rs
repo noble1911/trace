@@ -1,11 +1,11 @@
-//! Provider commands (Jira, Pylon). Credentials never cross to the frontend —
+//! Provider commands (Jira, Pylon, custom boards). Credentials never cross to the frontend —
 //! only the resolved user/board data does. Every board command takes the target
 //! provider, since several can be connected at once.
 
 use tauri::State;
 
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
-use crate::issues::{IssueProvider, Provider, ProviderKind, ProviderSession};
+use crate::issues::{mcp_link, IssueProvider, Provider, ProviderKind, ProviderSession};
 use crate::jira::JiraConnection;
 use crate::pylon::PylonConnection;
 use crate::state::AppState;
@@ -20,14 +20,27 @@ fn get_provider(state: &AppState, kind: ProviderKind) -> Result<Provider, String
         .ok_or_else(|| match kind {
             ProviderKind::Jira => "Not connected to Jira.".to_string(),
             ProviderKind::Pylon => "Not connected to Pylon.".to_string(),
+            ProviderKind::Custom => "Custom boards aren't loaded.".to_string(),
         })
 }
 
-/// Insert/update a provider connection and persist its credentials.
+/// Insert/update a provider connection and persist its credentials. An API
+/// connection replaces an MCP one: its "use the MCP login" record goes (the
+/// login itself stays, for agents).
 fn set_provider(state: &AppState, provider: Provider) -> Result<(), String> {
     match &provider {
-        Provider::Jira(conn) => crate::jira::auth::save(conn)?,
-        Provider::Pylon(conn) => crate::pylon::auth::save(conn)?,
+        Provider::Jira(conn) => {
+            crate::jira::auth::save(conn)?;
+            mcp_link::clear(ProviderKind::Jira);
+        }
+        Provider::Pylon(conn) => {
+            crate::pylon::auth::save(conn)?;
+            mcp_link::clear(ProviderKind::Pylon);
+        }
+        // Saved by `issues_mcp::connect_{jira,pylon}_mcp`, which build them.
+        Provider::JiraMcp(_) | Provider::PylonMcp(_) => {}
+        // Nothing to save: custom boards have no credentials.
+        Provider::Custom(_) => {}
     }
     state.providers.write().insert(provider.kind(), provider);
     Ok(())
@@ -88,13 +101,24 @@ pub async fn provider_current_user(
     get_provider(&state, kind)?.current_user().await
 }
 
+/// Disconnect a tracker and forget its credentials, and its "use the MCP
+/// login" record (not the MCP login itself: agents use it). Custom boards are
+/// always connected (they're a file, not a login), so they're refused.
 #[tauri::command]
 pub fn disconnect_provider(state: State<'_, AppState>, provider: String) -> Result<(), String> {
     let kind = ProviderKind::parse(&provider)?;
+    if kind == ProviderKind::Custom {
+        return Err(
+            "Custom boards can't be disconnected: they're kept in trace. Delete a board instead."
+                .to_string(),
+        );
+    }
     state.providers.write().remove(&kind);
+    mcp_link::clear(kind);
     match kind {
         ProviderKind::Jira => crate::jira::auth::clear(),
         ProviderKind::Pylon => crate::pylon::auth::clear(),
+        ProviderKind::Custom => Ok(()),
     }
 }
 

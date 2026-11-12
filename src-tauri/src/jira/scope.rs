@@ -38,8 +38,9 @@ pub struct BoardSettings {
 }
 
 impl BoardSettings {
-    /// What Jira would do with a board whose config screen we can't read.
-    fn defaults(board_type: &str) -> Self {
+    /// What Jira would do with a board whose config screen we can't read
+    /// (also the MCP adapter's settings: its server has no such screen).
+    pub fn defaults(board_type: &str) -> Self {
         let done_cutoff = match board_type {
             "scrum" => None,
             "simple" => Some(DEFAULT_CUTOFF_TEAM_MANAGED.to_string()),

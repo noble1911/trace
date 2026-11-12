@@ -1,0 +1,35 @@
+{
+  "_note": "Guessed input schemas (Pylon doesn't publish them), named as its REST API names the same things. Replace with tools/list output once trace is logged in to Pylon's MCP server.",
+  "get_me": { "type": "object", "properties": {} },
+  "search_issues": {
+    "type": "object",
+    "properties": {
+      "filter_json": { "type": "string" },
+      "cursor": { "type": "string" },
+      "limit": { "type": "integer" },
+      "include_messages": { "type": "boolean" }
+    }
+  },
+  "get_issue": { "type": "object", "properties": { "issue_id": { "type": "string" } } },
+  "update_issue": {
+    "type": "object",
+    "properties": { "issue_id": { "type": "string" }, "state": { "type": "string" }, "title": { "type": "string" } }
+  },
+  "send_issue_note": {
+    "type": "object",
+    "properties": { "issue_id": { "type": "string" }, "body_html": { "type": "string" } }
+  },
+  "send_issue_reply": {
+    "type": "object",
+    "properties": { "issue_id": { "type": "string" }, "body_html": { "type": "string" } }
+  },
+  "get_issue_messages": {
+    "type": "object",
+    "properties": { "issue_id": { "type": "string" }, "cursor": { "type": "string" }, "limit": { "type": "integer" } }
+  },
+  "get_issue_statuses": { "type": "object", "properties": {} },
+  "search_users": {
+    "type": "object",
+    "properties": { "cursor": { "type": "string" }, "limit": { "type": "integer" } }
+  }
+}

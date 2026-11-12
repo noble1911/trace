@@ -86,6 +86,18 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       ([#70](https://github.com/noble1911/trace/pull/70)). Offered on the empty Sessions page and
       at the top of Settings → Repositories wherever Conductor is installed; imported sessions
       show at once.
+- [x] **Custom boards:** boards kept in trace (the Boards page), set up from a template with
+      their own columns, card types, kickoff prompt and repos; cards (`local-<n>`) start agents
+      and move like any ticket. Every board, Jira's and Pylon's too, can have its own kickoff
+      prompt and repos (Board settings). Not yet: a board whose agents run in a plain folder.
+- [~] **Trackers over MCP:** Jira and Pylon boards can run on your login to the tracker's MCP
+      server in place of an API token (an API token, if saved, is used). *Built against the
+      vendors' documented tools; not yet run against the real servers* (`cargo test
+      jira_mcp_live pylon_mcp_live -- --ignored` once connected).
+- [x] **Board tools for agents:** `list_boards`, `get_board` for any board with its columns and
+      setup, moving, commenting and starting agents on boards that aren't shown, and
+      `create_card` / `update_card` on custom boards.
+- [x] **Keep the computer awake** while an agent runs (Settings → Agents turns it off).
 - [x] **First run and preflight:** checks for git, claude and a signed-in gh with fixes, and a
       three-step setup for new users; Settings → Run setup again
       ([#61](https://github.com/noble1911/trace/pull/61)). On macOS and Linux, trace installs

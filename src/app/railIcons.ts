@@ -7,6 +7,7 @@ export const RAIL_ICONS: Record<NavId, (p: IconProps) => JSX.Element> = {
   inbox: I.Inbox,
   board: I.Board,
   pylon: I.Support,
+  boards: I.Kanban,
   fleet: I.Fleet,
   sessions: I.Agents,
   scheduled: I.Clock,

@@ -53,7 +53,9 @@ export function startAgent(
   /** Unset keeps what the ticket ran on last (the terminal if it never ran). */
   transport?: Transport,
   /** Unset keeps where the ticket ran last (this machine if it never ran). */
-  host?: RunsOn
+  host?: RunsOn,
+  /** The ticket's board (`provider:boardId`), whose settings can pick its repo. */
+  boardKey?: string
 ): Promise<void> {
   return invoke("start_agent", {
     issueKey,
@@ -67,6 +69,7 @@ export function startAgent(
     matchText: matchText ?? null,
     transport: transport ?? null,
     host: host ?? null,
+    boardKey: boardKey ?? null,
   });
 }
 
