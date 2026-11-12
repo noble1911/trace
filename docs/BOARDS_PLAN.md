@@ -13,6 +13,13 @@ Three things, one shape:
 Side item: the orchestrator's model picker uses the models Claude Code reports
 (`claude/catalog.rs`, `ipc/claudeCatalog.ts`), like the agent pickers.
 
+Second side item: **trace keeps the computer awake while an agent is running** (the
+display may still sleep), on by default, with a switch in Settings. A new port,
+`platform::keep_awake`, with an adapter per OS: macOS runs `caffeinate -i -w <trace's
+pid>` (so it can never outlive trace), Windows `SetThreadExecutionState`, Linux
+`systemd-inhibit` when present (else nothing). Domain code only says "hold" and
+"release", from the count of live agents.
+
 ## Ports and adapters
 
 The board never knows where its data comes from.
@@ -122,6 +129,7 @@ the board's fresh `BoardData` unless noted:
 | B | `custom_boards/` adapter, `ProviderKind::Custom`, key rules, commands | – | opus |
 | E | Boards page and custom-board editing UI | B's contract | opus |
 | H | Orchestrator model picker from Claude's catalog | – | sonnet |
+| I | Keep the computer awake while agents run (`platform::keep_awake` + setting) | after B (shares the Rust tree) | sonnet |
 | C | `jira_mcp/` adapter, adapter choice, connect commands, Integrations UI | A | opus |
 | F | Agent tools for every board | B, E | sonnet |
 | D | `pylon_mcp/` adapter | A, C; Pylon's real tool list | opus |
