@@ -7,7 +7,7 @@ import { MoreTrigger, PopMenu } from "@/components/PopMenu";
 import { StatusLight } from "@/components/StatusLight";
 import { StatusPill } from "@/components/StatusPill";
 import type { Issue, PullRequest } from "@/domains/issues/types";
-import { jiraBrowseUrl } from "@/domains/issues/url";
+import { issueBrowseUrl } from "@/domains/issues/url";
 import type { AgentLight } from "@/domains/live/types";
 import { prStateLabel } from "@/domains/prs/prState";
 import type { AgentCli, AgentProvider, Transport } from "@/ipc/agent";
@@ -143,7 +143,7 @@ export function DetailHeader({
   agentItems,
   layoutItems,
 }: DetailHeaderProps) {
-  const issueUrl = issue.browseUrl ?? jiraBrowseUrl(site, issue.key);
+  const issueUrl = issueBrowseUrl(issue, site);
   return (
     <div className="detail-top">
       <BackButton label={backLabel} onBack={onBack} />

@@ -1,8 +1,5 @@
-import {
-  type OrchBackend,
-  type OrchSpeed,
-  useOrchestratorStore,
-} from "@/domains/orchestrator/store";
+import { OrchestratorModelSelect } from "@/domains/orchestrator/OrchestratorModelSelect";
+import { type OrchBackend, useOrchestratorStore } from "@/domains/orchestrator/store";
 import { getAnthropicKey, setAnthropicKey } from "@/ipc/orchestrator";
 import { useHint } from "@/platform/shortcuts";
 import { KeyField } from "./KeyField";
@@ -24,8 +21,6 @@ export function AssistantSettings() {
   const orchestratorHint = useHint("orchestrator");
   const backend = useOrchestratorStore((s) => s.backend);
   const setBackend = useOrchestratorStore((s) => s.setBackend);
-  const speed = useOrchestratorStore((s) => s.speed);
-  const setSpeed = useOrchestratorStore((s) => s.setSpeed);
 
   return (
     <SettingSection
@@ -43,17 +38,10 @@ export function AssistantSettings() {
         </select>
       </SettingRow>
       <SettingRow
-        label="Speed"
-        hint="Fast (Sonnet, no extended thinking) is snappy; Thorough (Opus + thinking) reasons harder."
+        label="Model"
+        hint="What Claude Code offers. Opus and Fable also think before answering; the others answer straight away."
       >
-        <select
-          aria-label="Assistant speed"
-          value={speed}
-          onChange={(e) => setSpeed(e.target.value as OrchSpeed)}
-        >
-          <option value="fast">Fast (Sonnet)</option>
-          <option value="thorough">Thorough (Opus)</option>
-        </select>
+        <OrchestratorModelSelect />
       </SettingRow>
       <KeyField
         label="Anthropic API key"

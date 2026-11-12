@@ -17,6 +17,9 @@ export async function usageFacts(): Promise<UsageFacts> {
     count(listSessions()),
     count(interruptedAgents()),
   ]);
-  const trackers = Object.keys(useIssuesStore.getState().sessions).length;
+  // trace's own boards are always connected, so they don't count as a tracker set up.
+  const trackers = Object.values(useIssuesStore.getState().sessions).filter(
+    (s) => s.provider !== "custom"
+  ).length;
   return { repos, sessions, trackers, interrupted };
 }

@@ -21,6 +21,8 @@ import { RepoConfirm } from "@/domains/agentTools/RepoConfirm";
 import { Board } from "@/domains/board/Board";
 import { useBoardAutoRefresh } from "@/domains/board/hooks/useBoardAutoRefresh";
 import { useBoardStore } from "@/domains/board/store";
+import { BoardsPage } from "@/domains/boards/BoardsPage";
+import { CustomBoardDialogs } from "@/domains/boards/CustomBoardDialogs";
 import { CheatSheet } from "@/domains/cheatSheet/CheatSheet";
 import { FleetView } from "@/domains/fleet/FleetView";
 import { InboxView } from "@/domains/inbox/InboxView";
@@ -56,7 +58,7 @@ export function App() {
   const nav = resolveNav(wantedNav, trackerSessions, pinnedPages(sidebar));
   const tracker = navTracker(nav);
   const missingTracker = tracker && !trackerSessions[tracker] ? tracker : null;
-  const isBoardPage = (nav === "board" || nav === "pylon") && !missingTracker;
+  const isBoardPage = (nav === "board" || nav === "pylon" || nav === "boards") && !missingTracker;
 
   const data = useBoardStore((s) => s.data);
   const selectedIssueKey = useBoardStore((s) => s.selectedIssueKey);
@@ -110,8 +112,10 @@ export function App() {
     : null;
   // A detail overlays the current page; Back returns to it, so it says which.
   const backLabel = NAV_LABELS[nav].replace(/^./, (c) => c.toUpperCase());
-  // A pinned tracker page with no tracker names no board in the crumbs.
-  const project = missingTracker ? "" : (data?.boardName ?? trackerSessions.jira?.site ?? "trace");
+  // A pinned tracker page with no tracker names no board in the crumbs, nor does Boards
+  // with none made yet.
+  const fallback = nav === "boards" ? "" : (trackerSessions.jira?.site ?? "trace");
+  const project = missingTracker ? "" : (data?.boardName ?? fallback);
 
   // The rail stays visible inside a detail view; clicking a nav item there should
   // leave the detail and go to that view, not just swap the hidden content under it.
@@ -135,7 +139,7 @@ export function App() {
         <main className="main">
           <ErrorBoundary key={nav} inPage label={`The ${NAV_LABELS[nav]} page crashed`}>
             {nav === "inbox" && <InboxView onOpen={(id) => openWorkspace(id, setNav)} />}
-            {isBoardPage && <Board />}
+            {isBoardPage && (nav === "boards" ? <BoardsPage /> : <Board />)}
             {nav === "fleet" && <FleetView onOpen={(id) => openWorkspace(id, setNav)} />}
             {nav === "sessions" && <SessionsView />}
             {nav === "scheduled" && <SchedulesView />}
@@ -171,6 +175,7 @@ export function App() {
       <InterruptedAgents />
       <SetupFlow onNav={handleNav} />
       <RepoConfirm />
+      <CustomBoardDialogs />
       <CheatSheet onNav={handleNav} />
       <Toaster />
     </div>

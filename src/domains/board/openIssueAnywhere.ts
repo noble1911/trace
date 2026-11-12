@@ -1,4 +1,5 @@
 import { toast } from "@/app/toast";
+import { findCustomBoard } from "@/domains/boards/findCard";
 import { useIssuesStore } from "@/domains/issues/store";
 import { trackerForIssueKey } from "@/domains/issues/types";
 import { rememberedIssueBoard } from "./issueBoards";
@@ -35,13 +36,20 @@ export async function openIssueAnywhere(issueKey: string): Promise<void> {
     return;
   }
   const tracker = trackerForIssueKey(issueKey);
-  const issues = useIssuesStore.getState();
-  if (!issues.sessions[tracker]) {
+  // trace's own boards need no connection, and can all be searched for the card.
+  const isCustom = tracker === "custom";
+  if (!isCustom && !useIssuesStore.getState().sessions[tracker]) {
     toast.info(`Connect its tracker in Integrations to open ${issueKey}`);
     return;
   }
-  const loaded = board.boardKey;
-  const candidates = [rememberedIssueBoard(issueKey), issues.savedBoardFor(tracker)].filter(
+  const found = isCustom ? await findCustomBoard(issueKey) : null;
+  const issues = useIssuesStore.getState();
+  // Read again: finding a custom card awaited, and the board may have moved on.
+  const { boardKey: loaded, loading } = useBoardStore.getState();
+  const likely = isCustom
+    ? [found]
+    : [rememberedIssueBoard(issueKey), issues.savedBoardFor(tracker)];
+  const candidates = likely.filter(
     (key, i, all): key is string =>
       key !== null &&
       key !== loaded &&
@@ -57,7 +65,7 @@ export async function openIssueAnywhere(issueKey: string): Promise<void> {
   const isDone = () =>
     useBoardStore.getState().selectedIssueKey !== issueKey || isOnLoadedBoard(issueKey);
   // Still loading (a notification clicked at launch): it may be on this one.
-  if (board.loading && loaded) await boardSettled(loaded, issueKey);
+  if (loading && loaded) await boardSettled(loaded, issueKey);
   if (isDone()) return;
   for (const key of candidates) {
     useIssuesStore.setState({ selectedBoardKey: key });

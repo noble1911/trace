@@ -1,5 +1,8 @@
-import { type DragEvent, useRef } from "react";
+import { type CSSProperties, type DragEvent, useRef } from "react";
 import { FilterChip } from "@/components/FilterChip";
+import { AddColumn } from "@/domains/boards/AddColumn";
+import { CustomBoardMenu } from "@/domains/boards/CustomBoardMenu";
+import { CustomColumn } from "@/domains/boards/CustomColumn";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ColumnStatus, Issue } from "@/domains/issues/types";
 import { useLiveStore } from "@/domains/live/store";
@@ -11,7 +14,7 @@ import type { BoardFilter } from "./filterPrefs";
 import { RepoPickModal } from "./RepoPickModal";
 import { useBoardStore } from "./store";
 import { boardIssueTypes, TypeFilter } from "./TypeFilter";
-import { forBoard, showsType } from "./typeSelection";
+import { ALL_TYPES, forBoard, showsType } from "./typeSelection";
 
 function applyFilter(
   issues: Issue[],
@@ -59,8 +62,15 @@ export function Board() {
   );
 
   const draggingRef = useRef<string | null>(null);
+  // A custom board (trace's own) is editable, and has no assignees or issue types to
+  // filter by: the filters remembered from a tracker's board would only hide its cards.
+  const isCustom = boardProvider === "custom";
   // Resolve the effective assignee: until the user picks, default to themselves.
-  const effectiveAssignee = assigneeFilter === undefined ? currentUserId : assigneeFilter;
+  const effectiveAssignee = isCustom
+    ? null
+    : assigneeFilter === undefined
+      ? currentUserId
+      : assigneeFilter;
 
   if (loading && !data) return <Centered title="Loading board…" />;
   if (error && !data) return <Centered title="Couldn't load the board" hint={error} />;
@@ -72,7 +82,7 @@ export function Board() {
       />
     );
   }
-  if (data.columns.length === 0) {
+  if (data.columns.length === 0 && !isCustom) {
     return (
       <Centered
         title="This board has no columns configured"
@@ -82,11 +92,12 @@ export function Board() {
   }
 
   const types = boardIssueTypes(data.issues);
-  const typeSel = forBoard(typeFilter, types);
+  const typeSel = isCustom ? ALL_TYPES : forBoard(typeFilter, types);
   // Counts on the type chips come from here — every filter but type.
   const visible = applyFilter(data.issues, filter, runningAgents, effectiveAssignee);
   const filtered = visible.filter((i) => showsType(typeSel, i.issueType));
   const grouped = groupIssuesByColumn(data.columns, filtered);
+  const noun = isCustom ? "card" : "issue";
   const activeCount = filtered.filter((i) => i.statusCategory === "indeterminate").length;
   // This board's agents: how many run, how many need you.
   const boardLights = data.issues.flatMap((i) => (live[i.key] ? [live[i.key].light] : []));
@@ -118,7 +129,8 @@ export function Board() {
         <div>
           <h1>{data.sprintName ?? data.boardName}</h1>
           <div className="desc">
-            {filtered.length} issue{filtered.length === 1 ? "" : "s"} · {activeCount} active
+            {filtered.length} {noun}
+            {filtered.length === 1 ? "" : "s"} · {activeCount} active
             {boardLights.length > 0 &&
               ` · ${boardLights.length} agent${boardLights.length === 1 ? "" : "s"} running`}
             {needYou > 0 && <span className="needs-you"> · {needYou} need you</span>}
@@ -126,11 +138,13 @@ export function Board() {
         </div>
         <div className="right">
           <DensityToggle />
-          <AssigneeFilter
-            issues={data.issues}
-            selected={effectiveAssignee}
-            onSelect={setAssigneeFilter}
-          />
+          {!isCustom && (
+            <AssigneeFilter
+              issues={data.issues}
+              selected={effectiveAssignee}
+              onSelect={setAssigneeFilter}
+            />
+          )}
           <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
             All
           </FilterChip>
@@ -140,25 +154,38 @@ export function Board() {
           <FilterChip active={filter === "running"} onClick={() => setFilter("running")}>
             Running
           </FilterChip>
+          {isCustom && <CustomBoardMenu data={data} />}
         </div>
       </div>
 
-      <TypeFilter types={types} visible={visible} selected={typeSel} onSelect={setTypeFilter} />
+      {!isCustom && (
+        <TypeFilter types={types} visible={visible} selected={typeSel} onSelect={setTypeFilter} />
+      )}
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: dragend cleanup on the board container, not an interactive control */}
-      <div className="columns" onDragEnd={onDragEnd}>
-        {data.columns.map((col, i) => (
-          <Column
-            key={col.name}
-            column={col}
-            color={columnColor(i, data.columns.length)}
-            issues={grouped[i]}
-            pullRequests={pullRequests}
-            onOpen={openIssue}
-            onDragStart={onDragStart}
-            onDrop={onDrop}
-          />
-        ))}
+      <div
+        className={isCustom ? "columns bd-columns" : "columns"}
+        // The custom board's last track is its "Add column", sized to its content.
+        style={isCustom ? ({ "--bd-cols": data.columns.length } as CSSProperties) : undefined}
+        onDragEnd={onDragEnd}
+      >
+        {data.columns.map((col, i) => {
+          const shared = {
+            column: col,
+            issues: grouped[i],
+            pullRequests,
+            onOpen: openIssue,
+            onDragStart,
+            onDrop,
+          };
+          const key = col.statuses[0]?.id ?? col.name;
+          return isCustom ? (
+            <CustomColumn key={key} {...shared} columns={data.columns} />
+          ) : (
+            <Column key={key} {...shared} color={columnColor(i, data.columns.length)} />
+          );
+        })}
+        {isCustom && <AddColumn />}
       </div>
 
       {repoPickFor && <RepoPickModal issueKey={repoPickFor} />}

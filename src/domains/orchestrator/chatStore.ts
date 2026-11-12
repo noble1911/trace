@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
+import { useClaudeCatalog } from "@/domains/agentChat/claudeCatalog";
 import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { runOrchestratorCli } from "./cli";
 import { buildBoardContext } from "./context";
+import { cliModel, sdkModelId, usesThinking } from "./model";
 import { SESSIONS_RULE } from "./sessionSnapshot";
-import { speedModels, useOrchestratorStore } from "./store";
+import { useOrchestratorStore } from "./store";
 
 // The orchestrator conversation. Visible history is plain user/assistant text;
 // within-turn tool round-trips happen inside runOrchestratorTurn and aren't
@@ -76,8 +78,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const trimmed = text.trim();
     if (!trimmed || get().busy) return;
 
-    const { backend, speed } = useOrchestratorStore.getState();
-    const models = speedModels(speed);
+    const { backend, model } = useOrchestratorStore.getState();
+    // Claude Code's model list (no-op once loaded); empty if it's missing, which
+    // the mapping answers with the old hardcoded ids.
+    useClaudeCatalog.getState().load();
+    const catalog = useClaudeCatalog.getState().models;
     // The SDK path needs an API key; the CLI path uses the logged-in Claude CLI.
     let key: string | null = null;
     if (backend === "sdk") {
@@ -114,15 +119,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       if (backend === "cli") {
         // One-shot through the Claude CLI — no streaming, actions via blocks.
-        const reply = await runOrchestratorCli(history, models.cli);
+        const reply = await runOrchestratorCli(history, cliModel(model));
         patch((m) => ({ ...m, text: reply, tool: undefined }));
       } else if (key) {
         ac = new AbortController();
         abortController = ac;
         await runOrchestratorTurn({
           apiKey: key,
-          model: models.sdk,
-          extendedThinking: models.thinking,
+          model: sdkModelId(model, catalog),
+          extendedThinking: usesThinking(model, catalog),
           system: await systemPrompt(),
           history,
           signal: ac.signal,

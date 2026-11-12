@@ -1,4 +1,4 @@
-import { type DragEvent, useState } from "react";
+import { type DragEvent, type ReactNode, useState } from "react";
 import type { BoardColumn, ColumnStatus, Issue, PullRequest } from "@/domains/issues/types";
 import { Card } from "./Card";
 
@@ -10,6 +10,18 @@ interface ColumnProps {
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
   onDrop: (status: ColumnStatus) => void;
+  /** A custom board's column (`boards/CustomColumn`) adds its own controls through these. */
+  slots?: ColumnSlots;
+}
+
+/** What an editable column adds: its name as a field while renaming, its head's
+ * controls, and a form or prompt at the top of its body. */
+export interface ColumnSlots {
+  name?: ReactNode;
+  headEnd?: ReactNode;
+  bodyTop?: ReactNode;
+  /** Said in an empty column ("No cards"). */
+  emptyLabel?: string;
 }
 
 export function Column({
@@ -20,6 +32,7 @@ export function Column({
   onOpen,
   onDragStart,
   onDrop,
+  slots,
 }: ColumnProps) {
   // A column can map to several statuses (e.g. In Progress + Blocked). Split the
   // cards into a drop zone per status so a drop transitions to the *exact* status
@@ -30,10 +43,12 @@ export function Column({
     <div className="column">
       <div className="col-head">
         <span className="col-dot" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-        <span className="col-name">{column.name}</span>
+        {slots?.name ?? <span className="col-name">{column.name}</span>}
         <span className="col-count">{issues.length}</span>
+        {slots?.headEnd}
       </div>
       <div className="col-body">
+        {slots?.bodyTop}
         {column.statuses.map((status) => (
           <StatusZone
             key={status.id}
@@ -44,6 +59,7 @@ export function Column({
             onOpen={onOpen}
             onDragStart={onDragStart}
             onDrop={() => onDrop(status)}
+            emptyLabel={slots?.emptyLabel}
           />
         ))}
         {column.statuses.length === 0 && <div className="col-empty">No statuses</div>}
@@ -60,6 +76,7 @@ interface StatusZoneProps {
   onOpen: (key: string) => void;
   onDragStart: (e: DragEvent, key: string) => void;
   onDrop: () => void;
+  emptyLabel?: string;
 }
 
 function StatusZone({
@@ -70,6 +87,7 @@ function StatusZone({
   onOpen,
   onDragStart,
   onDrop,
+  emptyLabel = "No issues",
 }: StatusZoneProps) {
   const [over, setOver] = useState(false);
 
@@ -99,7 +117,7 @@ function StatusZone({
             onDragStart={onDragStart}
           />
         ))}
-        {issues.length === 0 && !multi && <div className="col-empty">No issues</div>}
+        {issues.length === 0 && !multi && <div className="col-empty">{emptyLabel}</div>}
       </div>
     </div>
   );

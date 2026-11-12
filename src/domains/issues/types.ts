@@ -1,17 +1,29 @@
 // Frontend mirror of the Rust issues::models shapes (camelCase over IPC).
-// Provider-agnostic: every issue tracker (Jira, Pylon) maps into these.
+// Provider-agnostic: every issue tracker (Jira, Pylon, trace's own custom boards) maps
+// into these.
 
-export type ProviderKind = "jira" | "pylon";
+/** The tracker an issue lives in. `custom` is trace's own boards (always connected). */
+export type ProviderKind = "jira" | "pylon" | "custom";
 
-/** Which tracker an issue key came from: Pylon's are `#123`, Jira's `ABC-123`. Mirrors
- * the backend's `ProviderKind::for_issue_key`. */
+/** A custom-board card's key: `local-<digits>`, lowercase so it's never a Jira key. */
+const CUSTOM_KEY = /^local-\d+$/;
+
+/** Which tracker an issue key came from: Pylon's are `#123`, custom cards' `local-12`,
+ * Jira's `ABC-123`. Mirrors the backend's `ProviderKind::for_issue_key`. */
 export function trackerForIssueKey(key: string): ProviderKind {
-  return key.startsWith("#") ? "pylon" : "jira";
+  if (key.startsWith("#")) return "pylon";
+  if (CUSTOM_KEY.test(key)) return "custom";
+  return "jira";
 }
+
+/** How a tracker is connected: its API key, trace's MCP login, or local (custom boards). */
+export type ProviderVia = "api" | "mcp" | "local";
 
 /** The non-secret session descriptor (never carries tokens). */
 export interface ProviderSession {
   provider: ProviderKind;
+  /** Display only: which way it's connected. */
+  via: ProviderVia;
   /** Jira only — used for display and browse links. */
   site?: string | null;
   /** Jira only. */

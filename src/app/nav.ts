@@ -4,6 +4,7 @@ export type NavId =
   | "inbox"
   | "board"
   | "pylon"
+  | "boards"
   | "fleet"
   | "sessions"
   | "scheduled"
@@ -16,6 +17,7 @@ export const NAV_LABELS: Record<NavId, string> = {
   inbox: "inbox",
   board: "board",
   pylon: "pylon",
+  boards: "boards",
   fleet: "fleet",
   sessions: "sessions",
   scheduled: "scheduled",
@@ -38,6 +40,19 @@ const NAV_TRACKER: Partial<Record<NavId, ProviderKind>> = {
 /** The tracker a page's data comes from, if any. */
 export function navTracker(nav: NavId): ProviderKind | undefined {
   return NAV_TRACKER[nav];
+}
+
+/** Pages that show a board, and whose boards they list. Boards (trace's own) needs no
+ * connection, so it's here and not in `NAV_TRACKER`: it's always available. */
+const NAV_BOARDS: Partial<Record<NavId, ProviderKind>> = {
+  board: "jira",
+  pylon: "pylon",
+  boards: "custom",
+};
+
+/** The tracker whose boards a board page shows, or undefined for a page without one. */
+export function navBoardProvider(nav: NavId): ProviderKind | undefined {
+  return NAV_BOARDS[nav];
 }
 
 /** Whether a page can be shown: its tracker is connected, or the user keeps it on the

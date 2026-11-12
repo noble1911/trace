@@ -33,6 +33,8 @@ interface IssuesStore {
   connectJira: (site: string, email: string, token: string) => Promise<void>;
   connectPylon: (token: string) => Promise<void>;
   disconnect: (provider: ProviderKind) => Promise<void>;
+  /** Re-list one tracker's boards: after a custom board is made, renamed or deleted. */
+  reloadBoards: (provider: ProviderKind) => Promise<void>;
   selectBoard: (key: string) => void;
   /** The board last viewed on a tracker, or its first. */
   savedBoardFor: (provider: ProviderKind) => string | null;
@@ -115,7 +117,7 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
       const user = await connectJira(site, email, token);
       set((s) => ({
         connecting: false,
-        sessions: { ...s.sessions, jira: { provider: "jira", site, email } },
+        sessions: { ...s.sessions, jira: { provider: "jira", via: "api", site, email } },
         users: { ...s.users, jira: user },
       }));
       await loadProvider(set, "jira");
@@ -130,7 +132,7 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
       const user = await connectPylon(token);
       set((s) => ({
         connecting: false,
-        sessions: { ...s.sessions, pylon: { provider: "pylon" } },
+        sessions: { ...s.sessions, pylon: { provider: "pylon", via: "api" } },
         users: { ...s.users, pylon: user },
       }));
       await loadProvider(set, "pylon");
@@ -153,6 +155,10 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
           : restoreBoardKey(boards);
       return { sessions, users, boards, selectedBoardKey };
     });
+  },
+
+  async reloadBoards(provider) {
+    await loadProvider(set, provider);
   },
 
   selectBoard(key) {

@@ -7,6 +7,8 @@ import { StatusLight } from "@/components/StatusLight";
 import { findAction, useRowMenu } from "@/components/useRowMenu";
 import { epicColor } from "@/domains/board/epicColor";
 import { useBoardStore } from "@/domains/board/store";
+import { CardDeletePrompt } from "@/domains/boards/CardDeletePrompt";
+import { useBoardsUi } from "@/domains/boards/uiStore";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { Issue, PullRequest } from "@/domains/issues/types";
 import { jiraBrowseUrl } from "@/domains/issues/url";
@@ -47,6 +49,9 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
   const site = useIssuesStore((s) => s.sessions.jira?.site ?? null);
   const epicUrl = issue.epicKey ? jiraBrowseUrl(site, issue.epicKey) : undefined;
 
+  // A custom board's card (trace's own) is edited and deleted from here too.
+  const isCustom = useBoardStore((s) => s.provider === "custom");
+  const deleting = useBoardsUi((s) => s.deletingCard === issue.key);
   const canStart = !live && issue.statusCategory !== "done";
   const menu = useRowMenu();
 
@@ -63,6 +68,12 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
     pr: firstPr,
     epic: epicUrl && issue.epicKey ? { key: issue.epicKey, url: epicUrl } : undefined,
     onOpen: open,
+    custom: isCustom
+      ? {
+          onEdit: () => useBoardsUi.getState().editCard(issue.key),
+          onDelete: () => useBoardsUi.getState().confirmDeleteCard(issue.key),
+        }
+      : undefined,
   });
   const start = findAction(actions, START_ACTION);
 
@@ -180,6 +191,7 @@ export function Card({ issue, prs, onOpen, onDragStart }: CardProps) {
             )}
           </div>
         )}
+        {deleting && <CardDeletePrompt issueKey={issue.key} />}
       </div>
       <RowMenuPopover menu={menu} sections={actions} />
     </>

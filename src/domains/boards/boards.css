@@ -1,0 +1,154 @@
+/* Custom boards (trace's own): the editing a board made in trace adds to the shared
+   Board. Prefixed `bd-`. The Board, its columns and cards keep their own CSS. */
+
+/* ============ Columns ============ */
+
+/* The last track is "Add column", sized to its content; every column keeps its width. */
+.columns.bd-columns {
+  grid-template-columns: repeat(var(--bd-cols), minmax(260px, 1fr)) max-content;
+}
+
+/* A column head's "+" and ⋯: the reveal recipe. They keep their slot (so the count
+   doesn't shift), and show on hover, with focus in the column, while one is in use
+   (the add form open, the menu open), and always without a hovering pointer. */
+.bd-col-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.column:hover .bd-col-tools,
+.column:focus-within .bd-col-tools,
+.bd-col-tools.on,
+.bd-col-tools:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+@media (hover: none) {
+  .bd-col-tools {
+    opacity: 1;
+  }
+}
+.bd-col-tools .btn.icon {
+  color: var(--fg-3);
+}
+.bd-col-tools .btn.icon:hover:not(:disabled) {
+  color: var(--fg-0);
+}
+
+/* The column's name while it's renamed: the name's own size, in a field. */
+.bd-col-input {
+  min-width: 0;
+  flex: 1;
+  height: var(--control-h-xs);
+  padding: 0 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius-sm);
+  color: var(--fg-0);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The add-card form and the delete prompt sit at the top of the column's body. */
+.bd-col-form,
+.bd-col-band {
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.bd-col-band .inline-confirm {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.bd-col-band .inline-confirm-msg {
+  flex-basis: 100%;
+  line-height: 1.6;
+}
+.bd-col-band.bd-col-band .inline-confirm-msg {
+  white-space: normal;
+}
+.bd-col-select {
+  height: var(--control-h-xs);
+  max-width: 100%;
+  padding: 0 4px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--fg-0);
+  font-size: var(--text-ui);
+}
+
+/* "Add column": slim at rest, a column-wide form once opened. */
+.bd-add-col {
+  align-self: start;
+  white-space: nowrap;
+}
+.bd-add-col-form {
+  width: 260px;
+  align-self: start;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* ============ The card form (column, dialog, Ticket tab) ============ */
+.bd-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bd-card-form.sm textarea {
+  min-height: 64px;
+}
+.bd-form-row {
+  display: flex;
+  gap: 8px;
+}
+.bd-grow {
+  flex: 1;
+  min-width: 0;
+}
+.bd-form-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.bd-field-label {
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.bd-problem.bd-problem {
+  color: var(--c-danger);
+}
+.bd-card-modal {
+  width: 520px;
+}
+
+/* A card's delete prompt, at its foot. */
+.bd-card-delete {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+.bd-card-delete .inline-confirm {
+  display: flex;
+}
+.bd-card-delete .inline-confirm-msg {
+  flex: 1;
+}
+
+/* ============ Ticket tab ============ */
+.bd-ticket-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bd-ticket-form {
+  margin: 12px 0 18px;
+}

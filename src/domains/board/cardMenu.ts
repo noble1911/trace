@@ -14,6 +14,14 @@ interface CardMenuArgs {
   /** The epic's page in the tracker, when it has one. */
   epic?: { key: string; url: string };
   onOpen: () => void;
+  /** Set on a custom board's card (trace's own), which can be edited and deleted here. */
+  custom?: CustomCardActions;
+}
+
+/** A custom card's own items. Deleting is refused while its agent runs. */
+export interface CustomCardActions {
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 /** The card's Start, by id: the card draws it as its always-visible `Start` button. */
@@ -32,6 +40,7 @@ export function cardMenu({
   pr,
   epic,
   onOpen,
+  custom,
 }: CardMenuArgs): RowActionSection[] {
   const main: RowAction[] = [{ id: "open", label: "Open", onSelect: onOpen }];
   if (onStart)
@@ -57,9 +66,24 @@ export function cardMenu({
       glyph: I.External,
       onSelect: () => void openUrl(epic.url),
     });
+  const card: RowAction[] = custom
+    ? [
+        { id: "edit", label: "Edit card…", glyph: I.Pencil, onSelect: custom.onEdit },
+        {
+          id: "delete",
+          label: "Delete card",
+          glyph: I.Trash,
+          danger: true,
+          disabled: hasAgent,
+          detail: hasAgent ? "Stop its agent first" : undefined,
+          onSelect: custom.onDelete,
+        },
+      ]
+    : [];
   return [
     { items: main },
     { items: links },
+    { items: card },
     { title: "Worktree", items: hasAgent ? editorItems(issueKey) : [] },
   ];
 }
