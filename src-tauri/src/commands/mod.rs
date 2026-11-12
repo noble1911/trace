@@ -10,6 +10,7 @@ pub mod browser;
 pub mod cleanup;
 pub mod composer;
 pub mod conductor_import;
+pub mod custom_boards;
 pub mod diff;
 pub mod editor;
 pub mod files;

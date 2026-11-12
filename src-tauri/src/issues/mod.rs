@@ -4,12 +4,14 @@
 //!
 //! Each provider owns its auth/client modules (`jira/`, `pylon/`); this module
 //! holds the shared interface and the `Provider` enum stored in `AppState`.
+//! Custom boards (`custom_boards/`) are one more provider, kept in a local file.
 
 pub mod models;
 pub mod session;
 
 use serde::Serialize;
 
+use crate::custom_boards::CustomBoards;
 use crate::jira::JiraConnection;
 use crate::pylon::PylonConnection;
 
@@ -22,14 +24,19 @@ use models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 pub enum ProviderKind {
     Jira,
     Pylon,
+    /// Boards made in trace (`custom_boards`).
+    Custom,
 }
 
 impl ProviderKind {
-    /// Which tracker a card key came from: Pylon keys are `#123`, Jira's
-    /// `ABC-123`. For callers holding only a workspace id (an issue key).
+    /// Which tracker a card key came from: Pylon keys are `#123`, custom boards'
+    /// `local-123`, Jira's `ABC-123`. For callers holding only a workspace id (an
+    /// issue key).
     pub fn for_issue_key(key: &str) -> Self {
         if key.starts_with('#') {
             ProviderKind::Pylon
+        } else if crate::custom_boards::is_card_key(key) {
+            ProviderKind::Custom
         } else {
             ProviderKind::Jira
         }
@@ -39,6 +46,7 @@ impl ProviderKind {
         match s {
             "jira" => Ok(ProviderKind::Jira),
             "pylon" => Ok(ProviderKind::Pylon),
+            "custom" => Ok(ProviderKind::Custom),
             other => Err(format!("Unknown provider: {other}")),
         }
     }
@@ -50,6 +58,7 @@ impl ProviderKind {
 pub enum Provider {
     Jira(JiraConnection),
     Pylon(PylonConnection),
+    Custom(CustomBoards),
 }
 
 impl Provider {
@@ -57,8 +66,21 @@ impl Provider {
         match self {
             Provider::Jira(_) => ProviderKind::Jira,
             Provider::Pylon(_) => ProviderKind::Pylon,
+            Provider::Custom(_) => ProviderKind::Custom,
         }
     }
+}
+
+/// How trace reaches a tracker, for display ("connected with an API token").
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Via {
+    /// The tracker's REST API, with a saved key or token.
+    Api,
+    /// The tracker's MCP server, with trace's own login (`mcp_auth`).
+    Mcp,
+    /// A file in trace's config dir: custom boards.
+    Local,
 }
 
 /// The non-secret session descriptor the UI needs (which provider, plus the
@@ -69,6 +91,7 @@ pub struct ProviderSession {
     pub provider: ProviderKind,
     pub site: Option<String>,
     pub email: Option<String>,
+    pub via: Via,
 }
 
 /// The interface every issue tracker implements. Board ids are opaque strings
@@ -135,6 +158,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.current_user().await,
             Provider::Pylon(c) => c.current_user().await,
+            Provider::Custom(c) => c.current_user().await,
         }
     }
 
@@ -142,6 +166,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.list_boards().await,
             Provider::Pylon(c) => c.list_boards().await,
+            Provider::Custom(c) => c.list_boards().await,
         }
     }
 
@@ -149,6 +174,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.get_board(board_id).await,
             Provider::Pylon(c) => c.get_board(board_id).await,
+            Provider::Custom(c) => c.get_board(board_id).await,
         }
     }
 
@@ -160,6 +186,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.transition_issue(issue_key, target_status_ids).await,
             Provider::Pylon(c) => c.transition_issue(issue_key, target_status_ids).await,
+            Provider::Custom(c) => c.transition_issue(issue_key, target_status_ids).await,
         }
     }
 
@@ -167,6 +194,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.add_comment(issue_key, body).await,
             Provider::Pylon(c) => c.add_comment(issue_key, body).await,
+            Provider::Custom(c) => c.add_comment(issue_key, body).await,
         }
     }
 
@@ -174,6 +202,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.list_comments(issue_id).await,
             Provider::Pylon(c) => c.list_comments(issue_id).await,
+            Provider::Custom(c) => c.list_comments(issue_id).await,
         }
     }
 
@@ -185,6 +214,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.get_pull_requests(issue_id, fresh).await,
             Provider::Pylon(c) => c.get_pull_requests(issue_id, fresh).await,
+            Provider::Custom(c) => c.get_pull_requests(issue_id, fresh).await,
         }
     }
 
@@ -192,6 +222,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.status_category(issue_key).await,
             Provider::Pylon(c) => c.status_category(issue_key).await,
+            Provider::Custom(c) => c.status_category(issue_key).await,
         }
     }
 
@@ -199,6 +230,7 @@ impl IssueProvider for Provider {
         match self {
             Provider::Jira(c) => c.session_info(),
             Provider::Pylon(c) => c.session_info(),
+            Provider::Custom(c) => c.session_info(),
         }
     }
 }

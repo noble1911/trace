@@ -61,9 +61,12 @@ fn with_subject(mut input: ActivityInput) -> ActivityInput {
     input
 }
 
-/// Jira `ABC-123` or Pylon `#123` — so a torn-down session's uuid never poses
-/// as an issue key.
+/// Jira `ABC-123`, Pylon `#123` or a custom board's `local-123` — so a torn-down
+/// session's uuid never poses as an issue key.
 pub(crate) fn looks_like_issue_key(id: &str) -> bool {
+    if crate::custom_boards::is_card_key(id) {
+        return true;
+    }
     if let Some(num) = id.strip_prefix('#') {
         return !num.is_empty() && num.chars().all(|c| c.is_ascii_digit());
     }
@@ -99,6 +102,10 @@ mod tests {
         assert!(looks_like_issue_key("TRACE-12"));
         assert!(looks_like_issue_key("PM2-7"));
         assert!(looks_like_issue_key("#123"));
+        assert!(looks_like_issue_key("local-12"));
+        assert!(!looks_like_issue_key("local-"));
+        assert!(!looks_like_issue_key("term:local-12"));
+        assert!(!looks_like_issue_key("sched:local-12"));
         assert!(!looks_like_issue_key(
             "3f2a9c1e-0b7d-4c55-9e1a-2b3c4d5e6f70"
         ));

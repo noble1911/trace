@@ -11,6 +11,7 @@ pub mod claude;
 pub mod cleanup;
 pub mod commands;
 pub mod conductor_import;
+pub mod custom_boards;
 pub mod diff_parse;
 pub mod diff_summary;
 pub mod execution;
@@ -102,6 +103,16 @@ pub fn run() {
             commands::issues::transition_issue,
             commands::issues::comment_on_issue,
             commands::issues::list_issue_comments,
+            commands::custom_boards::custom_board_create,
+            commands::custom_boards::custom_board_rename,
+            commands::custom_boards::custom_board_delete,
+            commands::custom_boards::custom_column_add,
+            commands::custom_boards::custom_column_update,
+            commands::custom_boards::custom_column_move,
+            commands::custom_boards::custom_column_delete,
+            commands::custom_boards::custom_card_create,
+            commands::custom_boards::custom_card_update,
+            commands::custom_boards::custom_card_delete,
             commands::conductor_import::conductor_import_available,
             commands::conductor_import::conductor_import_preview,
             commands::conductor_import::conductor_import_apply,

@@ -1,5 +1,7 @@
 //! Where an agent is, told to it on every start: a ticket's agent learns which
-//! tracker's ticket it's for ("Jira ticket PM-1234", "Pylon ticket #1234").
+//! tracker's ticket it's for ("Jira ticket PM-1234", "Pylon ticket #1234"), and
+//! a custom board's agent the card and board ("card local-12 on the trace board
+//! …").
 //!
 //! The kickoff brief names the ticket too, but only in a fresh conversation's
 //! first message, and only if the user's template keeps `{key}`. A resumed
@@ -19,7 +21,23 @@ fn tracker_name(kind: ProviderKind) -> &'static str {
     match kind {
         ProviderKind::Jira => "Jira",
         ProviderKind::Pylon => "Pylon",
+        ProviderKind::Custom => "trace",
     }
+}
+
+/// What a custom board's card agent is told. `board` is the board's name, when
+/// the card can still be found: a card deleted under a running agent leaves it
+/// knowing only that it's a trace board.
+fn card_context(key: &str, board: Option<&str>) -> String {
+    let on = match board {
+        Some(name) => format!("on the trace board \"{name}\""),
+        None => "on a trace board".to_string(),
+    };
+    format!(
+        "You are running in trace as the agent for card {key} {on} (a board kept in \
+         trace, not Jira or Pylon): this worktree, branch and conversation are that \
+         card's. Call it card {key} when you mention it."
+    )
 }
 
 /// What to tell the agent of `workspace_id` about where it is, if it's a ticket's.
@@ -27,7 +45,12 @@ pub fn workspace_context(workspace_id: &str) -> Option<String> {
     if !crate::activity::looks_like_issue_key(workspace_id) {
         return None;
     }
-    let tracker = tracker_name(ProviderKind::for_issue_key(workspace_id));
+    let kind = ProviderKind::for_issue_key(workspace_id);
+    if kind == ProviderKind::Custom {
+        let board = crate::custom_boards::board_name_for_key(workspace_id);
+        return Some(card_context(workspace_id, board.as_deref()));
+    }
+    let tracker = tracker_name(kind);
     Some(format!(
         "You are running in trace as the agent for {tracker} ticket {workspace_id}: this \
          worktree, branch and conversation are that ticket's. Call it {tracker} ticket \
@@ -70,6 +93,15 @@ mod tests {
         assert!(jira.contains("Jira ticket PM-1234"));
         let pylon = workspace_context("#1234").expect("a Pylon key");
         assert!(pylon.contains("Pylon ticket #1234"));
+    }
+
+    #[test]
+    fn a_custom_card_names_its_board() {
+        let named = card_context("local-12", Some("Side projects"));
+        assert!(named.contains("card local-12 on the trace board \"Side projects\""));
+        assert!(named.contains("not Jira or Pylon"));
+        let gone = card_context("local-12", None);
+        assert!(gone.contains("card local-12 on a trace board"));
     }
 
     #[test]
