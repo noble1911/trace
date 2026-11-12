@@ -28,6 +28,8 @@ export function formatComments(comments: IssueComment[]): string {
 }
 
 export interface KickoffValues {
+  /** The tracker's name: "Jira", "Pylon". */
+  tracker: string;
   key: string;
   summary: string;
   description: string;
@@ -39,7 +41,7 @@ export interface KickoffValues {
  * would treat `$&` or `$1` in that text as replacement patterns. */
 export function fillKickoffTemplate(template: string, values: KickoffValues): string {
   return template.replace(
-    /\{(key|summary|description|comments)\}/g,
+    /\{(tracker|key|summary|description|comments)\}/g,
     (_match, name: keyof KickoffValues) => values[name]
   );
 }

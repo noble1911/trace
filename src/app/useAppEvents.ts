@@ -3,6 +3,7 @@ import { toast } from "@/app/toast";
 import { noteRunState } from "@/domains/agent/exitedStore";
 import { ensureChatListeners } from "@/domains/agentChat/hooks/useJournalFeed";
 import { syncChatActivity } from "@/domains/agentChat/liveBridge";
+import { startSubagentAutoClose } from "@/domains/agentChat/subagentAutoClose";
 import { hydrateChatState, isChatAgent, loadChatBrands } from "@/domains/agentChat/transport";
 import { useAgentTools } from "@/domains/agentTools/useAgentTools";
 import { adoptLiveAgents } from "@/domains/board/adopt";
@@ -106,6 +107,9 @@ export function useAppEvents(): void {
       for (const fn of unlisteners) fn();
     };
   }, [setAgentRunning, appendOutput]);
+
+  // Finished subagents' tabs nobody opened close after a while (Settings → Tabs).
+  useEffect(() => startSubagentAutoClose(), []);
 
   // Load sessions once: Inbox, Fleet, notifications and resumed agents open sessions
   // by workspace id, which fell through to "not on the current board" until the

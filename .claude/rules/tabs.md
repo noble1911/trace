@@ -54,7 +54,10 @@ They keep the same spirit. Each one's tab places itself right after its agent's 
 (and the agent's earlier subagents, in start order) when it starts, without selecting
 it or moving focus (`panes/owned.ts`; one the user moved stays put). A finished one's
 × hides it (`closedTabs.ts`), nothing is deleted, and its card in the chat brings it
-back; a running one, or one waiting on you, has no ×. They have no ⌘1–9 number and
+back; a running one, or one waiting on you, has no ×. A finished one nobody opened
+also hides itself 5 minutes after it ends (`subagentIdle.ts`, applied by
+`subagentAutoClose.ts`); shown in a pane, or arranged into a layout, it stays.
+Settings → Tabs turns that off. They have no ⌘1–9 number and
 aren't listed in the pane menu's Tabs; the next/previous-tab keys step through the
 agent and its subagents.
 

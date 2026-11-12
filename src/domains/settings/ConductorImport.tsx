@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "@/app/toast";
 import { Modal } from "@/components/Modal";
 import { useSavedPrompts } from "@/domains/savedPrompts/store";
+import { useSessionsStore } from "@/domains/sessions/store";
 import {
   type ConductorPreview,
   type ConductorReport,
@@ -16,8 +17,9 @@ import { applyDefaults, currentDefaults } from "./conductorDefaults";
 import { promptProblems } from "./conductorPromptNames";
 import { initialTicks, selectedCount, type Ticks, toSelection } from "./conductorSelection";
 
-// Settings → Repositories → Add repository ▾ → Import from Conductor…, offered only
-// when Conductor's database is on this computer. Four steps: quit Conductor, preview with
+// Offered only when Conductor's database is on this computer: on the empty Sessions
+// page and in Settings → Repositories (`ConductorImportButton.tsx`), and in its Add
+// repository ▾ menu. Four steps: quit Conductor, preview with
 // checkboxes, import, then a summary of what was skipped and why.
 
 type Step =
@@ -92,6 +94,12 @@ export function ConductorImportDialog({ onClose, onImported }: ConductorImportDi
       setStep({ kind: "done", report });
       onImported();
       reloadSavedPrompts();
+      // Adopted workspaces are new sessions: the Sessions page loaded its list at
+      // launch and wouldn't otherwise see them until a restart.
+      useSessionsStore
+        .getState()
+        .load()
+        .catch((err) => toast.error(`Couldn't reload your sessions: ${String(err)}`));
     } catch (err) {
       toast.error(`The import stopped: ${String(err)}`);
       setStep({ kind: "preview", preview, ticks });
@@ -109,6 +117,11 @@ export function ConductorImportDialog({ onClose, onImported }: ConductorImportDi
       case "quit":
         return (
           <div className="ci-intro">
+            <p>
+              trace brings over your repositories with their setup scripts, your workspaces as
+              sessions (each carrying on its latest conversation), your custom prompts and your
+              defaults. You choose what comes over on the next step.
+            </p>
             <p>
               Quit Conductor before you go on. Importing a workspace moves its folder into trace,
               which would break it in a Conductor that's still running.

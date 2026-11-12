@@ -3,9 +3,11 @@ import { I } from "@/components/Icon";
 import { RowMenuPopover, RowMore } from "@/components/RowMenu";
 import { StatusLight } from "@/components/StatusLight";
 import { useRowMenu } from "@/components/useRowMenu";
+import { trackerForIssueKey } from "@/domains/issues/types";
 import type { LiveEntry } from "@/domains/live/entries";
 import { ageLabel, shownAsk } from "@/domains/live/light";
 import { useAgentQuiet } from "@/domains/live/quietStore";
+import { TRACKER_NAMES } from "@/domains/sidebar/items";
 import { useAgentRowActions } from "./agentRowActions";
 
 /** A PR as the fleet shows it — from Jira dev-status (tickets) or `gh` (sessions). */
@@ -34,7 +36,13 @@ interface FleetRowProps {
   onOpenPr: (url: string) => void;
 }
 
-const SOURCE_LABEL = { ticket: "Ticket", session: "Session", scheduled: "Scheduled" } as const;
+const SOURCE_LABEL = { session: "Session", scheduled: "Scheduled" } as const;
+
+/** Where it came from: a ticket names its tracker ("Jira ticket", "Pylon ticket"). */
+function sourceLabel(entry: LiveEntry): string {
+  if (entry.source !== "ticket") return SOURCE_LABEL[entry.source];
+  return `${TRACKER_NAMES[trackerForIssueKey(entry.id)]} ticket`;
+}
 
 const clock = (t: number) =>
   new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -74,7 +82,7 @@ export function FleetRow(props: FleetRowProps) {
           <span className="fl-title">{entry.title}</span>
           <span className="fl-sub">{entry.subtitle}</span>
         </span>
-        <span className="fl-src">{SOURCE_LABEL[entry.source]}</span>
+        <span className="fl-src">{sourceLabel(entry)}</span>
         <span className="mono">{clock(info.openedAt)}</span>
         <span className={`mono${info.light === "attention" ? " hot" : ""}`}>
           {ageLabel(info.since, now)}

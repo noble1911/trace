@@ -189,6 +189,7 @@ mod tests {
             key: key.map(|(h, v)| (h.into(), v.into())),
             local: true,
             remote: false,
+            logo: None,
         }
     }
 

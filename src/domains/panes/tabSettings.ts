@@ -71,14 +71,37 @@ function load(): string[] {
   }
 }
 
+const AUTO_CLOSE_KEY = "trace.subagentTabsAutoClose";
+
+/** Whether finished subagents' unseen tabs close by themselves: on unless turned off. */
+function loadAutoClose(): boolean {
+  try {
+    return localStorage.getItem(AUTO_CLOSE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
 interface TabSettings {
   /** Tabs turned off. */
   off: string[];
   setOn: (id: string, on: boolean) => void;
+  /** A finished subagent's tab closes after a while if it was never shown. */
+  autoCloseSubagents: boolean;
+  setAutoCloseSubagents: (on: boolean) => void;
 }
 
 export const useTabSettings = create<TabSettings>((set) => ({
   off: load(),
+  autoCloseSubagents: loadAutoClose(),
+  setAutoCloseSubagents(on) {
+    try {
+      localStorage.setItem(AUTO_CLOSE_KEY, on ? "on" : "off");
+    } catch {
+      // A view preference: it still applies this run.
+    }
+    set({ autoCloseSubagents: on });
+  },
   setOn(id, on) {
     set((s) => {
       const off = on ? s.off.filter((t) => t !== id) : [...new Set([...s.off, id])];

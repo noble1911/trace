@@ -3,6 +3,7 @@ import { toast } from "@/app/toast";
 import { I, ICON_SIZE } from "@/components/Icon";
 import { agentCli, agentProvider, setAgentCli, setAgentProvider } from "@/domains/agent/defaults";
 import { noteTransport } from "@/domains/agentChat/transport";
+import { ConductorEmptyOffer } from "@/domains/settings/ConductorImportButton";
 import { setWorkspaceTransport } from "@/ipc/agentChat";
 import { setAgentOption } from "@/ipc/agentOptions";
 import { ArchiveBin } from "./ArchiveBin";
@@ -185,6 +186,7 @@ export function SessionsView() {
               <button type="button" className="btn empty-action" onClick={() => setCreating(true)}>
                 <I.Plus size={14} /> New session…
               </button>
+              <ConductorEmptyOffer />
             </div>
           </div>
         ) : (

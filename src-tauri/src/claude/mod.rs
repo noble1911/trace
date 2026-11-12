@@ -3,6 +3,7 @@
 //! being retired, so there is no stream-json transport here.
 
 pub mod catalog;
+pub mod context;
 pub mod conversation_log;
 pub mod conversations;
 pub mod discovery;

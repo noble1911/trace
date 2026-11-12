@@ -143,7 +143,8 @@ pub(crate) fn spawn_in(
     // Claude its tools, turn hooks and the provider's endpoint + model.
     // A remote agent gets only the provider's part: the loopback can't reach it.
     let (model, extra_args, env_overrides) = if !local {
-        let wiring = launch::provider_wiring(model, provider.as_deref(), extra_args)?;
+        let wiring =
+            launch::provider_wiring(&workspace_id, model, provider.as_deref(), extra_args)?;
         (wiring.model, wiring.extra_args, wiring.env)
     } else if cli == "claude" {
         let wiring = launch::claude_wiring(

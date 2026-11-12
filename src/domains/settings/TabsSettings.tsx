@@ -10,6 +10,27 @@ import { SettingSection } from "./SettingSection";
 export function TabsSettings() {
   const off = useTabSettings((s) => s.off);
   const setOn = useTabSettings((s) => s.setOn);
+  const autoClose = useTabSettings((s) => s.autoCloseSubagents);
+  const setAutoClose = useTabSettings((s) => s.setAutoCloseSubagents);
+  return (
+    <>
+      <OptionalTabs off={off} setOn={setOn} />
+      <SettingSection
+        title="Subagent tabs"
+        desc="An agent's subagents each get a tab beside it while they run."
+      >
+        <SettingRow
+          label="Close idle subagent tabs"
+          hint="A finished subagent's tab closes 5 minutes after it ends, unless you've opened it. Its card in the chat brings it back."
+        >
+          <Switch on={autoClose} onChange={setAutoClose} label="Close idle subagent tabs" />
+        </SettingRow>
+      </SettingSection>
+    </>
+  );
+}
+
+function OptionalTabs({ off, setOn }: { off: string[]; setOn: (id: string, on: boolean) => void }) {
   return (
     <SettingSection
       title="Tabs"

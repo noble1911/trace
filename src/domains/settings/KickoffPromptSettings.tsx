@@ -23,9 +23,10 @@ export function KickoffPromptSettings() {
         hint={
           <>
             Sent to the agent when you start it from the board (Start on a card or, with auto-start
-            on, dragging to In&nbsp;Progress). Placeholders: <code>{"{key}"}</code>,{" "}
-            <code>{"{summary}"}</code>, <code>{"{description}"}</code>, <code>{"{comments}"}</code>{" "}
-            (the ticket's discussion thread, fetched at launch). Blank uses the default.
+            on, dragging to In&nbsp;Progress). Placeholders: <code>{"{tracker}"}</code> (Jira,
+            Pylon), <code>{"{key}"}</code>, <code>{"{summary}"}</code>,{" "}
+            <code>{"{description}"}</code>, <code>{"{comments}"}</code> (the ticket's discussion
+            thread, fetched at launch). Blank uses the default.
           </>
         }
         block

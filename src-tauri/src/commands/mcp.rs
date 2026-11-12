@@ -47,7 +47,7 @@ pub async fn mcp_connect(
         let known = catalog::by_url(&url);
         match known.map_or(Auth::Oauth, |k| k.auth) {
             Auth::Oauth => {
-                flow::connect(&app, &name, &url, client_id.as_deref(), source)?;
+                flow::connect(&app, &name, &url, client_id.as_deref(), source, None)?;
             }
             auth => add_plain(
                 &name,
@@ -56,6 +56,7 @@ pub async fn mcp_connect(
                 known.and_then(|k| k.key_header),
                 key,
                 source,
+                None,
             )?,
         }
         Ok(mcp_auth::statuses())
@@ -65,6 +66,7 @@ pub async fn mcp_connect(
 
 /// Add your own: by URL, with a name for its tools. With a key, it's sent as
 /// `header`; without, trace logs in if the server asks for it, else adds it open.
+/// `logo` names the service, when it's added from a self-hosted service's card.
 #[tauri::command]
 pub async fn mcp_add(
     app: AppHandle,
@@ -73,8 +75,10 @@ pub async fn mcp_add(
     header: Option<String>,
     key: Option<String>,
     client_id: Option<String>,
+    logo: Option<String>,
 ) -> Result<Vec<ServerStatus>, String> {
     blocking(move || {
+        let logo = logo.filter(|l| is_logo_id(l));
         let name = name.trim().to_string();
         let url = url.trim().to_string();
         if !url.starts_with("https://") {
@@ -92,11 +96,19 @@ pub async fn mcp_add(
                 header.as_deref(),
                 key,
                 Source::Custom,
+                logo,
             )?;
         } else if oauth::needs_login(&url) {
-            flow::connect(&app, &name, &url, client_id.as_deref(), Source::Custom)?;
+            flow::connect(
+                &app,
+                &name,
+                &url,
+                client_id.as_deref(),
+                Source::Custom,
+                logo,
+            )?;
         } else {
-            add_plain(&name, &url, Auth::Open, None, None, Source::Custom)?;
+            add_plain(&name, &url, Auth::Open, None, None, Source::Custom, logo)?;
         }
         Ok(mcp_auth::statuses())
     })
@@ -111,6 +123,7 @@ fn add_plain(
     header: Option<&str>,
     key: Option<String>,
     source: Source,
+    logo: Option<String>,
 ) -> Result<(), String> {
     let key = match auth {
         Auth::Key => {
@@ -134,7 +147,16 @@ fn add_plain(
         key,
         local,
         remote,
+        logo,
     })
+}
+
+/// A logo id is a short slug: it only ever picks one of the renderer's icons.
+fn is_logo_id(id: &str) -> bool {
+    (1..=32).contains(&id.len())
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 /// Switch one on or off for this computer and for sandboxes.

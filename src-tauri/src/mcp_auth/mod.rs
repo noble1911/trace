@@ -8,7 +8,10 @@
 //! (`execution::sandbox::egress`). The VM, config files and command lines
 //! never hold a token.
 
+pub mod cards;
 pub mod catalog;
+#[cfg(test)]
+mod catalog_live;
 pub mod flow;
 pub mod oauth;
 pub mod proxy;
@@ -39,8 +42,8 @@ pub struct ServerStatus {
     pub url: String,
     pub host: String,
     pub source: Source,
-    /// The catalog's id, which picks its logo.
-    pub catalog_id: Option<String>,
+    /// Its logo, for one from trace's list (several entries can share one).
+    pub logo: Option<String>,
     pub about: Option<String>,
     pub auth: Auth,
     pub key_hint: Option<String>,
@@ -52,6 +55,8 @@ pub struct ServerStatus {
     pub expires_at: Option<u64>,
     /// trace can renew it without the browser.
     pub refreshable: bool,
+    /// The service retired this URL: where it moved (connecting there replaces it).
+    pub replaced_by: Option<String>,
 }
 
 fn host_of(url: &str) -> String {
@@ -74,6 +79,7 @@ pub fn added() -> Vec<Added> {
                 key: None,
                 local: false,
                 remote: true,
+                logo: None,
             });
         }
     }
@@ -91,7 +97,8 @@ pub fn statuses() -> Vec<ServerStatus> {
     let added = added();
     let grants = store::grants();
     let status = |name: &str, url: &str, source: Source, auth: Auth| {
-        let known = catalog::by_url(url);
+        let replacement = catalog::replacing(url);
+        let known = catalog::by_url(url).or(replacement);
         let a = added.iter().find(|a| a.url == url);
         let grant = grants.iter().find(|g| g.url == url);
         let auth = a.map_or(auth, |a| a.auth);
@@ -100,7 +107,9 @@ pub fn statuses() -> Vec<ServerStatus> {
             url: url.to_string(),
             host: host_of(url),
             source,
-            catalog_id: known.map(|k| k.id.to_string()),
+            logo: known
+                .map(|k| k.logo.to_string())
+                .or_else(|| a.and_then(|a| a.logo.clone())),
             about: known.map(|k| k.about.to_string()),
             auth,
             key_hint: known.and_then(|k| k.key_hint).map(str::to_string),
@@ -109,18 +118,20 @@ pub fn statuses() -> Vec<ServerStatus> {
             remote: a.is_some_and(|a| a.remote),
             expires_at: grant.and_then(|g| g.expires_at),
             refreshable: grant.is_some_and(|g| g.refresh_token.is_some()),
+            replaced_by: replacement.map(|k| k.url.to_string()),
         }
     };
-    let mut out: Vec<ServerStatus> = catalog::CATALOG
-        .iter()
-        .map(|k| status(k.name, k.url, Source::Catalog, k.auth))
+    let norm = |u: &str| u.trim_end_matches('/').to_ascii_lowercase();
+    let config = servers::discover();
+    let added_urls: Vec<&str> = added.iter().map(|a| a.url.as_str()).collect();
+    let mut out: Vec<ServerStatus> = cards::catalog_cards(&added_urls, &config, &known_regions())
+        .into_iter()
+        .map(|c| status(&c.name, c.known.url, c.source, c.known.auth))
         .collect();
-    let listed = |out: &[ServerStatus], url: &str| {
-        let norm = |u: &str| u.trim_end_matches('/').to_ascii_lowercase();
-        out.iter().any(|s| norm(&s.url) == norm(url))
-    };
-    for s in servers::discover() {
-        if !listed(&out, &s.url) {
+    let listed = |out: &[ServerStatus], url: &str| out.iter().any(|s| norm(&s.url) == norm(url));
+    for s in config {
+        let folded = catalog::replacing(&s.url).is_some_and(|k| listed(&out, k.url));
+        if !folded && !listed(&out, &s.url) {
             out.push(status(&s.name, &s.url, Source::Config, Auth::Oauth));
         }
     }
@@ -130,6 +141,20 @@ pub fn statuses() -> Vec<ServerStatus> {
         }
     }
     out
+}
+
+/// Your region per service, where trace knows it: Pylon's, from the
+/// connected Pylon tracker.
+fn known_regions() -> Vec<(&'static str, catalog::Region)> {
+    let Some(conn) = crate::pylon::auth::load() else {
+        return Vec::new();
+    };
+    let region = if conn.base_url == crate::pylon::EU_BASE_URL {
+        catalog::Region::Eu
+    } else {
+        catalog::Region::Us
+    };
+    vec![("pylon", region)]
 }
 
 /// The header that logs a call in to `server`, fresh: Err when its OAuth
