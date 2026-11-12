@@ -58,6 +58,7 @@ fn a_new_card_takes_what_its_given() {
         column_id: Some("in-progress".into()),
         priority: Some("p0".into()),
         labels: Some(vec![" ui ".into(), "".into(), "ui".into(), "be".into()]),
+        type_id: None,
     };
     let c = create_card(&mut file, "a", given, "t".into()).expect("card");
     assert_eq!(c.column, "in-progress");

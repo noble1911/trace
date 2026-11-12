@@ -239,6 +239,8 @@ pub fn start_agent(
     transport: Option<String>,
     // "local" | "vercel": where it runs; unset keeps what the ticket ran on last.
     host: Option<String>,
+    // The ticket's board (`provider:boardId`), whose settings can pick its repo.
+    board_key: Option<String>,
 ) -> Result<(), String> {
     if state.pty_sessions.lock().contains_key(&issue_key) {
         return Ok(());
@@ -251,6 +253,8 @@ pub fn start_agent(
 
     let match_text = match_text.unwrap_or_default();
     let cli = cli.unwrap_or_else(|| "claude".to_string());
+    // Before anything resolves the repo: the board's settings may pin it.
+    crate::commands::board_settings::pin_board_repo(&issue_key, board_key.as_deref())?;
     // A sandbox clones the repo itself: no local worktree, and only Claude runs there.
     let sandbox = crate::commands::issue_host::settle(&issue_key, &match_text, host.as_deref())?;
     let worktree = match sandbox {

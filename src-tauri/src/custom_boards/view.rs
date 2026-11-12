@@ -1,7 +1,10 @@
 //! Custom boards in the shapes every tracker's board takes (`issues::models`),
 //! so the Board page, the ticket view and agent tools need nothing of their own.
 
+use serde::Serialize;
+
 use super::model::{Board, Card};
+use super::types::{self, CardType};
 use crate::issues::models::{
     initial_of, Assignee, BoardColumn, BoardData, BoardSummary, ColumnStatus, Issue, IssueComment,
     IssueUser,
@@ -82,7 +85,7 @@ pub fn issue(board: &Board, card: &Card) -> Issue {
         status_name,
         status_category: category.to_string(),
         priority: card.priority.clone(),
-        issue_type: "Task".to_string(),
+        issue_type: types::type_name(board, card),
         labels: card.labels.clone(),
         assignee: Some(local_assignee()),
         description: card.description.clone(),
@@ -105,4 +108,21 @@ pub fn comments(card: &Card) -> Vec<IssueComment> {
             body: c.body.clone(),
         })
         .collect()
+}
+
+/// A custom board's setup beyond its columns (`custom_board_config`): its card types.
+#[derive(Serialize, Clone, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardConfig {
+    pub id: String,
+    pub name: String,
+    pub card_types: Vec<CardType>,
+}
+
+pub fn config(board: &Board) -> BoardConfig {
+    BoardConfig {
+        id: board.id.clone(),
+        name: board.name.clone(),
+        card_types: board.card_types.clone(),
+    }
 }

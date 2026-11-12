@@ -12,6 +12,8 @@ pub mod edit;
 pub mod model;
 mod ops;
 pub mod store;
+pub mod template;
+pub mod types;
 pub mod view;
 
 use std::path::PathBuf;

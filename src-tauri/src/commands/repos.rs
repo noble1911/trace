@@ -283,6 +283,7 @@ pub fn remove_repo(path: String) -> Result<Vec<String>, String> {
     .inspect(|_| {
         // Its setup stays with a hosted repo's record, for when it's cloned again.
         let _ = crate::repo_catalog::store::update(|cat| cat.forget_local(&path));
+        super::board_settings::forget_repo(&path);
     })
 }
 

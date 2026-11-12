@@ -3,9 +3,11 @@
 
 use super::edit::board_mut;
 use super::model::{Board, BoardsFile, Card, Comment, DEFAULT_PRIORITY, KEY_PREFIX};
+use super::types::resolve_type_id;
 
-/// A card to create. `None`s take the defaults: the board's first column,
-/// priority p2, no description or labels.
+/// A card to create. `None`s take the defaults: the board's first column and
+/// first card type (none on a board without types), priority p2, no description
+/// or labels. A `type_id` of `""` asks for no type.
 #[derive(Default)]
 pub struct NewCard {
     pub summary: String,
@@ -13,16 +15,18 @@ pub struct NewCard {
     pub column_id: Option<String>,
     pub priority: Option<String>,
     pub labels: Option<Vec<String>>,
+    pub type_id: Option<String>,
 }
 
 /// Changes to a card. `None` leaves a field as it is; an empty description
-/// clears it.
+/// clears it, as does an empty `type_id` the card's type.
 #[derive(Default)]
 pub struct CardPatch {
     pub summary: Option<String>,
     pub description: Option<String>,
     pub priority: Option<String>,
     pub labels: Option<Vec<String>>,
+    pub type_id: Option<String>,
 }
 
 fn clean_summary(summary: &str) -> Result<String, String> {
@@ -96,6 +100,10 @@ pub fn create_card(
             .map(|c| c.id.clone())
             .ok_or_else(|| format!("Board \"{}\" has no columns.", board.name))?,
     };
+    let type_id = match card.type_id.as_deref() {
+        Some(id) => resolve_type_id(board, id)?,
+        None => board.card_types.first().map(|t| t.id.clone()),
+    };
     let card = Card {
         key: format!("{KEY_PREFIX}{number}"),
         summary,
@@ -104,6 +112,7 @@ pub fn create_card(
         labels: clean_labels(card.labels.unwrap_or_default()),
         column,
         comments: Vec::new(),
+        type_id,
         created,
     };
     board.cards.push(card.clone());
@@ -115,7 +124,15 @@ pub fn update_card(file: &mut BoardsFile, key: &str, patch: CardPatch) -> Result
     let summary = patch.summary.as_deref().map(clean_summary).transpose()?;
     let priority = patch.priority.as_deref().map(clean_priority).transpose()?;
     let (board, at) = locate(file, key)?;
+    let type_id = patch
+        .type_id
+        .as_deref()
+        .map(|id| resolve_type_id(board, id))
+        .transpose()?;
     let card = &mut board.cards[at];
+    if let Some(type_id) = type_id {
+        card.type_id = type_id;
+    }
     if let Some(summary) = summary {
         card.summary = summary;
     }

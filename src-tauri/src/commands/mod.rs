@@ -6,6 +6,7 @@ pub mod agent;
 pub mod agent_chat;
 pub mod agent_options;
 pub mod agent_tools;
+pub mod board_settings;
 pub mod browser;
 pub mod cleanup;
 pub mod composer;

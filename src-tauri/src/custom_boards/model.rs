@@ -4,6 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::types::CardType;
+
 /// Every card key starts with this. Lowercase on purpose: a Jira key is
 /// `ABC-123` and a Pylon one `#123`, so a key alone says which tracker owns it.
 pub const KEY_PREFIX: &str = "local-";
@@ -72,6 +74,10 @@ pub struct Board {
     pub columns: Vec<Column>,
     #[serde(default)]
     pub cards: Vec<Card>,
+    /// Kinds of card, in the order the board lists them (`types`). Defaulted so
+    /// files from before types load as boards without any.
+    #[serde(default)]
+    pub card_types: Vec<CardType>,
 }
 
 /// A column is exactly one status: its id is the status id cards carry.
@@ -100,6 +106,9 @@ pub struct Card {
     pub column: String,
     #[serde(default)]
     pub comments: Vec<Comment>,
+    /// One of its board's card types; `None` (or a type since deleted) is "Task".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub type_id: Option<String>,
     /// ISO-8601, when it was made.
     pub created: String,
 }
@@ -131,11 +140,16 @@ impl Board {
                 column("done", "Done", Category::Done),
             ],
             cards: Vec::new(),
+            card_types: Vec::new(),
         }
     }
 
     pub fn column(&self, id: &str) -> Option<&Column> {
         self.columns.iter().find(|c| c.id == id)
+    }
+
+    pub fn card_type(&self, id: &str) -> Option<&CardType> {
+        self.card_types.iter().find(|t| t.id == id)
     }
 }
 

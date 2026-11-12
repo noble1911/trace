@@ -22,7 +22,7 @@ fn card(summary: &str) -> NewCard {
 fn boards_list_as_custom() {
     let (_dir, boards) = boards();
     assert!(block_on(boards.list_boards()).expect("list").is_empty());
-    let made = boards.create_board("Side projects").expect("create");
+    let made = boards.create_board("Side projects", None).expect("create");
     assert_eq!(made.board_type, "custom");
     assert_eq!(made.id.len(), 8);
     let listed = block_on(boards.list_boards()).expect("list");
@@ -41,7 +41,7 @@ fn boards_list_as_custom() {
 #[test]
 fn a_board_maps_each_column_to_one_status() {
     let (_dir, boards) = boards();
-    let id = boards.create_board("B").expect("create").id;
+    let id = boards.create_board("B", None).expect("create").id;
     let data = boards
         .add_column(&id, "Review", "indeterminate")
         .expect("add");
@@ -68,7 +68,7 @@ fn a_board_maps_each_column_to_one_status() {
 #[test]
 fn a_card_is_an_issue() {
     let (_dir, boards) = boards();
-    let id = boards.create_board("B").expect("create").id;
+    let id = boards.create_board("B", None).expect("create").id;
     let issue = boards.create_card(&id, card("Fix it")).expect("card");
     assert_eq!(
         (issue.id.as_str(), issue.key.as_str()),
@@ -100,7 +100,7 @@ fn a_card_is_an_issue() {
 #[test]
 fn moving_commenting_and_status_go_through_the_provider() {
     let (_dir, boards) = boards();
-    let id = boards.create_board("B").expect("create").id;
+    let id = boards.create_board("B", None).expect("create").id;
     boards.create_card(&id, card("One")).expect("card");
     let status = |k: &str| block_on(boards.status_category(k));
     assert_eq!(status("local-1").as_deref(), Ok("new"));
@@ -132,9 +132,9 @@ fn moving_commenting_and_status_go_through_the_provider() {
 #[test]
 fn refusals_reach_the_caller_and_change_nothing() {
     let (_dir, boards) = boards();
-    let id = boards.create_board("B").expect("create").id;
+    let id = boards.create_board("B", None).expect("create").id;
     boards.create_card(&id, card("One")).expect("card");
-    assert!(boards.create_board(" ").is_err());
+    assert!(boards.create_board(" ", None).is_err());
     assert!(boards.delete_column(&id, "todo", None).is_err());
     assert!(boards.delete_card("local-1", |k| k == "local-1").is_err());
     assert!(boards.delete_board(&id, |k| k == "local-1").is_err());
@@ -165,4 +165,53 @@ fn custom_keys_route_to_custom_boards() {
     assert!(ProviderKind::for_issue_key("#12") == ProviderKind::Pylon);
     assert!(ProviderKind::parse("custom") == Ok(ProviderKind::Custom));
     assert_eq!(crate::helpers::slugify("local-12"), "local-12");
+}
+
+#[test]
+fn card_types_end_to_end() {
+    let (_dir, boards) = boards();
+    let template: template::BoardTemplate = serde_json::from_value(serde_json::json!({
+        "columns": [{ "name": "Open", "category": "new" }],
+        "cardTypes": [{ "name": "Feature" }]
+    }))
+    .expect("template");
+    let id = boards.create_board("T", Some(template)).expect("create").id;
+    let config = boards.add_card_type(&id, "Bug", None).expect("add");
+    assert_eq!(config.card_types.len(), 2);
+    let (feature, bug) = (
+        config.card_types[0].id.clone(),
+        config.card_types[1].id.clone(),
+    );
+
+    let issue = boards.create_card(&id, card("One")).expect("card");
+    assert_eq!(issue.issue_type, "Feature");
+    let patch = CardPatch {
+        type_id: Some(bug.clone()),
+        ..CardPatch::default()
+    };
+    assert_eq!(
+        boards
+            .update_card("local-1", patch)
+            .expect("update")
+            .issue_type,
+        "Bug"
+    );
+
+    let config = boards
+        .update_card_type(&id, &bug, Some("Defect"), Some("Repro".into()))
+        .expect("update type");
+    assert_eq!(config.card_types[1].prompt.as_deref(), Some("Repro"));
+    let data = block_on(boards.get_board(&id)).expect("board");
+    assert_eq!(data.issues[0].issue_type, "Defect");
+
+    assert!(boards.delete_card_type(&id, &bug, None).is_err());
+    let config = boards
+        .delete_card_type(&id, &bug, Some(""))
+        .expect("delete");
+    assert_eq!(config.card_types.len(), 1);
+    assert_eq!(config.card_types[0].id, feature);
+    let data = block_on(boards.get_board(&id)).expect("board");
+    assert_eq!(data.issues[0].issue_type, "Task");
+    assert_eq!(boards.config(&id).expect("config").name, "T");
+    assert!(boards.config("nope").is_err());
 }

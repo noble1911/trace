@@ -6,6 +6,7 @@
 pub mod activity;
 pub mod agent_session;
 pub mod agent_tools;
+pub mod board_settings;
 pub mod browser;
 pub mod claude;
 pub mod cleanup;
@@ -109,7 +110,10 @@ pub fn run() {
             commands::issues::transition_issue,
             commands::issues::comment_on_issue,
             commands::issues::list_issue_comments,
+            commands::board_settings::board_settings_get,
+            commands::board_settings::board_settings_set,
             commands::custom_boards::custom_board_create,
+            commands::custom_boards::custom_board_config,
             commands::custom_boards::custom_board_rename,
             commands::custom_boards::custom_board_delete,
             commands::custom_boards::custom_column_add,
@@ -119,6 +123,9 @@ pub fn run() {
             commands::custom_boards::custom_card_create,
             commands::custom_boards::custom_card_update,
             commands::custom_boards::custom_card_delete,
+            commands::custom_boards::custom_card_type_add,
+            commands::custom_boards::custom_card_type_update,
+            commands::custom_boards::custom_card_type_delete,
             commands::conductor_import::conductor_import_available,
             commands::conductor_import::conductor_import_preview,
             commands::conductor_import::conductor_import_apply,

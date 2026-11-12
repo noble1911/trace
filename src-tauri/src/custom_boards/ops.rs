@@ -7,7 +7,9 @@
 
 use super::cards::{self, CardPatch, NewCard};
 use super::model::{fresh_id, now_iso, BoardsFile, Category};
-use super::{edit, store, view, CustomBoards};
+use super::template::{self, BoardTemplate};
+use super::view::BoardConfig;
+use super::{edit, store, types, view, CustomBoards};
 use crate::issues::models::{BoardData, BoardSummary, Issue};
 
 impl CustomBoards {
@@ -32,10 +34,85 @@ impl CustomBoards {
             .ok_or_else(|| format!("There's no card {key}."))
     }
 
-    pub fn create_board(&self, name: &str) -> Result<BoardSummary, String> {
+    /// Apply `f` to the file, then answer with board `board_id`'s config.
+    fn edit_config(
+        &self,
+        board_id: &str,
+        f: impl FnOnce(&mut BoardsFile) -> Result<(), String>,
+    ) -> Result<BoardConfig, String> {
+        store::edit(&self.path, |file| {
+            f(file)?;
+            file.board(board_id)
+                .map(view::config)
+                .ok_or_else(|| edit::no_board(board_id))
+        })
+    }
+
+    /// A new board: the template's columns and card types, or To do / In
+    /// progress / Done and no types without one.
+    pub fn create_board(
+        &self,
+        name: &str,
+        template: Option<BoardTemplate>,
+    ) -> Result<BoardSummary, String> {
         store::edit(&self.path, |file| {
             let id = fresh_id(|id| file.board(id).is_some());
-            edit::create_board(file, id, name).map(|b| view::summary(&b))
+            let board = match template {
+                Some(t) => template::create_board(file, id, name, t)?,
+                None => edit::create_board(file, id, name)?,
+            };
+            Ok(view::summary(&board))
+        })
+    }
+
+    pub fn config(&self, board_id: &str) -> Result<BoardConfig, String> {
+        let file = store::load(&self.path)?;
+        file.board(board_id)
+            .map(view::config)
+            .ok_or_else(|| edit::no_board(board_id))
+    }
+
+    pub fn add_card_type(
+        &self,
+        board_id: &str,
+        name: &str,
+        prompt: Option<String>,
+    ) -> Result<BoardConfig, String> {
+        self.edit_config(board_id, |file| {
+            let taken = file
+                .board(board_id)
+                .map(|b| {
+                    b.card_types
+                        .iter()
+                        .map(|t| t.id.clone())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let id = fresh_id(|id| taken.iter().any(|t| t == id));
+            types::add_type(file, board_id, id, name, prompt)
+        })
+    }
+
+    pub fn update_card_type(
+        &self,
+        board_id: &str,
+        type_id: &str,
+        name: Option<&str>,
+        prompt: Option<String>,
+    ) -> Result<BoardConfig, String> {
+        self.edit_config(board_id, |file| {
+            types::update_type(file, board_id, type_id, name, prompt)
+        })
+    }
+
+    pub fn delete_card_type(
+        &self,
+        board_id: &str,
+        type_id: &str,
+        move_cards_to: Option<&str>,
+    ) -> Result<BoardConfig, String> {
+        self.edit_config(board_id, |file| {
+            types::delete_type(file, board_id, type_id, move_cards_to)
         })
     }
 
