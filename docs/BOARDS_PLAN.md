@@ -109,6 +109,52 @@ the board's fresh `BoardData` unless noted:
 - Integrations: Jira's and Pylon's cards offer "Connect with your login (MCP)" beside
   the API token, and show which is in use.
 
+## Board setup: types, prompt and repos (packages G and J)
+
+A custom board is a workflow the user designs. Two parts:
+
+**Any board (Jira, Pylon or custom) has settings**, kept by board key
+(`provider:boardId`) in `board-settings.json` (`helpers::persist`):
+
+```
+BoardSettings { kickoffPrompt: string | null,   // null/empty: the global brief
+                repos: string[],                 // repo paths from repos.json; empty: today's rules
+                defaultRepo: string | null }     // one of `repos`
+```
+
+- `board_settings_get(boardKey) -> BoardSettings` (defaults when none saved),
+  `board_settings_set(boardKey, settings) -> BoardSettings` (validates: repos are
+  configured repos, `defaultRepo` is in `repos`, prompt trimmed).
+- Repo for a start: the ticket's saved assignment, else the board's repos (one: use
+  it; several: `defaultRepo` if set, else the picker, offering only those), else
+  today's rules (mappings, sole repo). `start_agent` gains an optional `boardKey` so
+  the backend can read the board's settings; without it nothing changes.
+- A repo removed from trace is dropped from every board's settings.
+- Not in this pass: a board that runs agents in a plain folder with no repo.
+
+**A custom board also has card types**: `cardTypes: [{ id, name, prompt: string | null }]`
+on the board; a card has a `typeId`; `Issue.issueType` is the type's name ("Task"
+when the board has none). Contract additions (`commands/custom_boards.rs`):
+
+| Command | Args | Returns |
+|---|---|---|
+| `custom_board_config` | `boardId` | `{ id, name, cardTypes }` |
+| `custom_board_create` | `name, template?` where `template = { columns: [{ name, category }], cardTypes: [{ name, prompt? }] }` | `BoardSummary` |
+| `custom_card_type_add` | `boardId, name, prompt?` | `{ id, name, cardTypes }` |
+| `custom_card_type_update` | `boardId, typeId, name?, prompt?` (empty prompt clears it) | `{ id, name, cardTypes }` |
+| `custom_card_type_delete` | `boardId, typeId, moveCardsTo?` (refused with cards and no target) | `{ id, name, cardTypes }` |
+| `custom_card_create` / `custom_card_update` | gain `typeId?` | `Issue` |
+
+**The brief for a start** (frontend, `agent/launch.ts`): the card type's prompt, else
+the board's, else the global one. Placeholders gain `{type}` and `{board}`.
+
+**UI:** "New board…" is one dialog: name, a template (Software, Research, Bug triage,
+Blank: columns, types and a prompt, as data in `domains/boards/templates.ts`), and the
+repos. A board settings panel (every board's ⋯ → Board settings…) edits prompt and
+repos on any board, and on a custom board also its card types; the card form gains a
+type picker. Agent tools: `get_board` states the board's types, prompt (first lines)
+and repos; `create_card` / `update_card` take `type` by name.
+
 ## Agent tools (trace's MCP, `domains/agentTools` + `domains/orchestrator`)
 
 - `list_boards`: every board of every connected tracker and every custom board:
@@ -133,6 +179,8 @@ the board's fresh `BoardData` unless noted:
 | C | `jira_mcp/` adapter, adapter choice, connect commands, Integrations UI | A | opus |
 | F | Agent tools for every board | B, E | sonnet |
 | D | `pylon_mcp/` adapter | A, C; Pylon's real tool list | opus |
+| G | Board settings (prompt, repos) for any board; card types and templates on custom boards (backend) | B, after C (shares the Rust tree) | opus |
+| J | New-board dialog with templates, board settings panel, type picker, brief and repo resolution (frontend) | G's contract | opus |
 | R | Review of the whole diff, then fixes | all | fable |
 
 Verification each package runs: `cargo test`, `cargo fmt`, `npx tsc --noEmit`,
