@@ -53,3 +53,25 @@ export function pickCustomBoard(boards: BoardSummary[], ref: string): BoardSumma
   if (!found) throw new Error(`No trace board "${ref}". Trace boards: ${list}.`);
   return found;
 }
+
+/**
+ * The card type a `type` argument names (exact name, then ignoring case). Throws a
+ * sentence listing the board's types when none matches, and one saying so when the board
+ * has none.
+ */
+export function resolveCardType<T extends { name: string }>(
+  types: T[],
+  want: string,
+  boardName: string
+): T {
+  if (types.length === 0) {
+    throw new Error(`${boardName} has no card types, so type can't be set: leave it out.`);
+  }
+  const found = matchName(types, want, (t) => t.name);
+  if (!found) {
+    throw new Error(
+      `No card type "${want}" on ${boardName}. Its types: ${types.map((t) => t.name).join(", ")}.`
+    );
+  }
+  return found;
+}

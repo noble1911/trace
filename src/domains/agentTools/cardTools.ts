@@ -1,12 +1,17 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { useBoardStore } from "@/domains/board/store";
 import { applyBoardData } from "@/domains/boards/boardEdits";
-import { loadBoard } from "@/domains/orchestrator/boardLookup";
+import { loadBoard, locateIssue } from "@/domains/orchestrator/boardLookup";
 import { matchName, noColumnMessage, normalizeKey } from "@/domains/orchestrator/boardRef";
-import { type CardFields, createCustomCard, updateCustomCard } from "@/ipc/customBoards";
+import {
+  type CardFields,
+  createCustomCard,
+  customBoardConfig,
+  updateCustomCard,
+} from "@/ipc/customBoards";
 import { getBoard, listBoards } from "@/ipc/issues";
 import { str } from "./args";
-import { parseLabels, parsePriority, pickCustomBoard } from "./cardArgs";
+import { parseLabels, parsePriority, pickCustomBoard, resolveCardType } from "./cardArgs";
 
 // Cards on trace's own boards, which agents may create and edit. Board and column
 // structure stays the user's, so there are no tools for it. Defined here, but they are
@@ -20,13 +25,18 @@ const CARD_FIELDS = {
     description: "p0 (highest), p1, p2 or p3 (lowest); or Highest, High, Medium, Low.",
   },
   labels: { type: "array", items: { type: "string" }, description: "The card's labels." },
+  type: {
+    type: "string",
+    description:
+      "The card's type, by name as get_board lists the board's card types (e.g. Bug). Only for boards that have types; it picks the kickoff prompt an agent starts with.",
+  },
 } as const;
 
 export const CARD_TOOLS: Anthropic.Tool[] = [
   {
     name: "create_card",
     description:
-      "Create a card on one of trace's own boards (not Jira or Pylon: those are changed in their tracker). Returns its key, like local-12.",
+      "Create a card on one of trace's own boards (not Jira or Pylon: those are changed in their tracker). Pass type to give it one of the board's card types. Returns its key, like local-12.",
     input_schema: {
       type: "object",
       properties: {
@@ -48,7 +58,7 @@ export const CARD_TOOLS: Anthropic.Tool[] = [
   {
     name: "update_card",
     description:
-      "Change a card on one of trace's own boards: its title, text, priority or labels. Fields left out stay as they are; labels replace the card's labels. To move a card use move_issue.",
+      "Change a card on one of trace's own boards: its title, text, priority, labels or type. Fields left out stay as they are; labels replace the card's labels. To move a card use move_issue.",
     input_schema: {
       type: "object",
       properties: {
@@ -95,6 +105,14 @@ function changedFields(input: unknown): Partial<CardFields> {
   return fields;
 }
 
+/** The id of the card type a call names on a trace board, or undefined when it names none. */
+async function typeIdFor(input: unknown, boardId: string, boardName: string) {
+  const want = str(input, "type");
+  if (!want) return undefined;
+  const { cardTypes } = await customBoardConfig(boardId);
+  return resolveCardType(cardTypes, want, boardName).id;
+}
+
 async function createCard(input: unknown): Promise<string> {
   const summary = str(input, "summary");
   if (!summary) return "Error: give a summary for the card.";
@@ -104,8 +122,10 @@ async function createCard(input: unknown): Promise<string> {
   const column = wanted ? matchName(data.columns, wanted, (c) => c.name) : undefined;
   if (wanted && !column) return noColumnMessage(data.columns, wanted);
   const fields = changedFields(input);
+  const typeId = await typeIdFor(input, board.id, board.name);
   const issue = await createCustomCard(board.id, {
     ...fields,
+    typeId,
     summary,
     columnId: column?.statuses[0]?.id,
   });
@@ -120,12 +140,18 @@ async function updateCard(input: unknown): Promise<string> {
     return `${key} isn't on a trace board: only cards like local-12 can be edited here (Jira and Pylon tickets are changed in their tracker).`;
   }
   const fields = changedFields(input);
+  if (str(input, "type")) {
+    const { board } = await locateIssue(key);
+    fields.typeId = await typeIdFor(input, board.data.boardId, board.data.boardName);
+  }
   if (Object.keys(fields).length === 0)
-    return "Nothing to change: give summary, description, priority or labels.";
+    return "Nothing to change: give summary, description, priority, labels or type.";
   await updateCustomCard(key, fields);
   const shown = useBoardStore.getState().data;
   if (shown?.issues.some((i) => i.key === key)) await showIfLoaded(shown.boardId);
-  return `Updated ${key}: ${Object.keys(fields).join(", ")}.`;
+  return `Updated ${key}: ${Object.keys(fields)
+    .map((f) => (f === "typeId" ? "type" : f))
+    .join(", ")}.`;
 }
 
 /** Run a card tool; failures come back as the sentence for the model. */

@@ -1,7 +1,12 @@
 // Run: `npm test` (node's own runner; Node strips the types).
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseLabels, parsePriority, pickCustomBoard } from "../agentTools/cardArgs.ts";
+import {
+  parseLabels,
+  parsePriority,
+  pickCustomBoard,
+  resolveCardType,
+} from "../agentTools/cardArgs.ts";
 import type { BoardColumn, BoardData, BoardSummary, Issue } from "../issues/types.ts";
 import { formatBoardLines, formatBoardList } from "./boardFormat.ts";
 import {
@@ -198,5 +203,63 @@ describe("formatBoardList", () => {
     assert.match(text, /Pylon:\n {2}couldn't list its boards: 401/);
     assert.match(text, /- custom:b1 "Ideas" \(custom\) — shown now/);
     assert.doesNotMatch(text, /No board is shown/);
+  });
+});
+
+describe("setup in get_board", () => {
+  const base = {
+    boardKey: "custom:b1",
+    provider: "custom" as const,
+    data: DATA,
+    shown: false,
+    issues: DATA.issues,
+    scope: "all.",
+    stats: STATS,
+    agentOf: () => "idle",
+    prs: null,
+  };
+  it("states repos with the default, a prompt excerpt and card types", () => {
+    const text = formatBoardLines({
+      ...base,
+      setup: {
+        repos: ["/code/api", "/code/web/"],
+        defaultRepo: "/code/web/",
+        prompt: "Fix {ticket}.\n\nRun tests first.\nThen open a PR.\nSign off.",
+        cardTypes: [
+          { name: "Bug", prompt: "Reproduce first." },
+          { name: "Task", prompt: null },
+        ],
+      },
+    }).join("\n");
+    assert.match(text, /REPOS: api, web \(default\)/);
+    assert.match(text, /excerpt: first 3 of 4 lines, not the whole/);
+    assert.match(text, / {2}> Run tests first\./);
+    assert.doesNotMatch(text, /Sign off/);
+    assert.match(text, /CARD TYPES: Bug \(has its own prompt\), Task — /);
+  });
+  it("says when the board has no prompt, and omits parts that weren't read", () => {
+    const none = formatBoardLines({ ...base, setup: { prompt: "  " } }).join("\n");
+    assert.match(none, /KICKOFF PROMPT: none of its own/);
+    assert.doesNotMatch(none, /REPOS|CARD TYPES/);
+    const unread = formatBoardLines({ ...base, setup: {} }).join("\n");
+    assert.doesNotMatch(unread, /REPOS|KICKOFF|CARD TYPES/);
+  });
+});
+
+describe("resolveCardType", () => {
+  const types = [
+    { id: "t1", name: "Bug" },
+    { id: "t2", name: "Task" },
+  ];
+  it("matches exactly, then ignoring case", () => {
+    assert.equal(resolveCardType(types, "Bug", "Ideas").id, "t1");
+    assert.equal(resolveCardType(types, " task ", "Ideas").id, "t2");
+  });
+  it("lists the types on no match, and says when the board has none", () => {
+    assert.throws(
+      () => resolveCardType(types, "Epic", "Ideas"),
+      /No card type "Epic" on Ideas\. Its types: Bug, Task/
+    );
+    assert.throws(() => resolveCardType([], "Bug", "Ideas"), /has no card types/);
   });
 });

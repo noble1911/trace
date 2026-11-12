@@ -7,6 +7,7 @@ import { liveLights } from "@/domains/live/store";
 import { listBoards } from "@/ipc/issues";
 import { type BoardListGroup, formatBoardLines, formatBoardList } from "./boardFormat";
 import { type LoadedBoard, loadBoard, shownBoardKey } from "./boardLookup";
+import { loadBoardSetup } from "./boardSetup";
 import { buildBoardContext } from "./context";
 import { computeBoardStats } from "./stats";
 
@@ -22,7 +23,7 @@ export const BOARD_READ_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_board",
     description:
-      "Read a board: its columns with their statuses and categories, every ticket in scope (key, status, type, epic, assignee, agent and PR state) and recent activity. Without board, the one shown in trace now, which is where to start before moving tickets or starting agents. A board that isn't shown is read as it stands: its PR state is unknown.",
+      "Read a board: its columns with their statuses and categories, its repos, its own kickoff prompt (first lines) and, on a trace board, its card types; every ticket in scope (key, status, type, epic, assignee, agent and PR state) and recent activity. Without board, the one shown in trace now, which is where to start before moving tickets or starting agents. A board that isn't shown is read as it stands: its PR state is unknown.",
     input_schema: {
       type: "object",
       properties: {
@@ -53,7 +54,7 @@ export async function runListBoards(): Promise<string> {
 }
 
 /** A board that isn't the shown one, as text: nothing in it is scoped to an assignee. */
-function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): string {
+async function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): Promise<string> {
   const store = useBoardStore.getState();
   const stats = computeBoardStats({
     board: data,
@@ -73,6 +74,7 @@ function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): string {
     stats,
     agentOf: (key) => statusOf(store.runningAgents.has(key), store.agentActivity[key]),
     prs: null,
+    setup: await loadBoardSetup(boardKey),
   }).join("\n");
 }
 
@@ -81,7 +83,7 @@ export async function runGetBoard(input: unknown): Promise<string> {
   const ref = str(input, "board");
   if (!ref || ref === shownBoardKey()) return buildBoardContext();
   try {
-    return describeOtherBoard(await loadBoard(ref));
+    return await describeOtherBoard(await loadBoard(ref));
   } catch (e) {
     return e instanceof Error ? e.message : String(e);
   }

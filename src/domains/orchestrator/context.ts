@@ -3,6 +3,7 @@ import { statusOf, useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { liveLights } from "@/domains/live/store";
 import { formatBoardLines } from "./boardFormat";
+import { loadBoardSetup } from "./boardSetup";
 import { ensureSessionJournals, sessionStatsInput } from "./sessionContext";
 import { NO_BOARD_LINES, sessionSnapshotLines } from "./sessionSnapshot";
 import { computeSessionStats } from "./sessionStats";
@@ -77,8 +78,9 @@ export async function buildBoardContext(): Promise<string> {
           : undefined) ??
         "the selected assignee");
 
+  const boardKey = board.boardKey ?? `${board.provider}:${data.boardId}`;
   const lines = formatBoardLines({
-    boardKey: board.boardKey ?? `${board.provider}:${data.boardId}`,
+    boardKey,
     provider: board.provider ?? "jira",
     data,
     shown: true,
@@ -87,6 +89,7 @@ export async function buildBoardContext(): Promise<string> {
     stats,
     agentOf: (key) => statusOf(board.runningAgents.has(key), board.agentActivity[key]),
     prs: board.pullRequests,
+    setup: await loadBoardSetup(boardKey),
   });
 
   // Per-turn agent events would crowd out everything else in 12 lines.
