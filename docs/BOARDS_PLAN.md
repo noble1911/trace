@@ -139,3 +139,24 @@ Verification each package runs: `cargo test`, `cargo fmt`, `npx tsc --noEmit`,
 `npx @biomejs/biome check src`, `npm test`. MCP adapters also need one live run
 against a real login (`cargo test <name>_live -- --ignored`), which needs the user to
 connect that server in trace once.
+
+## Appendix: the MCP tools each adapter maps to
+
+Names are from the vendors' docs (2026-11-12). Neither documents argument schemas:
+read them from the server's `tools/list` (the live test in package A prints them)
+before fixing argument names, and keep them in the adapter's `tools.rs`.
+
+**Atlassian Rovo MCP v2** (`https://mcp.atlassian.com/v2/mcp`; `?tools=all` lists
+every tool, otherwise most are reached through `discover` / `executeRead` /
+`executeWrite`): `getAccessibleAtlassianResources` (cloudId), `getJiraCurrentUser` /
+`atlassianUserInfo`, `listJiraBoards`, `getJiraBoardConfig` (filter, columns, status
+mappings), `getJiraBoardIssueData`, `getJiraBoardSprintData`, `listJiraBoardSprints`,
+`searchJiraIssuesUsingJql`, `getJiraIssue`, `listJiraIssueTransitions`,
+`transitionJiraIssue`, `listJiraIssueComments`, `addOrEditJiraIssueComment`,
+`getTeamworkGraphContext` (linked PRs; optional: empty list if absent).
+
+**Pylon** (`https://mcp.usepylon.com`, EU `https://mcp.eu.usepylon.com`; streamable
+HTTP, stateless): `get_me`, `search_issues` (`filter_json` from `build_filter`,
+`cursor`, `has_next_page`), `get_issue` (by id or number), `update_issue` (status
+among its fields), `send_issue_note` (internal; never `send_issue_reply`, which goes
+to the customer), `get_issue_messages`, `get_issue_statuses`, `search_users`.
