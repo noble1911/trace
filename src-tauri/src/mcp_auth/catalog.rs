@@ -4,6 +4,12 @@
 //! the open ones answer without a login. Servers whose OAuth can't register
 //! clients (Stripe, Asana, Box) aren't here: they'd need trace registered by
 //! hand first, which "Add your own" can still do with a client ID.
+//!
+//! A service can be here more than once: Pylon has one server per region. Each
+//! is its own entry (its own login and tool prefix) sharing the service's
+//! `logo`. Self-hosted services (Metabase) have no one URL, so they aren't
+//! here: the renderer offers them as cards that ask for yours
+//! (`integrations/selfHosted.ts`), added like any server of your own.
 
 use serde::Serialize;
 
@@ -34,6 +40,24 @@ pub struct Known {
     /// For `Key`: the header it goes in, and what to paste.
     pub key_header: Option<&'static str>,
     pub key_hint: Option<&'static str>,
+    /// Which logo it gets: its `id`, or the service's when it has several.
+    pub logo: &'static str,
+    /// For a service with one server per region: which one this is.
+    pub region: Option<Region>,
+    /// Older URLs of this server, retired by the service. A login saved at one
+    /// keeps working until it's moved here (which means logging in again: the
+    /// new server asks for new scopes).
+    pub replaces: &'static [&'static str],
+}
+
+/// A service's data region. Pylon's regions have separate logins: an EU
+/// workspace's account doesn't exist at the US one, whose login then never
+/// comes back to trace.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Region {
+    Us,
+    Eu,
 }
 
 const fn oauth(
@@ -50,6 +74,9 @@ const fn oauth(
         about,
         key_header: None,
         key_hint: None,
+        logo: id,
+        region: None,
+        replaces: &[],
     }
 }
 
@@ -67,6 +94,9 @@ const fn open(
         about,
         key_header: None,
         key_hint: None,
+        logo: id,
+        region: None,
+        replaces: &[],
     }
 }
 
@@ -89,12 +119,20 @@ pub const CATALOG: &[Known] = &[
         "https://mcp.notion.com/mcp",
         "Pages and databases",
     ),
-    oauth(
-        "atlassian",
-        "atlassian",
-        "https://mcp.atlassian.com/v1/mcp",
-        "Jira and Confluence",
-    ),
+    // Rovo MCP v2: Jira's boards, sprints and board config too, which v1 lacks.
+    // v1 is being retired; v2 registers clients the same way, with new scopes.
+    Known {
+        replaces: &[
+            "https://mcp.atlassian.com/v1/mcp",
+            "https://mcp.atlassian.com/v1/sse",
+        ],
+        ..oauth(
+            "atlassian",
+            "atlassian",
+            "https://mcp.atlassian.com/v2/mcp",
+            "Jira and Confluence",
+        )
+    },
     Known {
         id: "github",
         name: "github",
@@ -103,6 +141,9 @@ pub const CATALOG: &[Known] = &[
         about: "Repositories, issues and pull requests",
         key_header: Some("Authorization"),
         key_hint: Some("A GitHub personal access token"),
+        logo: "github",
+        region: None,
+        replaces: &[],
     },
     oauth(
         "figma",
@@ -134,18 +175,45 @@ pub const CATALOG: &[Known] = &[
         "https://mcp.posthog.com/mcp",
         "Product analytics and flags",
     ),
-    oauth(
-        "pylon",
-        "pylon",
-        "https://mcp.usepylon.com",
-        "Support issues and accounts",
-    ),
-    oauth(
-        "intercom",
-        "intercom",
-        "https://mcp.intercom.com/mcp",
-        "Conversations and contacts",
-    ),
+    Known {
+        region: Some(Region::Us),
+        ..oauth(
+            "pylon",
+            "pylon",
+            "https://mcp.usepylon.com",
+            "Support issues and accounts (US)",
+        )
+    },
+    Known {
+        logo: "pylon",
+        region: Some(Region::Eu),
+        ..oauth(
+            "pylon-eu",
+            "pylon-eu",
+            "https://mcp.eu.usepylon.com",
+            "Support issues and accounts (EU)",
+        )
+    },
+    // Intercom's EU workspaces have their own server and login, like Pylon's.
+    Known {
+        region: Some(Region::Us),
+        ..oauth(
+            "intercom",
+            "intercom",
+            "https://mcp.intercom.com/mcp",
+            "Conversations and contacts (US)",
+        )
+    },
+    Known {
+        logo: "intercom",
+        region: Some(Region::Eu),
+        ..oauth(
+            "intercom-eu",
+            "intercom-eu",
+            "https://mcp.eu.intercom.com/mcp",
+            "Conversations and contacts (EU)",
+        )
+    },
     oauth(
         "granola",
         "granola",
@@ -208,6 +276,14 @@ pub fn by_url(url: &str) -> Option<&'static Known> {
     CATALOG.iter().find(|k| norm(k.url) == norm(url))
 }
 
+/// The entry whose server retired `url`, if one did.
+pub fn replacing(url: &str) -> Option<&'static Known> {
+    let norm = |u: &str| u.trim_end_matches('/').to_ascii_lowercase();
+    CATALOG
+        .iter()
+        .find(|k| k.replaces.iter().any(|old| norm(old) == norm(url)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +302,29 @@ mod tests {
         assert!(CATALOG.iter().all(|k| k.name != "trace"), "trace is taken");
         let keyed = CATALOG.iter().filter(|k| k.auth == Auth::Key);
         assert!(keyed.into_iter().all(|k| k.key_header.is_some()));
+    }
+
+    #[test]
+    fn pylon_has_a_server_per_region_under_one_logo() {
+        let eu = by_url("https://mcp.eu.usepylon.com/").expect("EU listed");
+        let us = by_url("https://mcp.usepylon.com").expect("US listed");
+        assert_eq!((eu.region, us.region), (Some(Region::Eu), Some(Region::Us)));
+        assert_eq!((eu.logo, us.logo), ("pylon", "pylon"));
+    }
+
+    #[test]
+    fn atlassian_is_v2_and_v1_points_to_it() {
+        let v2 = by_url("https://mcp.atlassian.com/v2/mcp").expect("v2 listed");
+        assert!(by_url("https://mcp.atlassian.com/v1/mcp").is_none());
+        assert_eq!(
+            replacing("https://mcp.atlassian.com/v1/mcp/").map(|k| k.url),
+            Some(v2.url)
+        );
+        assert_eq!(
+            replacing("https://mcp.atlassian.com/v1/sse").map(|k| k.id),
+            Some("atlassian")
+        );
+        assert!(replacing("https://mcp.sentry.dev/mcp").is_none());
     }
 
     #[test]

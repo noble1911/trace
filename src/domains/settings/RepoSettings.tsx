@@ -6,7 +6,9 @@ import { useGitHubStore } from "@/domains/github/store";
 import { useCloneRoot } from "@/domains/github/useCloneRoot";
 import { MiddlePath } from "@/domains/repos/MiddlePath";
 import { ConductorImportDialog, useConductorAvailable } from "./ConductorImport";
+import { CONDUCTOR_IMPORT_WHAT } from "./ConductorImportButton";
 import { RepoList } from "./RepoList";
+import { SettingRow } from "./SettingRow";
 import { SettingSection } from "./SettingSection";
 import { TicketMappings } from "./TicketMappings";
 import { useRepoSettings } from "./useRepoSettings";
@@ -47,6 +49,15 @@ export function RepoSettings() {
 
   return (
     <>
+      {conductor && (
+        <SettingSection title="Coming from Conductor">
+          <SettingRow label="Import from Conductor" hint={CONDUCTOR_IMPORT_WHAT}>
+            <button type="button" className="btn" onClick={() => setDialog("conductor")}>
+              <I.Download size={14} /> Import…
+            </button>
+          </SettingRow>
+        </SettingSection>
+      )}
       <SettingSection
         title="Repositories"
         desc="The git repositories agents work in. Each agent gets its own worktree of one."

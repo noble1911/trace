@@ -3,18 +3,25 @@ import { toast } from "@/app/toast";
 import { BusyLabel } from "@/components/BusyLabel";
 import { Modal } from "@/components/Modal";
 import { type McpServerStatus, mcpAdd, NEEDS_CLIENT_ID, REDIRECT_URI } from "@/ipc/mcp";
+import { freeName, type SelfHostedService, serverUrl } from "./selfHosted";
 
 interface Props {
   onClose: () => void;
   onAdded: (list: McpServerStatus[]) => void;
+  /** A self-hosted service's card: ask for its address, not a URL; no key. */
+  service?: SelfHostedService;
+  /** Names already taken, so the one offered is free. */
+  taken?: string[];
 }
 
 // Add an MCP server trace doesn't list: its URL and a name for its tools. With a key,
 // it's sent in a header; without, trace logs in through the browser if the server asks
 // for it, or adds it as it is if it doesn't. A server that can't register trace itself
-// asks for a client ID it was registered with once.
-export function AddMcpDialog({ onClose, onAdded }: Props) {
-  const [name, setName] = useState("");
+// asks for a client ID it was registered with once. From a self-hosted service's card
+// (Metabase) it asks for your instance's address and offers a free name: add one per
+// instance you run, each named for its tools (metabase-prod, metabase-staging).
+export function AddMcpDialog({ onClose, onAdded, service, taken = [] }: Props) {
+  const [name, setName] = useState(() => (service ? freeName(service.id, taken) : ""));
   const [url, setUrl] = useState("");
   const [key, setKey] = useState("");
   const [header, setHeader] = useState("Authorization");
@@ -22,15 +29,17 @@ export function AddMcpDialog({ onClose, onAdded }: Props) {
   const [needsClient, setNeedsClient] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const target = service ? serverUrl(url, service) : url.trim();
   const add = () => {
-    if (!name.trim() || !url.trim() || busy) return;
+    if (!name.trim() || !target || busy) return;
     setBusy(true);
     mcpAdd({
       name: name.trim(),
-      url: url.trim(),
+      url: target,
       key: key.trim() || undefined,
       header: key.trim() ? header.trim() || "Authorization" : undefined,
       clientId: clientId.trim() || undefined,
+      logo: service?.id,
     })
       .then((list) => {
         onAdded(list);
@@ -45,18 +54,20 @@ export function AddMcpDialog({ onClose, onAdded }: Props) {
   };
 
   return (
-    <Modal title="Add an MCP server" onClose={onClose}>
+    <Modal title={service ? `Connect ${service.label}` : "Add an MCP server"} onClose={onClose}>
       <div className="ig-dialog">
         <div className="field">
-          <label htmlFor="mcp-add-url">URL</label>
+          <label htmlFor="mcp-add-url">{service ? "Address" : "URL"}</label>
           <input
             id="mcp-add-url"
-            placeholder="https://mcp.example.com/mcp"
+            placeholder={service ? service.example : "https://mcp.example.com/mcp"}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
           <span className="hint">
-            A remote (HTTP) server. Servers that run on your computer stay in your Claude config.
+            {service
+              ? `Your ${service.label}'s address. Run more than one? Connect each as its own server.`
+              : "A remote (HTTP) server. Servers that run on your computer stay in your Claude config."}
           </span>
         </div>
         <div className="field">
@@ -67,22 +78,28 @@ export function AddMcpDialog({ onClose, onAdded }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <span className="hint">Its tools are called mcp__name__…</span>
-        </div>
-        <div className="field">
-          <label htmlFor="mcp-add-key">Key (optional)</label>
-          <input
-            id="mcp-add-key"
-            type="password"
-            autoComplete="off"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
           <span className="hint">
-            For a server that takes an API key. Leave it empty and trace logs in through your
-            browser if the server asks.
+            {service
+              ? `Its tools are called mcp__name__…: name it for the instance, like ${service.id}-prod.`
+              : "Its tools are called mcp__name__…"}
           </span>
         </div>
+        {!service && (
+          <div className="field">
+            <label htmlFor="mcp-add-key">Key (optional)</label>
+            <input
+              id="mcp-add-key"
+              type="password"
+              autoComplete="off"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+            <span className="hint">
+              For a server that takes an API key. Leave it empty and trace logs in through your
+              browser if the server asks.
+            </span>
+          </div>
+        )}
         {key.trim() && (
           <div className="field">
             <label htmlFor="mcp-add-header">Header</label>
@@ -111,10 +128,14 @@ export function AddMcpDialog({ onClose, onAdded }: Props) {
           <button
             type="button"
             className="btn primary"
-            disabled={busy || !name.trim() || !url.trim()}
+            disabled={busy || !name.trim() || !target}
             onClick={add}
           >
-            <BusyLabel busy={busy} idle="Add" working="Adding…" />
+            <BusyLabel
+              busy={busy}
+              idle={service ? "Connect" : "Add"}
+              working={service ? "Waiting for your browser…" : "Adding…"}
+            />
           </button>
         </div>
       </div>

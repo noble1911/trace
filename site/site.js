@@ -56,31 +56,49 @@
     document.querySelector(`.platform[data-os="${os}"]`)?.classList.add("current");
   }
 
-  // Point the buttons at this release's files. Links already go to the latest
-  // release page, so this is only an upgrade: if GitHub's API is unreachable
-  // nothing changes.
+  // Point each button at the newest release that has its file. A release is
+  // published first and its builds upload the files 20-30 minutes later, so the
+  // newest release can have none yet (or lack one platform's, if its build
+  // failed): each platform then gets the newest release that does have its file.
+  // The links already go to the latest release page, so this is only an upgrade:
+  // if GitHub's API is unreachable (or rate-limited) nothing changes.
   const pick = {
     macos: (n) => n.endsWith("-macos.dmg"),
     windows: (n) => n.endsWith("-windows-x86_64-setup.exe"),
     appimage: (n) => n.endsWith(".AppImage"),
     deb: (n) => n.endsWith(".deb"),
   };
-  fetch("https://api.github.com/repos/noble1911/trace/releases/latest", {
+  fetch("https://api.github.com/repos/noble1911/trace/releases?per_page=20", {
     headers: { Accept: "application/vnd.github+json" },
   })
     .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((rel) => {
-      const assets = rel.assets || [];
-      const url = (kind) => assets.find((a) => pick[kind](a.name))?.browser_download_url;
+    .then((list) => {
+      const releases = (Array.isArray(list) ? list : [])
+        .filter((rel) => !rel.draft && !rel.prerelease && rel.published_at)
+        .sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at));
+      /** The newest release's file of this kind, with that release's tag. */
+      const newest = (kind) => {
+        for (const rel of releases) {
+          const asset = (rel.assets || []).find((a) => pick[kind](a.name));
+          if (asset) return { url: asset.browser_download_url, tag: rel.tag_name };
+        }
+        return null;
+      };
       for (const a of document.querySelectorAll("[data-asset]")) {
-        const u = url(a.dataset.asset);
-        if (u) a.href = u;
+        const found = newest(a.dataset.asset);
+        if (found) {
+          a.href = found.url;
+          a.title = found.tag;
+        }
       }
-      if (primary && os) {
-        const u = url(os === "linux" ? "appimage" : os);
-        if (u) primary.href = u;
+      // The version shown is the one this visitor's button downloads, or the
+      // newest release anyone can download.
+      const mine = os ? newest(os === "linux" ? "appimage" : os) : null;
+      if (primary && mine) primary.href = mine.url;
+      const shown = mine ?? Object.keys(pick).map(newest).find(Boolean);
+      if (shown) {
+        for (const el of document.querySelectorAll("[data-version]")) el.textContent = shown.tag;
       }
-      for (const el of document.querySelectorAll("[data-version]")) el.textContent = rel.tag_name;
     })
     .catch(() => {});
 

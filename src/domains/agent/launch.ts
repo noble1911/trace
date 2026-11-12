@@ -5,7 +5,8 @@ import { syncChatActivity } from "@/domains/agentChat/liveBridge";
 import { noteTransport, resolveTransport } from "@/domains/agentChat/transport";
 import { rememberIssues } from "@/domains/board/issueBoards";
 import { useBoardStore } from "@/domains/board/store";
-import type { Issue } from "@/domains/issues/types";
+import { type Issue, trackerForIssueKey } from "@/domains/issues/types";
+import { TRACKER_NAMES } from "@/domains/sidebar/items";
 import { useVercelStore } from "@/domains/vercel/store";
 import {
   type AgentCli,
@@ -51,6 +52,7 @@ export async function kickoffPrompt(issue: Issue): Promise<string> {
   const template = kickoffPromptTemplate();
   const comments = template.includes("{comments}") ? await fetchComments(issue) : "";
   return fillKickoffTemplate(template, {
+    tracker: TRACKER_NAMES[trackerForIssueKey(issue.key)],
     key: issue.key,
     summary: issue.summary,
     description,

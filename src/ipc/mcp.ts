@@ -16,8 +16,8 @@ export interface McpServerStatus {
   url: string;
   host: string;
   source: McpSource;
-  /** Picks its logo, for one from trace's list. */
-  catalogId: string | null;
+  /** Its logo, for one from trace's list (several entries can share one). */
+  logo: string | null;
   about: string | null;
   auth: McpAuth;
   /** For a key: what to paste. */
@@ -31,6 +31,8 @@ export interface McpServerStatus {
   expiresAt: number | null;
   /** trace renews it without the browser. */
   refreshable: boolean;
+  /** The service retired this URL for this one: connecting there replaces it. */
+  replacedBy: string | null;
 }
 
 /** What a connect rejects with when the server can't register trace itself. */
@@ -41,6 +43,14 @@ export const REDIRECT_URI = "http://127.0.0.1:47321/callback";
 
 export function mcpServers(): Promise<McpServerStatus[]> {
   return invoke("mcp_servers");
+}
+
+/**
+ * Move a server whose URL its service retired to the new one: a fresh login (the new
+ * server asks for new scopes), then the old one goes, its switches kept.
+ */
+export function mcpMove(server: McpServerStatus, to: string): Promise<McpServerStatus[]> {
+  return mcpConnect({ ...server, url: to, source: "catalog" });
 }
 
 /** Add one from the list: through the browser (OAuth), with a key, or as it is (open). */
@@ -64,6 +74,8 @@ export function mcpAdd(fields: {
   header?: string;
   key?: string;
   clientId?: string;
+  /** The self-hosted service it is, for its logo. */
+  logo?: string;
 }): Promise<McpServerStatus[]> {
   return invoke("mcp_add", {
     name: fields.name,
@@ -71,6 +83,7 @@ export function mcpAdd(fields: {
     header: fields.header ?? null,
     key: fields.key ?? null,
     clientId: fields.clientId ?? null,
+    logo: fields.logo ?? null,
   });
 }
 

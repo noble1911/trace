@@ -121,6 +121,7 @@ fn launch(
     // an agent there gets only its provider's endpoint and model.
     let wiring = match &req.remote {
         Some(_) => crate::claude::launch::provider_wiring(
+            &req.workspace_id,
             picked_model.clone(),
             req.provider.as_deref(),
             req.extra_args,

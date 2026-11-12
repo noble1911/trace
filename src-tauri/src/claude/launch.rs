@@ -1,7 +1,8 @@
 //! What trace adds to every agent it starts, whichever transport hosts it: the
 //! render bridge's coordinates, and for Claude its own tools (`--mcp-config`), the
 //! turn hooks (`--settings`) and a third-party provider's endpoint and model; for
-//! Codex its tools as `-c` overrides (`codex_wiring`).
+//! Codex its tools as `-c` overrides (`codex_wiring`). A ticket's agent, anywhere,
+//! is also told which ticket it's for (`claude::context`).
 //! Shared by the terminal (`commands::agent::spawn_in`) and the chat transport
 //! (`agent_session::claude`), so the two can't drift apart.
 
@@ -81,18 +82,21 @@ pub fn claude_wiring(
             extra_args.push(settings);
         }
     }
-    let mut wiring = provider_wiring(model, provider, extra_args)?;
+    let mut wiring = provider_wiring(workspace_id, model, provider, extra_args)?;
     wiring.env.extend(env);
     Ok(wiring)
 }
 
-/// Only the provider's endpoint and model: for an agent trace's loopback hooks
-/// and tools can't reach, such as one in a cloud sandbox (`execution`).
+/// The provider's endpoint and model, and which ticket it's for: all a Claude
+/// agent gets where trace's loopback hooks and tools can't reach it, such as one
+/// in a cloud sandbox (`execution`). Every Claude start comes through here.
 pub fn provider_wiring(
+    workspace_id: &str,
     model: Option<String>,
     provider: Option<&str>,
     extra_args: Vec<String>,
 ) -> Result<Wiring, String> {
+    let extra_args = crate::claude::context::with_context(extra_args, workspace_id);
     let mut model = model;
     let mut env = HashMap::new();
     if let Some(spec) = provider.and_then(crate::commands::providers::spec) {
@@ -125,9 +129,18 @@ pub fn codex_wiring(
     let tools = state
         .tool_server
         .get_or_init(|| crate::agent_tools::server::start(app.clone()).unwrap_or_default());
+    // Instructions set here replace the user's own, so a user who has some keeps
+    // them: their agent still has `TRACE_ISSUE_KEY` in its environment.
     let theirs = crate::agent_tools::codex::user_has_instructions();
-    let instructions = (!theirs).then_some(crate::agent_tools::rpc::INSTRUCTIONS);
-    let (mut args, tool_env) = crate::agent_tools::codex::wiring(tools, workspace_id, instructions);
+    let instructions = (!theirs).then(|| {
+        let base = crate::agent_tools::rpc::INSTRUCTIONS;
+        match crate::claude::context::workspace_context(workspace_id) {
+            Some(context) => format!("{base}\n\n{context}"),
+            None => base.to_string(),
+        }
+    });
+    let (mut args, tool_env) =
+        crate::agent_tools::codex::wiring(tools, workspace_id, instructions.as_deref());
     env.extend(tool_env);
     args.extend(extra_args);
     Wiring {

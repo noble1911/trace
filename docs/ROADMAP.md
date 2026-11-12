@@ -83,7 +83,9 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
 - [x] **Import from Conductor:** Settings → Repositories brings over repos with their setup
       scripts, live workspaces (worktree and conversation) and defaults, never Conductor's secrets
       ([#63](https://github.com/noble1911/trace/pull/63)); its custom prompts become saved prompts
-      ([#70](https://github.com/noble1911/trace/pull/70)).
+      ([#70](https://github.com/noble1911/trace/pull/70)). Offered on the empty Sessions page and
+      at the top of Settings → Repositories wherever Conductor is installed; imported sessions
+      show at once.
 - [x] **First run and preflight:** checks for git, claude and a signed-in gh with fixes, and a
       three-step setup for new users; Settings → Run setup again
       ([#61](https://github.com/noble1911/trace/pull/61)). On macOS and Linux, trace installs

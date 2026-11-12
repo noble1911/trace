@@ -8,6 +8,7 @@ import {
   type McpServerStatus,
   mcpConnect,
   mcpDisconnect,
+  mcpMove,
   mcpSetUse,
   NEEDS_CLIENT_ID,
   REDIRECT_URI,
@@ -54,7 +55,7 @@ export function McpServerDialog({ server, onClose, onChange }: Props) {
     <Modal title={server.name} onClose={onClose}>
       <div className="ig-dialog">
         <div className="ig-dialog-head">
-          <McpLogo id={server.catalogId} name={server.name} />
+          <McpLogo id={server.logo} name={server.name} />
           <div className="ig-dialog-text">
             <div className="ig-desc">{server.about ?? server.url}</div>
             <div className="ig-account" title={server.url}>
@@ -86,6 +87,14 @@ export function McpServerDialog({ server, onClose, onChange }: Props) {
               />
               {expiryNote(server) && <div className="ig-note">{expiryNote(server)}</div>}
             </section>
+            {server.replacedBy && (
+              <MoveNotice
+                server={server}
+                to={server.replacedBy}
+                busy={busy}
+                onMove={(to) => act(mcpMove(server, to), `Moved ${server.name}.`)}
+              />
+            )}
             <div className="ig-form-foot">
               <InlineConfirm
                 label="Disconnect"
@@ -145,6 +154,40 @@ export function McpServerDialog({ server, onClose, onChange }: Props) {
         )}
       </div>
     </Modal>
+  );
+}
+
+// A server whose service retired its URL: it keeps working until it's moved, which
+// means logging in again at the new one (new scopes). The move replaces it in place.
+function MoveNotice(props: {
+  server: McpServerStatus;
+  to: string;
+  busy: boolean;
+  onMove: (to: string) => void;
+}) {
+  const newHost = props.to.replace(/^https:\/\//, "");
+  return (
+    <section className="ig-sub">
+      <h3>A newer server</h3>
+      <div className="ig-note">
+        {props.server.host} is retiring this server for <code>{newHost}</code>. Move to it to keep{" "}
+        {props.server.name} working: you log in once more, and agents get it as before.
+      </div>
+      <div className="ig-form-foot">
+        <button
+          type="button"
+          className="btn primary"
+          disabled={props.busy}
+          onClick={() => props.onMove(props.to)}
+        >
+          <BusyLabel
+            busy={props.busy}
+            idle="Move to new server"
+            working="Waiting for your browser…"
+          />
+        </button>
+      </div>
+    </section>
   );
 }
 

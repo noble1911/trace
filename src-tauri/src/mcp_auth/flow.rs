@@ -59,10 +59,21 @@ pub fn connect(
     url: &str,
     client_id: Option<&str>,
     source: super::Source,
+    logo: Option<String>,
 ) -> Result<Grant, String> {
     let grant = login(app, name, url, client_id)?;
-    let before = super::added().into_iter().find(|a| a.url == url);
+    // Logged in: a server this one replaces goes, its switches carried over.
+    let retired = super::catalog::by_url(url).map_or(&[][..], |k| k.replaces);
+    let all = super::added();
+    let old = all
+        .iter()
+        .find(|a| retired.iter().any(|r| same_url(r, &a.url)));
+    if let Some(old) = old {
+        store::remove(&old.url)?;
+    }
+    let before = all.iter().find(|a| a.url == url).or(old).cloned();
     let (local, remote) = before
+        .as_ref()
         .map(|a| (a.local, a.remote))
         .unwrap_or_else(|| super::default_use(source));
     store::add(store::Added {
@@ -72,6 +83,7 @@ pub fn connect(
         key: None,
         local,
         remote,
+        logo: logo.or_else(|| before.as_ref().and_then(|a| a.logo.clone())),
     })?;
     Ok(grant)
 }
@@ -95,6 +107,11 @@ fn login(app: &AppHandle, name: &str, url: &str, client_id: Option<&str>) -> Res
     let grant = store::grant_from(name, url, &d, tokens);
     store::save(&grant)?;
     Ok(grant)
+}
+
+fn same_url(a: &str, b: &str) -> bool {
+    a.trim_end_matches('/')
+        .eq_ignore_ascii_case(b.trim_end_matches('/'))
 }
 
 /// The page the browser lands on.

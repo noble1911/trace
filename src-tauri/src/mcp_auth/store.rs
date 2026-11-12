@@ -53,6 +53,10 @@ pub struct Added {
     pub local: bool,
     /// Agents in a cloud sandbox get it, the token added by its network.
     pub remote: bool,
+    /// The service it is, for its logo: one of your own added from a
+    /// self-hosted service's card (Metabase). None for any other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logo: Option<String>,
 }
 
 impl std::fmt::Debug for Added {

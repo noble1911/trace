@@ -99,7 +99,7 @@ const KICKOFF_KEY = "trace.kickoffPrompt";
 
 /** Default brief sent when an agent is started straight from the board. */
 export const DEFAULT_KICKOFF_PROMPT =
-  "Work on ticket {key}: {summary}\n\nTicket description:\n{description}\n\n" +
+  "Work on {tracker} ticket {key}: {summary}\n\nTicket description:\n{description}\n\n" +
   "Recent conversation:\n{comments}\n\n" +
   "Please implement this ticket. Ask if anything is ambiguous.";
 
@@ -108,7 +108,7 @@ export function kickoffPromptRaw(): string {
   return read(KICKOFF_KEY);
 }
 
-/** The effective kickoff template ({key}/{summary}/{description}/{comments} placeholders). */
+/** The effective kickoff template ({tracker}/{key}/{summary}/{description}/{comments}). */
 export function kickoffPromptTemplate(): string {
   return read(KICKOFF_KEY).trim() || DEFAULT_KICKOFF_PROMPT;
 }
