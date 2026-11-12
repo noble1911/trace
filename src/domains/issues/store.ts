@@ -2,11 +2,13 @@ import { create } from "zustand";
 import { toast } from "@/app/toast";
 import {
   connectJira,
+  connectJiraMcp,
   connectPylon,
   disconnectProvider,
   listBoards,
   providerCurrentUser,
   providerSessions,
+  type TrackerSite,
 } from "@/ipc/issues";
 import {
   type BoardOption,
@@ -31,6 +33,9 @@ interface IssuesStore {
 
   init: () => Promise<void>;
   connectJira: (site: string, email: string, token: string) => Promise<void>;
+  /** Connect Jira over trace's Atlassian login (MCP). Resolves to the sites to pick from when
+   * the login reaches several (call again with one's id), else null; rejects with the reason. */
+  connectJiraMcp: (cloudId?: string) => Promise<TrackerSite[] | null>;
   connectPylon: (token: string) => Promise<void>;
   disconnect: (provider: ProviderKind) => Promise<void>;
   /** Re-list one tracker's boards: after a custom board is made, renamed or deleted. */
@@ -124,6 +129,18 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
     } catch (err) {
       set({ connecting: false, error: String(err) });
     }
+  },
+
+  async connectJiraMcp(cloudId) {
+    const result = await connectJiraMcp(cloudId);
+    if (result.status === "chooseSite") return result.sites;
+    set((s) => ({
+      error: null,
+      sessions: { ...s.sessions, jira: result.session },
+      users: { ...s.users, jira: result.user },
+    }));
+    await loadProvider(set, "jira");
+    return null;
   },
 
   async connectPylon(token) {

@@ -26,7 +26,9 @@ export function KickoffPromptSettings() {
             on, dragging to In&nbsp;Progress). Placeholders: <code>{"{tracker}"}</code> (Jira,
             Pylon, trace board), <code>{"{key}"}</code>, <code>{"{summary}"}</code>,{" "}
             <code>{"{description}"}</code>, <code>{"{comments}"}</code> (the ticket's discussion
-            thread, fetched at launch). Blank uses the default.
+            thread, fetched at launch), <code>{"{type}"}</code> (its issue or card type),{" "}
+            <code>{"{board}"}</code> (its board's name). Blank uses the default. A board's own
+            prompt (its ⋯ → Board settings…) replaces this one for its tickets.
           </>
         }
         block

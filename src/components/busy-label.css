@@ -1,8 +1,10 @@
 /* `BusyLabel`: the rest word and the busy verb share one grid cell, so a button is
-   pre-sized to the longer and never jumps (trace-ui §1). */
+   pre-sized to the longer and never jumps (trace-ui §1). Each word is centred in
+   that width: left-aligned, the shorter one ("Start" beside "Starting…") left the
+   button looking padded on one side. */
 .busy-label {
   display: inline-grid;
-  justify-items: start;
+  justify-items: center;
 }
 .busy-label > span {
   grid-area: 1 / 1;

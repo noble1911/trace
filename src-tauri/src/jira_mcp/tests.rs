@@ -67,7 +67,7 @@ fn kanban_board() -> FakeCaller {
 async fn a_board_is_its_config_columns_and_what_it_shows() {
     let c = conn(kanban_board());
     let board = c.get_board("7").await.expect("board");
-    assert_eq!(board.board_name, "PM Delivery");
+    assert_eq!(board.board_name, "Delivery");
     assert_eq!(board.sprint_name, None);
     let names: Vec<&str> = board.columns.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(

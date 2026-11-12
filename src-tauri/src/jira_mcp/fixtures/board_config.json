@@ -1,4 +1,4 @@
-{ "id": 7, "name": "PM Delivery", "type": "kanban",
+{ "id": 7, "name": "Delivery", "type": "kanban",
   "filter": { "id": "10100", "self": "https://api.atlassian.com/ex/jira/c-acme/rest/api/3/filter/10100" },
   "subQuery": { "query": "fixVersion in unreleasedVersions() OR fixVersion is EMPTY" },
   "columnConfig": { "constraintType": "issueCount", "columns": [

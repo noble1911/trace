@@ -1,5 +1,4 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildBoardContext } from "@/domains/orchestrator/context";
 import { runWriteTool, WRITE_TOOL_NAMES, WRITE_TOOLS } from "@/domains/orchestrator/mutations";
 import { READ_TOOLS, runReadTool } from "@/domains/orchestrator/tools";
 import { offTools, tabOfTool, useTabSettings } from "@/domains/panes/tabSettings";
@@ -11,7 +10,8 @@ import { isSessionTool, runSessionTool, SESSION_TOOLS } from "./sessionTools";
 import { runUpdateUser, UPDATE_USER } from "./updateTool";
 import { isViewerTool, runViewerTool, VIEWER_TOOLS } from "./viewerTools";
 
-// The tools trace offers its own agents over MCP: the board, scheduled prompts,
+// The tools trace offers its own agents over MCP: every board (read, move, comment, start
+// agents, cards on trace's own boards), scheduled prompts,
 // standalone sessions (`sessionTools`), publishing a document to the Plan tab, and
 // showing a page or images in the Browser and Gallery tabs (`viewerTools`). The board ones are the
 // orchestrator's — same definitions, same store, same effects as the in-app
@@ -19,17 +19,9 @@ import { isViewerTool, runViewerTool, VIEWER_TOOLS } from "./viewerTools";
 // them without spawning sub-agents. Unlike the assistant, there's no confirm
 // card: agents act on their own (except add_repo / clone_repo, `moreTools`).
 
-const GET_BOARD: Anthropic.Tool = {
-  name: "get_board",
-  description:
-    "Read the trace board as it's shown now: sprint, columns, every ticket in scope (key, status, type, epic, assignee, agent and PR state) and recent activity. Start here before moving tickets or starting agents.",
-  input_schema: { type: "object", properties: {}, required: [] },
-};
-
 const SCHEDULE_TOOL_NAMES = new Set(SCHEDULE_TOOLS.map((t) => t.name));
 
 const TOOLS: Anthropic.Tool[] = [
-  GET_BOARD,
   ...READ_TOOLS,
   ...WRITE_TOOLS,
   ...SCHEDULE_TOOLS,
@@ -57,7 +49,6 @@ export async function runAgentTool(name: string, input: unknown, caller: string)
   if (tab && offTools(useTabSettings.getState().off).has(name)) {
     throw new Error(`The ${tab.label} tab is turned off in trace's Settings → Layout.`);
   }
-  if (name === GET_BOARD.name) return buildBoardContext();
   if (name === UPDATE_USER.name) return runUpdateUser(input, caller);
   if (name === PUBLISH_DOCUMENT.name) return runPublishDocument(input, caller);
   if (isViewerTool(name)) return runViewerTool(name, input, caller);

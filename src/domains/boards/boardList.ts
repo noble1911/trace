@@ -2,7 +2,12 @@ import { toast } from "@/app/toast";
 import { useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { boardOptionKey } from "@/domains/issues/types";
-import { createCustomBoard, deleteCustomBoard, renameCustomBoard } from "@/ipc/customBoards";
+import type { BoardSettings } from "@/ipc/boardSettings";
+import { customBoardCreate, deleteCustomBoard, renameCustomBoard } from "@/ipc/customBoards";
+import type { BoardRepos } from "./settings/repoChoice";
+import { useBoardSetup } from "./settings/store";
+import { type BoardTemplateDef, templatePayload } from "./templates";
+import { useBoardsUi } from "./uiStore";
 
 // Making, renaming and deleting custom boards. The switcher's list is the issues
 // store's, so each change re-lists the custom boards from the backend rather than
@@ -10,18 +15,37 @@ import { createCustomBoard, deleteCustomBoard, renameCustomBoard } from "@/ipc/c
 
 const reason = (err: unknown) => String(err).replace(/^Error:\s*/i, "");
 
-/** Make a board and show it. False (with a toast) when it couldn't be made. */
-export async function createBoard(name: string): Promise<boolean> {
+/**
+ * Make a board from a template and show it, then save its brief and repos. False (with
+ * a toast) when it couldn't be made. Settings that don't save leave the board made: the
+ * toast says why and its settings open, filled in, to try again.
+ */
+export async function createBoard(
+  name: string,
+  template: BoardTemplateDef,
+  repos: BoardRepos
+): Promise<boolean> {
+  let key: string;
   try {
-    const board = await createCustomBoard(name);
+    const board = await customBoardCreate(name, templatePayload(template));
+    key = boardOptionKey("custom", board.id);
     const issues = useIssuesStore.getState();
     await issues.reloadBoards("custom");
-    issues.selectBoard(boardOptionKey("custom", board.id));
-    return true;
+    issues.selectBoard(key);
   } catch (err) {
     toast.error(`Couldn't make the board: ${reason(err)}`);
     return false;
   }
+  const settings: BoardSettings = { kickoffPrompt: template.prompt, ...repos };
+  // Nothing to save is the defaults: no call, so nothing to fail.
+  if (!settings.kickoffPrompt && settings.repos.length === 0) return true;
+  try {
+    await useBoardSetup.getState().saveSettings(key, settings);
+  } catch (err) {
+    toast.error(`Made ${name}, but couldn't save its settings: ${reason(err)}`);
+    useBoardsUi.getState().openSettings({ boardKey: key, draft: settings });
+  }
+  return true;
 }
 
 export async function renameBoard(boardId: string, name: string): Promise<boolean> {

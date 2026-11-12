@@ -1,8 +1,9 @@
 import { type CSSProperties, type DragEvent, useRef } from "react";
 import { FilterChip } from "@/components/FilterChip";
 import { AddColumn } from "@/domains/boards/AddColumn";
-import { CustomBoardMenu } from "@/domains/boards/CustomBoardMenu";
+import { BoardMenu } from "@/domains/boards/BoardMenu";
 import { CustomColumn } from "@/domains/boards/CustomColumn";
+import { useCustomTypeFilter } from "@/domains/boards/typeFilterStore";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { ColumnStatus, Issue } from "@/domains/issues/types";
 import { useLiveStore } from "@/domains/live/store";
@@ -14,7 +15,7 @@ import type { BoardFilter } from "./filterPrefs";
 import { RepoPickModal } from "./RepoPickModal";
 import { useBoardStore } from "./store";
 import { boardIssueTypes, TypeFilter } from "./TypeFilter";
-import { ALL_TYPES, forBoard, showsType } from "./typeSelection";
+import { ALL_TYPES, forBoard, showsType, type TypeSelection } from "./typeSelection";
 
 function applyFilter(
   issues: Issue[],
@@ -57,13 +58,16 @@ export function Board() {
   const moveIssue = useBoardStore((s) => s.moveIssue);
   const repoPickFor = useBoardStore((s) => s.repoPickFor);
   const boardProvider = useBoardStore((s) => s.provider);
+  const boardKey = useBoardStore((s) => s.boardKey);
+  const customTypes = useCustomTypeFilter((s) => (boardKey ? s.byBoard[boardKey] : undefined));
+  const selectCustomTypes = useCustomTypeFilter((s) => s.select);
   const currentUserId = useIssuesStore((s) =>
     boardProvider ? (s.users[boardProvider]?.accountId ?? null) : null
   );
 
   const draggingRef = useRef<string | null>(null);
-  // A custom board (trace's own) is editable, and has no assignees or issue types to
-  // filter by: the filters remembered from a tracker's board would only hide its cards.
+  // A custom board (trace's own) is editable, and has no assignees to filter by. Its
+  // card types filter like issue types, remembered per board (`typeFilterStore`).
   const isCustom = boardProvider === "custom";
   // Resolve the effective assignee: until the user picks, default to themselves.
   const effectiveAssignee = isCustom
@@ -92,7 +96,11 @@ export function Board() {
   }
 
   const types = boardIssueTypes(data.issues);
-  const typeSel = isCustom ? ALL_TYPES : forBoard(typeFilter, types);
+  const typeSel = forBoard(isCustom ? (customTypes ?? ALL_TYPES) : typeFilter, types);
+  const onTypes = (sel: TypeSelection) => {
+    if (!isCustom) setTypeFilter(sel);
+    else if (boardKey) selectCustomTypes(boardKey, sel);
+  };
   // Counts on the type chips come from here — every filter but type.
   const visible = applyFilter(data.issues, filter, runningAgents, effectiveAssignee);
   const filtered = visible.filter((i) => showsType(typeSel, i.issueType));
@@ -154,13 +162,11 @@ export function Board() {
           <FilterChip active={filter === "running"} onClick={() => setFilter("running")}>
             Running
           </FilterChip>
-          {isCustom && <CustomBoardMenu data={data} />}
+          {boardKey && <BoardMenu data={data} boardKey={boardKey} isCustom={isCustom} />}
         </div>
       </div>
 
-      {!isCustom && (
-        <TypeFilter types={types} visible={visible} selected={typeSel} onSelect={setTypeFilter} />
-      )}
+      <TypeFilter types={types} visible={visible} selected={typeSel} onSelect={onTypes} />
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: dragend cleanup on the board container, not an interactive control */}
       <div

@@ -1,6 +1,7 @@
 import { useBoardStore } from "@/domains/board/store";
 import { agentRoster } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
+import { normalizeKey } from "./boardRef";
 
 // The orchestrator's agent tools name an agent by `issue_key`. A ticket's agent
 // is keyed by its issue key; a standalone session's by the session id (or a
@@ -26,7 +27,7 @@ export function resolveAgentKey(raw: string): AgentKey {
     const hit = agentRoster(session).find((r) => r.workspaceId.toLowerCase() === lower);
     if (hit) return { key: hit.workspaceId, label: named(session.title, hit) };
   }
-  const issueKey = wanted.toUpperCase();
+  const issueKey = normalizeKey(wanted);
   if (useBoardStore.getState().runningAgents.has(issueKey)) {
     return { key: issueKey, label: issueKey };
   }

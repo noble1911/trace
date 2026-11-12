@@ -6,8 +6,10 @@ import {
   type CardDraftFields,
   draftFields,
   draftProblem,
+  draftTypeId,
   PRIORITY_OPTIONS,
 } from "./cardDraft";
+import { useLoadedCardTypes } from "./settings/useBoardSetup";
 
 interface CardFormProps {
   initial: CardDraft;
@@ -25,9 +27,9 @@ interface CardFormProps {
 const priorityOf = (value: string, fallback: Priority): Priority =>
   PRIORITY_OPTIONS.find((p) => p.value === value)?.value ?? fallback;
 
-// A custom card's fields: summary (required), description, priority and labels. One
-// form for adding a card in a column, editing it from its menu, and in the ticket view.
-// Enter in a one-line field saves; Escape cancels.
+// A custom card's fields: summary (required), description, type (when the board has
+// types), priority and labels. One form for adding a card in a column, editing it from
+// its menu, and in the ticket view. Enter in a one-line field saves; Escape cancels.
 export function CardForm(props: CardFormProps) {
   const { initial, submitLabel, busyLabel, onSubmit, onCancel, size = "md" } = props;
   const [draft, setDraft] = useState(initial);
@@ -35,6 +37,9 @@ export function CardForm(props: CardFormProps) {
   const [tried, setTried] = useState(false);
   const id = useId();
   const problem = draftProblem(draft);
+  // The board on screen's types: every card form is for a card on it.
+  const types = useLoadedCardTypes();
+  const typeId = draftTypeId(draft, types);
   const set = <K extends keyof CardDraft>(k: K, v: CardDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
   const btn = size === "sm" ? "btn sm" : "btn";
@@ -44,7 +49,7 @@ export function CardForm(props: CardFormProps) {
     setTried(true);
     if (problem || busy) return;
     setBusy(true);
-    const saved = await onSubmit(draftFields(draft));
+    const saved = await onSubmit(draftFields(draft, types));
     // A saved form is usually unmounted by its owner; one that failed stays to retry.
     if (!saved) setBusy(false);
   };
@@ -78,6 +83,24 @@ export function CardForm(props: CardFormProps) {
         />
       </div>
       <div className="bd-form-row">
+        {types.length > 0 && (
+          <div className="field">
+            <label htmlFor={`${id}-type`}>Type</label>
+            <select
+              id={`${id}-type`}
+              value={typeId ?? ""}
+              onChange={(e) => set("typeId", e.target.value || null)}
+            >
+              {/* Only a card that has no type is offered none: a new one takes a type. */}
+              {typeId === null && <option value="">No type</option>}
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="field">
           <label htmlFor={`${id}-priority`}>Priority</label>
           <select

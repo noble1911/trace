@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { CARD_TOOLS } from "@/domains/agentTools/cardTools";
 
 // The orchestrator's mutating tool definitions (run by mutations.ts). Every one
 // passes through a human confirm-card before it runs. Deliberately NO raise_pr /
@@ -8,18 +9,23 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
   {
     name: "move_issue",
     description:
-      "Move a ticket to a different board column by transitioning its status. On Jira, only legal workflow transitions succeed.",
+      "Move a ticket to a different column of its board (any board, trace's own included) by transitioning its status. On Jira, only legal workflow transitions succeed.",
     input_schema: {
       type: "object",
       properties: {
         issue_key: {
           type: "string",
-          description: "The issue key, e.g. TRACE-12 (Jira) or #123 (Pylon).",
+          description: "The issue key: TRACE-12 (Jira), #123 (Pylon) or local-12 (a trace board).",
         },
         target_status: {
           type: "string",
           description:
-            "The destination status/column name exactly as it appears on the board, e.g. 'In Progress'.",
+            "The destination column (or status) name as it appears on the ticket's board, e.g. 'In Progress'.",
+        },
+        board: {
+          type: "string",
+          description:
+            "provider:boardId, when the ticket isn't on the shown board and trace can't tell where it is.",
         },
       },
       required: ["issue_key", "target_status"],
@@ -32,7 +38,15 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The issue key to start an agent on." },
+        issue_key: {
+          type: "string",
+          description: "The issue key to start an agent on: TRACE-12, #123 or local-12.",
+        },
+        board: {
+          type: "string",
+          description:
+            "provider:boardId, when the ticket isn't on the shown board and trace can't tell where it is.",
+        },
       },
       required: ["issue_key"],
     },
@@ -60,7 +74,10 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        issue_key: { type: "string", description: "The issue key to comment on." },
+        issue_key: {
+          type: "string",
+          description: "The issue key to comment on: TRACE-12, #123 or local-12.",
+        },
         body: {
           type: "string",
           description: "The comment text (plain text; newlines become paragraphs).",
@@ -81,6 +98,7 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
       required: ["message"],
     },
   },
+  ...CARD_TOOLS,
 ];
 
 export const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((t) => t.name));

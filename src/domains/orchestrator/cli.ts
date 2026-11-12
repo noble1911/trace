@@ -24,6 +24,8 @@ Ground rules:
   {"action":"send_to_agent","issue_key":"PM-12","message":"..."} — only to nudge an already-running agent.
   {"action":"comment_on_issue","issue_key":"PM-12","body":"..."}
   {"action":"broadcast_to_agents","message":"..."}
+  {"action":"create_card","board":"custom:<id>","summary":"...","column":"To do"} — only on a trace board (a "trace board" in the snapshot; "description", "priority", "labels" are optional).
+  {"action":"update_card","issue_key":"local-12","summary":"..."} — only a trace board's card (keys like local-12).
   Put ONLY the action and its parameters in the spec — never results or invented data.
 - You do NOT raise or merge pull requests — the coding agents do that. When a ticket's work looks done (e.g. its PR is merged), offer to move_issue it to the COMPLETION COLUMN.
 - You have MCP tools available (e.g. Atlassian/Jira, Pylon, Sentry). Use them to look things up beyond the board snapshot when it helps — full ticket descriptions, comments, history, linked issues, error reports. Do NOT use coding tools (Bash, file edits, etc.) and never plan an implementation. Make every board CHANGE through an \`action\` block (which the user confirms) — never mutate via MCP.

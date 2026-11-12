@@ -12,8 +12,34 @@ import type {
 // ordinary board commands in `ipc/issues.ts` with `provider: "custom"`. Structure edits
 // return the board's fresh `BoardData`, so the store takes it as it is.
 
-export function createCustomBoard(name: string): Promise<BoardSummary> {
-  return invoke("custom_board_create", { name });
+/** A kind of card on a custom board, with its own brief when it needs one. */
+export interface CardType {
+  id: string;
+  name: string;
+  /** Replaces the board's brief for cards of this type; null uses the board's. */
+  prompt: string | null;
+}
+
+/** A custom board's setup beyond its columns: its card types. */
+export interface CustomBoardConfig {
+  id: string;
+  name: string;
+  cardTypes: CardType[];
+}
+
+/** What a new board starts with (a template's columns and card types). */
+export interface BoardTemplate {
+  columns: { name: string; category: StatusCategory }[];
+  cardTypes: { name: string; prompt?: string }[];
+}
+
+/** Make a board; without a template it starts with To do / In progress / Done. */
+export function customBoardCreate(name: string, template?: BoardTemplate): Promise<BoardSummary> {
+  return invoke("custom_board_create", { name, template: template ?? null });
+}
+
+export function customBoardConfig(boardId: string): Promise<CustomBoardConfig> {
+  return invoke("custom_board_config", { boardId });
 }
 
 export function renameCustomBoard(boardId: string, name: string): Promise<void> {
@@ -23,6 +49,35 @@ export function renameCustomBoard(boardId: string, name: string): Promise<void> 
 /** Refused while one of its cards' agents runs. */
 export function deleteCustomBoard(boardId: string): Promise<void> {
   return invoke("custom_board_delete", { boardId });
+}
+
+export function customCardTypeAdd(
+  boardId: string,
+  name: string,
+  prompt?: string
+): Promise<CustomBoardConfig> {
+  return invoke("custom_card_type_add", { boardId, name, prompt: prompt ?? null });
+}
+
+/** Rename a type and/or set its prompt; an empty prompt clears it, a field left out stays. */
+export function customCardTypeUpdate(
+  boardId: string,
+  typeId: string,
+  change: { name?: string; prompt?: string }
+): Promise<CustomBoardConfig> {
+  return invoke("custom_card_type_update", { boardId, typeId, ...change });
+}
+
+/**
+ * Delete a type. Its cards go to `moveCardsTo` (another type's id, or "" for no type);
+ * refused when it has cards and that's left out.
+ */
+export function customCardTypeDelete(
+  boardId: string,
+  typeId: string,
+  moveCardsTo?: string
+): Promise<CustomBoardConfig> {
+  return invoke("custom_card_type_delete", { boardId, typeId, moveCardsTo });
 }
 
 export function addCustomColumn(
@@ -65,6 +120,8 @@ export interface CardFields {
   description?: string;
   priority?: Priority;
   labels?: string[];
+  /** One of the board's card types; left out keeps the card's (none on create). */
+  typeId?: string;
 }
 
 /** A new card, in `columnId` (the board's first column when left out). */
