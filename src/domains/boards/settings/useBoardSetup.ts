@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useBoardStore } from "@/domains/board/store";
 import type { BoardSettings } from "@/ipc/boardSettings";
 import type { CardType } from "@/ipc/customBoards";
@@ -15,6 +15,28 @@ export function useBoardSettings(boardKey: string | null): BoardSettings | undef
     if (boardKey) void load(boardKey);
   }, [boardKey, load]);
   return settings;
+}
+
+/** A board's settings read fresh on mount, for a choice that must follow them (the repo
+ * picker). `loaded` stays false until the read answers; `settings` is null when it can't. */
+export function useFreshBoardSettings(boardKey: string | null): {
+  settings: BoardSettings | null;
+  loaded: boolean;
+} {
+  const [read, setRead] = useState<{ key: string | null; settings: BoardSettings | null }>();
+  const load = useBoardSetup((s) => s.loadSettings);
+  useEffect(() => {
+    let live = true;
+    const answer = boardKey ? load(boardKey, true) : Promise.resolve(null);
+    void answer.then((settings) => {
+      if (live) setRead({ key: boardKey, settings });
+    });
+    return () => {
+      live = false;
+    };
+  }, [boardKey, load]);
+  const loaded = read !== undefined && read.key === boardKey;
+  return { settings: loaded ? read.settings : null, loaded };
 }
 
 /** A custom board's card types, read once when first asked for (none until then). */

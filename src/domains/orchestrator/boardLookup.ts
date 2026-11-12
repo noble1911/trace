@@ -71,6 +71,21 @@ export async function loadBoard(ref: string): Promise<LoadedBoard> {
   }
 }
 
+/** Whether trace has seen this key on a tracker's board: shown, running, or remembered. */
+function seenOnTracker(key: string): boolean {
+  const { data, provider, runningAgents } = useBoardStore.getState();
+  if (provider !== "custom" && data?.issues.some((i) => i.key === key)) return true;
+  // A trace card's key is lowercase, so a running upper-case one is a tracker's.
+  if (runningAgents.has(key)) return true;
+  const board = rememberedIssueBoard(key);
+  return board !== null && !board.startsWith("custom:");
+}
+
+/** A key a model passed, as its tracker writes it (`normalizeKey`, with what trace has seen). */
+export function issueKeyFrom(raw: string): string {
+  return normalizeKey(raw, seenOnTracker);
+}
+
 /** A ticket and the board it's on. */
 export interface LocatedIssue {
   key: string;
@@ -105,7 +120,7 @@ async function candidateBoards(key: string, tracker: ProviderKind): Promise<stri
  * tracker's saved board, or for a trace card the board that holds it.
  */
 export async function locateIssue(rawKey: string, boardRef = ""): Promise<LocatedIssue> {
-  const key = normalizeKey(rawKey);
+  const key = issueKeyFrom(rawKey);
   if (boardRef.trim()) {
     const board = await loadBoard(boardRef);
     const issue = board.data.issues.find((i) => i.key === key);

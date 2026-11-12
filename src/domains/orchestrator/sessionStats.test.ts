@@ -187,7 +187,7 @@ describe("sessionSnapshotLines", () => {
       })
     );
     const text = [...NO_BOARD_LINES, "", ...sessionSnapshotLines(stats, NOW)].join("\n");
-    assert.match(text, /^BOARD: none connected/);
+    assert.match(text, /^BOARD: none shown/);
     assert.match(text, /SESSIONS: 2 active · 0 archived · by repo: trace \(2\)/);
     assert.match(text, /SESSION AGENTS: 2 — 0 working · 1 need you · 0 ready · 1 stopped/);
     assert.match(text, /SESSION PRS: 0 open · 0 draft · 0 merged · 0 closed · 1 session\(s\) not/);

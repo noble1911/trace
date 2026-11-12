@@ -2,9 +2,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { fillKickoffTemplate } from "../agent/kickoffBrief.ts";
-import { draftFields, draftFromIssue, draftTypeId, EMPTY_DRAFT } from "./cardDraft.ts";
+import { draftFields, draftFromIssue, draftTypeId, EMPTY_DRAFT, NO_TYPE } from "./cardDraft.ts";
 import { resolveBriefTemplate, typePromptFor } from "./settings/brief.ts";
-import { typeCardCount, typeMoveTargets, typeNameProblem } from "./settings/cardTypes.ts";
+import {
+  deleteTarget,
+  typeCardCount,
+  typeMoveTargets,
+  typeNameProblem,
+} from "./settings/cardTypes.ts";
 import {
   decideRepo,
   pickerRepos,
@@ -186,6 +191,20 @@ describe("card types", () => {
     assert.equal("typeId" in draftFields(draft), false);
     const typeless = { ...draftFromIssueLike("Task"), summary: "x" };
     assert.equal("typeId" in draftFields(typeless, types), false);
+  });
+  it("send an empty typeId when No type is picked, on a board with types", () => {
+    const picked = { ...draftFromIssueLike("Bug"), typeId: NO_TYPE };
+    assert.equal(draftTypeId(picked, types), null);
+    assert.equal(draftFields(picked, types).typeId, "");
+    assert.equal("typeId" in draftFields(picked), false);
+  });
+  it("move a deleted type's cards only to a type that's still there", () => {
+    const targets = typeMoveTargets(types, "t2");
+    assert.equal(deleteTarget(targets, "t1"), "t1");
+    assert.equal(deleteTarget(targets, ""), "");
+    // The chosen type was deleted meanwhile: the first other one, or none.
+    assert.equal(deleteTarget(targets, "t9"), "t1");
+    assert.equal(deleteTarget([], "t9"), "");
   });
   it("keep names unique, ignoring case", () => {
     assert.equal(typeNameProblem(" ", types), "A type needs a name.");

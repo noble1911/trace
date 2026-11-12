@@ -1,4 +1,5 @@
 import { useActivityStore } from "@/domains/activity/store";
+import { effectiveAssignee } from "@/domains/board/assignee";
 import { statusOf, useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { liveLights } from "@/domains/live/store";
@@ -15,13 +16,13 @@ import { useOrchestratorStore } from "./store";
 // deterministic stats (the model narrates, never counts). Kept lean so it caches
 // cheaply and leaves room for the conversation.
 
-/** Resolve the board's effective assignee filter (undefined → the current user). */
-function effectiveAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
+/** The board's assignee filter as the board applies it (`board/assignee.ts`). */
+function boardAssignee(board: ReturnType<typeof useBoardStore.getState>): string | null {
   const provider = board.provider;
   const currentUserId = provider
     ? (useIssuesStore.getState().users[provider]?.accountId ?? null)
     : null;
-  return board.assigneeFilter === undefined ? currentUserId : board.assigneeFilter;
+  return effectiveAssignee(provider, board.assigneeFilter, currentUserId);
 }
 
 /**
@@ -43,7 +44,7 @@ export function scopedStatsInput(): StatsInput | null {
       activity: events,
       now: Date.now(),
     },
-    effectiveAssignee(board)
+    boardAssignee(board)
   );
 }
 
@@ -65,7 +66,7 @@ export async function buildBoardContext(): Promise<string> {
   const input = scopedStatsInput();
   if (!data || !input) return [...NO_BOARD_LINES, "", ...sessionLines()].join("\n");
 
-  const assignee = effectiveAssignee(board);
+  const assignee = boardAssignee(board);
   const scopedIssues = input.board?.issues ?? data.issues;
   const stats = computeBoardStats(input);
 

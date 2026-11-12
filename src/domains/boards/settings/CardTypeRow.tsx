@@ -4,7 +4,7 @@ import { IconButton } from "@/components/IconButton";
 import { InlineConfirm } from "@/components/InlineConfirm";
 import type { CardType } from "@/ipc/customBoards";
 import { CardTypeForm } from "./CardTypeForm";
-import { typeMoveTargets } from "./cardTypes";
+import { deleteTarget, typeMoveTargets } from "./cardTypes";
 import { deleteCardType, updateCardType } from "./typeEdits";
 
 interface CardTypeRowProps {
@@ -24,7 +24,8 @@ const NO_TYPE = "";
 export function CardTypeRow({ boardId, type, types, cards }: CardTypeRowProps) {
   const [editing, setEditing] = useState(false);
   const targets = typeMoveTargets(types, type.id);
-  const [target, setTarget] = useState(targets[0]?.id ?? NO_TYPE);
+  const [chosen, setTarget] = useState(targets[0]?.id ?? NO_TYPE);
+  const target = deleteTarget(targets, chosen);
   // Unknown counts ask too: the backend refuses a type with cards and no target.
   const asks = cards === null || cards > 0;
 

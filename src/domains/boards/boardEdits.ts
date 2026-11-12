@@ -1,5 +1,6 @@
 import { toast } from "@/app/toast";
 import { rememberBoard } from "@/domains/board/boardCache";
+import { boardLoads } from "@/domains/board/loadGuard";
 import { useBoardStore } from "@/domains/board/store";
 import type { BoardData, Issue, StatusCategory } from "@/domains/issues/types";
 import {
@@ -24,18 +25,21 @@ function loadedCustomBoard(): string | null {
   return provider === "custom" && data ? data.boardId : null;
 }
 
-/** Put a board the backend just returned on screen, if it's still the one shown. */
+/** Put a board the backend just returned on screen, if it's still the one shown. A load
+ * that was in flight meanwhile answers with older cards, so it's dropped (`loadGuard`). */
 export function applyBoardData(data: BoardData): void {
   const s = useBoardStore.getState();
   if (s.provider !== "custom" || s.data?.boardId !== data.boardId || !s.boardKey) return;
+  boardLoads.noteEdit();
   useBoardStore.setState({ data });
   rememberBoard(s.boardKey, data, s.pullRequests);
 }
 
-/** Put one card the backend returned on the board: replaced where it was, or added. */
-function applyIssue(issue: Issue): void {
+/** Put one card the backend returned on its board, if that's still the one shown:
+ * replaced where it was, or added. */
+function applyIssue(issue: Issue, boardId: string): void {
   const data = useBoardStore.getState().data;
-  if (!data) return;
+  if (data?.boardId !== boardId) return;
   const known = data.issues.some((i) => i.key === issue.key);
   const issues = known
     ? data.issues.map((i) => (i.key === issue.key ? issue : i))
@@ -86,16 +90,19 @@ export async function deleteColumn(columnId: string, moveCardsTo?: string): Prom
 }
 
 export async function createCard(fields: CardDraftFields, columnId: string): Promise<Issue | null> {
+  // The board it's made on: another may be showing by the time it's made.
+  const boardId = loadedCustomBoard();
   const issue = await attempt("add the card", (id) =>
     createCustomCard(id, { ...fields, columnId })
   );
-  if (issue) applyIssue(issue);
+  if (issue && boardId) applyIssue(issue, boardId);
   return issue;
 }
 
 export async function updateCard(key: string, fields: CardDraftFields): Promise<boolean> {
+  const boardId = loadedCustomBoard();
   const issue = await attempt(`save ${key}`, () => updateCustomCard(key, fields));
-  if (issue) applyIssue(issue);
+  if (issue && boardId) applyIssue(issue, boardId);
   return issue !== null;
 }
 

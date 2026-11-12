@@ -14,6 +14,8 @@ interface CatalogState extends ClaudeCatalog {
 }
 
 let asked = false;
+/** The read in flight (or last finished), for `catalogModels` to wait on. */
+let pending: Promise<void> | null = null;
 
 export const useClaudeCatalog = create<CatalogState>((set) => ({
   models: [],
@@ -21,7 +23,7 @@ export const useClaudeCatalog = create<CatalogState>((set) => ({
   load: () => {
     if (asked) return;
     asked = true;
-    void claudeCatalog()
+    pending = claudeCatalog()
       .then((catalog) => set(catalog))
       .catch(() => {
         // No CLI, or it didn't answer: keep the fallbacks, and try again next time.
@@ -29,6 +31,20 @@ export const useClaudeCatalog = create<CatalogState>((set) => ({
       });
   },
 }));
+
+/**
+ * Claude Code's models for a choice that can't wait for a re-render (the assistant's
+ * API id): asked for if they haven't been, and waited on for up to `waitMs`. Empty when
+ * it doesn't answer in time, which callers answer with their fallbacks.
+ */
+export async function catalogModels(waitMs: number): Promise<ClaudeModel[]> {
+  const { models, load } = useClaudeCatalog.getState();
+  if (models.length > 0) return models;
+  load();
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+  if (pending) await Promise.race([pending, timeout]);
+  return useClaudeCatalog.getState().models;
+}
 
 function useLoaded(): void {
   const load = useClaudeCatalog((s) => s.load);

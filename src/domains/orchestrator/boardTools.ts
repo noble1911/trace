@@ -5,6 +5,7 @@ import { useIssuesStore } from "@/domains/issues/store";
 import type { ProviderKind } from "@/domains/issues/types";
 import { liveLights } from "@/domains/live/store";
 import { listBoards } from "@/ipc/issues";
+import { agentsOnBoard } from "./boardAgents";
 import { type BoardListGroup, formatBoardLines, formatBoardList } from "./boardFormat";
 import { type LoadedBoard, loadBoard, shownBoardKey } from "./boardLookup";
 import { loadBoardSetup } from "./boardSetup";
@@ -54,11 +55,13 @@ export async function runListBoards(): Promise<string> {
 }
 
 /** A board that isn't the shown one, as text: nothing in it is scoped to an assignee. */
-async function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): Promise<string> {
+async function describeOtherBoard(board: LoadedBoard): Promise<string> {
+  const { boardKey, provider, data } = board;
   const store = useBoardStore.getState();
   const stats = computeBoardStats({
     board: data,
-    runningAgents: store.runningAgents,
+    // Only this board's tickets' agents, not every agent trace runs.
+    runningAgents: agentsOnBoard(store.runningAgents, data.issues),
     lights: liveLights(),
     pullRequests: {},
     activity: [],
@@ -68,7 +71,7 @@ async function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): Pr
     boardKey,
     provider,
     data,
-    shown: false,
+    shown: board.shown,
     issues: data.issues,
     scope: "all tickets of the board as fetched (no assignee filter).",
     stats,
@@ -81,9 +84,11 @@ async function describeOtherBoard({ boardKey, provider, data }: LoadedBoard): Pr
 /** get_board: the shown board (as the assistant's snapshot has it), or any other by reference. */
 export async function runGetBoard(input: unknown): Promise<string> {
   const ref = str(input, "board");
-  if (!ref || ref === shownBoardKey()) return buildBoardContext();
+  if (!ref) return buildBoardContext();
   try {
-    return await describeOtherBoard(await loadBoard(ref));
+    // `loadBoard` matches the parsed key, so `Custom:abc` or a padded ref is still the shown one.
+    const board = await loadBoard(ref);
+    return board.shown ? await buildBoardContext() : await describeOtherBoard(board);
   } catch (e) {
     return e instanceof Error ? e.message : String(e);
   }

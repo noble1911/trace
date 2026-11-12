@@ -2,7 +2,7 @@ import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { Modal } from "@/components/Modal";
 import { boardRepos, pickerRepos } from "@/domains/boards/settings/repoChoice";
-import { useBoardSettings, useConfiguredRepos } from "@/domains/boards/settings/useBoardSetup";
+import { useConfiguredRepos, useFreshBoardSettings } from "@/domains/boards/settings/useBoardSetup";
 import { setIssueRepo } from "@/ipc/repos";
 import { basename } from "@/platform/paths";
 import { useBoardStore } from "./store";
@@ -16,10 +16,13 @@ export function RepoPickModal({ issueKey }: { issueKey: string }) {
   const closeRepoPick = useBoardStore((s) => s.closeRepoPick);
   const kickoff = useBoardStore((s) => s.kickoff);
   const boardKey = useBoardStore((s) => s.boardKey);
-  const settings = useBoardSettings(boardKey);
-  const { repos: configured } = useConfiguredRepos();
-  const { repos, preselected } = pickerRepos(settings ?? null, configured);
-  const fromBoard = boardRepos(settings ?? null, configured).length > 0;
+  // Read fresh, and nothing offered until both have answered: the board's repos narrow
+  // the list, so offering every repo first would offer ones the board doesn't use.
+  const { settings, loaded: settingsLoaded } = useFreshBoardSettings(boardKey);
+  const { repos: configured, loaded: reposLoaded } = useConfiguredRepos();
+  const ready = settingsLoaded && reposLoaded;
+  const { repos, preselected } = pickerRepos(settings, configured);
+  const fromBoard = boardRepos(settings, configured).length > 0;
 
   const pick = async (path: string) => {
     try {
@@ -33,28 +36,33 @@ export function RepoPickModal({ issueKey }: { issueKey: string }) {
 
   return (
     <Modal title={`Where does ${issueKey} live?`} onClose={closeRepoPick}>
-      <div className="hint repo-pick-hint">
-        {fromBoard
-          ? "Pick one of this board's repositories for this ticket. Board settings (its ⋯) can set a default."
-          : "Pick the repository for this ticket. To resolve similar tickets automatically, add a ticket mapping in Settings → Repositories."}
-      </div>
-      <div className="repo-pick-list">
-        {repos.map((path) => (
-          <button
-            type="button"
-            key={path}
-            className="repo-pick-row"
-            // biome-ignore lint/a11y/noAutofocus: the board's default is the likely pick
-            autoFocus={path === preselected}
-            onClick={() => void pick(path)}
-          >
-            <I.Code size={14} />
-            <span className="name">{basename(path)}</span>
-            <span className="path">{path}</span>
-            {path === preselected && <span className="repo-pick-default">Default</span>}
-          </button>
-        ))}
-      </div>
+      {/* Both are local reads, well under a second: nothing is drawn until they answer. */}
+      {ready && (
+        <>
+          <div className="hint repo-pick-hint">
+            {fromBoard
+              ? "Pick one of this board's repositories for this ticket. Board settings (its ⋯) can set a default."
+              : "Pick the repository for this ticket. To resolve similar tickets automatically, add a ticket mapping in Settings → Repositories."}
+          </div>
+          <div className="repo-pick-list">
+            {repos.map((path) => (
+              <button
+                type="button"
+                key={path}
+                className="repo-pick-row"
+                // biome-ignore lint/a11y/noAutofocus: the board's default is the likely pick
+                autoFocus={path === preselected}
+                onClick={() => void pick(path)}
+              >
+                <I.Code size={14} />
+                <span className="name">{basename(path)}</span>
+                <span className="path">{path}</span>
+                {path === preselected && <span className="repo-pick-default">Default</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

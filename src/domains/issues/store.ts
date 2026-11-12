@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
+import { forgetBoards } from "@/domains/board/boardCache";
 import {
   connectJira,
   connectJiraMcp,
@@ -176,6 +177,8 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
 
   async disconnect(provider) {
     await disconnectProvider(provider);
+    // Its boards' last cards and PR badges, kept for going back to them, go with it.
+    forgetBoards();
     set((s) => {
       const sessions = { ...s.sessions };
       const users = { ...s.users };

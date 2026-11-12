@@ -11,7 +11,8 @@ export interface CardDraft {
   priority: Priority;
   /** Comma-separated, as typed. */
   labels: string;
-  /** The type picked in the form; null until one is (the default applies). */
+  /** The type picked in the form: null until one is (the default applies), `NO_TYPE`
+   * when "No type" was picked. */
   typeId: string | null;
   /** The card's type name as it was, when editing one (types are matched by name). */
   issueType?: string;
@@ -23,7 +24,7 @@ export interface CardDraftFields {
   description: string;
   priority: Priority;
   labels: string[];
-  /** Only when the board has types and the card has one. */
+  /** Only when the board has types: a type's id, or "" for none (clears the card's). */
   typeId?: string;
 }
 
@@ -40,6 +41,9 @@ export const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: "p2", label: "Medium" },
   { value: "p3", label: "Low" },
 ];
+
+/** The type picker's "No type": an empty id is what the commands take to clear a type. */
+export const NO_TYPE = "";
 
 export const EMPTY_DRAFT: CardDraft = {
   summary: "",
@@ -62,8 +66,9 @@ export function draftFromIssue(issue: Issue): CardDraft {
 }
 
 /** The draft's type: the one picked, else the card's own (by name) when editing, else
- * the board's first. Null for a card with no type, or a board without types. */
+ * the board's first. Null for "No type", a card with no type, or a board without types. */
 export function draftTypeId(draft: CardDraft, types: DraftType[]): string | null {
+  if (draft.typeId === NO_TYPE) return null;
   if (draft.typeId && types.some((t) => t.id === draft.typeId)) return draft.typeId;
   if (draft.issueType !== undefined) {
     return types.find((t) => t.name === draft.issueType)?.id ?? null;
@@ -88,7 +93,8 @@ export function draftProblem(draft: CardDraft): string | null {
 }
 
 /** What to send: trimmed text, parsed labels, the type when there is one. An empty
- * description clears it; a card left with no type keeps none (`typeId` left out). */
+ * description clears it; a card left with no type keeps none (`typeId` left out), and
+ * picking "No type" on a board with types sends `NO_TYPE`, which clears it. */
 export function draftFields(draft: CardDraft, types: DraftType[] = []): CardDraftFields {
   const fields: CardDraftFields = {
     summary: draft.summary.trim(),
@@ -97,5 +103,6 @@ export function draftFields(draft: CardDraft, types: DraftType[] = []): CardDraf
     labels: parseLabels(draft.labels),
   };
   const typeId = draftTypeId(draft, types);
-  return typeId ? { ...fields, typeId } : fields;
+  if (typeId) return { ...fields, typeId };
+  return draft.typeId === NO_TYPE && types.length > 0 ? { ...fields, typeId: NO_TYPE } : fields;
 }

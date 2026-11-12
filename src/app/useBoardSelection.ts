@@ -4,7 +4,9 @@ import { useIssuesStore } from "@/domains/issues/store";
 import { type NavId, navBoardProvider } from "./nav";
 
 /** Keep the loaded board in step with the page: a tracker's page shows that tracker's
- * board, and with no selection (its tracker disconnected) the old cards don't linger. */
+ * board, and with no selection (Boards with none made, or a tracker disconnected) the old
+ * cards don't linger. Clearing only hides them: the other boards' snapshots stay for going
+ * back (`boardCache`), and disconnecting forgets them (`issues/store`). */
 export function useBoardSelection(nav: NavId): void {
   const initialized = useIssuesStore((s) => s.initialized);
   const boards = useIssuesStore((s) => s.boards);

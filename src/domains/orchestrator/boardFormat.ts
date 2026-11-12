@@ -120,11 +120,13 @@ function columnLines(input: BoardTextInput): string[] {
 export function formatBoardLines(input: BoardTextInput): string[] {
   const { data, stats, shown, prs } = input;
   const unknownPrs = "unknown (only the board shown in trace has its PRs watched)";
+  // A trace board's cards are all the user's: "0 unassigned" would only be noise.
+  const unassigned = input.provider === "custom" ? "" : ` · ${stats.unassigned} unassigned`;
   const lines: string[] = [
     `BOARD: ${input.boardKey} "${data.boardName}"${shown ? " · shown in trace now" : ""}`,
     `SPRINT: ${data.sprintName ?? "—"} · board "${data.boardName}"`,
     `SCOPE: ${input.scope}`,
-    `STATS: ${stats.total} tickets · ${stats.done} done (${stats.pctDone}%) · ${stats.inProgress} in progress · ${stats.todo} to do · ${stats.unassigned} unassigned`,
+    `STATS: ${stats.total} tickets · ${stats.done} done (${stats.pctDone}%) · ${stats.inProgress} in progress · ${stats.todo} to do${unassigned}`,
     `AGENTS: ${stats.agents.running} running (${stats.agents.working} working, ${stats.agents.needsYou} need you)`,
     `PRS: ${prs ? `${stats.prs.open} open · ${stats.prs.draft} draft · ${stats.prs.merged} merged · ${stats.prs.closed} closed` : unknownPrs}`,
   ];

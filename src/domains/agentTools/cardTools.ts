@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { useBoardStore } from "@/domains/board/store";
 import { applyBoardData } from "@/domains/boards/boardEdits";
-import { loadBoard, locateIssue } from "@/domains/orchestrator/boardLookup";
-import { matchName, noColumnMessage, normalizeKey } from "@/domains/orchestrator/boardRef";
+import { issueKeyFrom, loadBoard, locateIssue } from "@/domains/orchestrator/boardLookup";
+import { matchName, noColumnMessage } from "@/domains/orchestrator/boardRef";
 import {
   type CardFields,
   createCustomCard,
@@ -81,7 +81,7 @@ export function cardActionSummary(name: string, input: unknown): string {
     const board = str(input, "board");
     return `Create card "${clip(str(input, "summary"), 60)}"${board ? ` on ${board}` : ""}`;
   }
-  return `Update ${normalizeKey(str(input, "issue_key"))}`;
+  return `Update ${issueKeyFrom(str(input, "issue_key"))}`;
 }
 
 /** Show a trace board's fresh data if it is the one on screen (a no-op otherwise). */
@@ -134,7 +134,7 @@ async function createCard(input: unknown): Promise<string> {
 }
 
 async function updateCard(input: unknown): Promise<string> {
-  const key = normalizeKey(str(input, "issue_key"));
+  const key = issueKeyFrom(str(input, "issue_key"));
   if (!key) return "Error: missing issue_key.";
   if (!/^local-\d+$/.test(key)) {
     return `${key} isn't on a trace board: only cards like local-12 can be edited here (Jira and Pylon tickets are changed in their tracker).`;

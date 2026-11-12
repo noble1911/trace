@@ -6,14 +6,21 @@ import type { BoardColumn, ColumnStatus, ProviderKind } from "../issues/types.ts
 const PROVIDERS: ProviderKind[] = ["jira", "pylon", "custom"];
 
 /**
- * A ticket key as its tracker writes it: a trace board's `local-12` is lowercase (and
- * `LOCAL-12` is accepted), Pylon's `#123` stays as it is, and Jira's are upper-cased.
+ * A ticket key as its tracker writes it: Pylon's `#123` stays as it is, Jira's are
+ * upper-cased, and a trace board's `local-12` is lowercase. `LOCAL-12` is ambiguous: a
+ * Jira project can be keyed LOCAL. Written exactly `local-12` it's a trace card; any
+ * other casing is the Jira ticket when `isTrackerKey` knows the upper-case key (trace has
+ * seen it on a tracker's board), else the trace card.
  */
-export function normalizeKey(raw: string): string {
+export function normalizeKey(
+  raw: string,
+  isTrackerKey: (key: string) => boolean = () => false
+): string {
   const key = raw.trim();
-  if (/^local-\d+$/i.test(key)) return key.toLowerCase();
   if (key.startsWith("#")) return key;
-  return key.toUpperCase();
+  const upper = key.toUpperCase();
+  if (!/^local-\d+$/i.test(key)) return upper;
+  return key === key.toLowerCase() || !isTrackerKey(upper) ? key.toLowerCase() : upper;
 }
 
 /** A board reference as `list_boards` prints it: `jira:42`, `pylon:open-issues`, `custom:<id>`. */

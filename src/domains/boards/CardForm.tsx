@@ -7,6 +7,7 @@ import {
   draftFields,
   draftProblem,
   draftTypeId,
+  NO_TYPE,
   PRIORITY_OPTIONS,
 } from "./cardDraft";
 import { useLoadedCardTypes } from "./settings/useBoardSetup";
@@ -88,16 +89,16 @@ export function CardForm(props: CardFormProps) {
             <label htmlFor={`${id}-type`}>Type</label>
             <select
               id={`${id}-type`}
-              value={typeId ?? ""}
-              onChange={(e) => set("typeId", e.target.value || null)}
+              value={typeId ?? NO_TYPE}
+              onChange={(e) => set("typeId", e.target.value)}
             >
-              {/* Only a card that has no type is offered none: a new one takes a type. */}
-              {typeId === null && <option value="">No type</option>}
               {types.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
+              {/* A new card defaults to the first type, but any card can have none. */}
+              <option value={NO_TYPE}>No type</option>
             </select>
           </div>
         )}

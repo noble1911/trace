@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { toast } from "@/app/toast";
-import { useClaudeCatalog } from "@/domains/agentChat/claudeCatalog";
+import { catalogModels } from "@/domains/agentChat/claudeCatalog";
 import { getAnthropicKey } from "@/ipc/orchestrator";
 import { type ChatTurn, type ConfirmRequest, runOrchestratorTurn } from "./agent";
 import { runOrchestratorCli } from "./cli";
@@ -68,6 +68,8 @@ let confirmResolver: ((ok: boolean) => void) | null = null;
 let abortController: AbortController | null = null;
 let sendGen = 0;
 let nextMessageId = 0;
+/** How long a first turn waits for Claude Code's model list before using the fallbacks. */
+const CATALOG_WAIT_MS = 5_000;
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
@@ -79,10 +81,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!trimmed || get().busy) return;
 
     const { backend, model } = useOrchestratorStore.getState();
-    // Claude Code's model list (no-op once loaded); empty if it's missing, which
-    // the mapping answers with the old hardcoded ids.
-    useClaudeCatalog.getState().load();
-    const catalog = useClaudeCatalog.getState().models;
     // The SDK path needs an API key; the CLI path uses the logged-in Claude CLI.
     let key: string | null = null;
     if (backend === "sdk") {
@@ -124,6 +122,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       } else if (key) {
         ac = new AbortController();
         abortController = ac;
+        // Claude Code's models give the API id. The first turn waits for them (briefly),
+        // so it uses the same model as the turns after; no answer: the hardcoded ids.
+        const catalog = await catalogModels(CATALOG_WAIT_MS);
         await runOrchestratorTurn({
           apiKey: key,
           model: sdkModelId(model, catalog),

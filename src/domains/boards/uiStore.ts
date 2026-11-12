@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useBoardStore } from "@/domains/board/store";
 import type { BoardSettings } from "@/ipc/boardSettings";
 
 // Which custom-board dialog or prompt is open. They're asked for from places that
@@ -40,6 +41,14 @@ export const useBoardsUi = create<BoardsUiStore>((set) => ({
   editCard: (editingCard) => set({ editingCard }),
   confirmDeleteCard: (deletingCard) => set({ deletingCard }),
 }));
+
+// A card's edit dialog and delete prompt belong to the board they were opened on:
+// showing another board closes them, so they don't come back on returning to it.
+useBoardStore.subscribe((board, prev) => {
+  if (board.boardKey === prev.boardKey) return;
+  const { editingCard, deletingCard } = useBoardsUi.getState();
+  if (editingCard || deletingCard) useBoardsUi.setState({ editingCard: null, deletingCard: null });
+});
 
 // A hot update would leave subscribers on a stale copy of this state, so reload instead.
 import.meta.hot?.accept(() => location.reload());

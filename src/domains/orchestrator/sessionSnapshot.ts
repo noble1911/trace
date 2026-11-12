@@ -79,12 +79,13 @@ export function sessionSnapshotLines(stats: SessionStats, now: number): string[]
   return lines;
 }
 
-/** What the snapshot says in place of the board when none is connected. */
+/** What the snapshot says in place of the board when none is shown: no tracker, or a
+ * page with no board on it (Boards with none made yet), while other boards can exist. */
 export const NO_BOARD_LINES = [
-  "BOARD: none connected — there are no tickets, columns or sprint. Answer from the sessions below.",
-  "Ticket actions (move_issue, start_agent, comment_on_issue, get_ticket_details) need a connected Jira or Pylon board; say so rather than trying them.",
+  "BOARD: none shown in trace right now, so this snapshot has no tickets, columns or sprint. Answer from the sessions below.",
+  "Other boards may still exist: list_boards and get_board (where you have them) list and read any board. Act only on a ticket you have read from one; with no boards at all, say ticket actions need a board rather than trying them.",
 ];
 
 /** The system-prompt rule both orchestrator transports share about sessions. */
 export const SESSIONS_RULE =
-  "trace also runs standalone SESSIONS — agents not tied to a ticket — and CURRENT BOARD STATE lists them with each agent's state, repo, branch and PR. When its BOARD line says none is connected there are no tickets: answer questions about agents and work from the sessions, and say plainly that ticket actions need a connected Jira or Pylon board rather than attempting them.";
+  "trace also runs standalone SESSIONS — agents not tied to a ticket — and CURRENT BOARD STATE lists them with each agent's state, repo, branch and PR. When its BOARD line says none is shown there are no tickets in it: answer questions about agents and work from the sessions, and act on a ticket only once you've read it from a board (list_boards and get_board, where you have them); with no boards at all, say plainly that ticket actions need one rather than attempting them.";

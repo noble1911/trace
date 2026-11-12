@@ -8,6 +8,7 @@ import { useIssuesStore } from "@/domains/issues/store";
 import type { ColumnStatus, Issue } from "@/domains/issues/types";
 import { useLiveStore } from "@/domains/live/store";
 import { AssigneeFilter } from "./AssigneeFilter";
+import { effectiveAssignee } from "./assignee";
 import { Column } from "./Column";
 import { columnColor, groupIssuesByColumn } from "./columns";
 import { DensityToggle } from "./DensityToggle";
@@ -69,12 +70,8 @@ export function Board() {
   // A custom board (trace's own) is editable, and has no assignees to filter by. Its
   // card types filter like issue types, remembered per board (`typeFilterStore`).
   const isCustom = boardProvider === "custom";
-  // Resolve the effective assignee: until the user picks, default to themselves.
-  const effectiveAssignee = isCustom
-    ? null
-    : assigneeFilter === undefined
-      ? currentUserId
-      : assigneeFilter;
+  // Until the user picks, the filter defaults to themselves (`assignee.ts`).
+  const assignee = effectiveAssignee(boardProvider, assigneeFilter, currentUserId);
 
   if (loading && !data) return <Centered title="Loading board…" />;
   if (error && !data) return <Centered title="Couldn't load the board" hint={error} />;
@@ -102,7 +99,7 @@ export function Board() {
     else if (boardKey) selectCustomTypes(boardKey, sel);
   };
   // Counts on the type chips come from here — every filter but type.
-  const visible = applyFilter(data.issues, filter, runningAgents, effectiveAssignee);
+  const visible = applyFilter(data.issues, filter, runningAgents, assignee);
   const filtered = visible.filter((i) => showsType(typeSel, i.issueType));
   const grouped = groupIssuesByColumn(data.columns, filtered);
   const noun = isCustom ? "card" : "issue";
@@ -147,11 +144,7 @@ export function Board() {
         <div className="right">
           <DensityToggle />
           {!isCustom && (
-            <AssigneeFilter
-              issues={data.issues}
-              selected={effectiveAssignee}
-              onSelect={setAssigneeFilter}
-            />
+            <AssigneeFilter issues={data.issues} selected={assignee} onSelect={setAssigneeFilter} />
           )}
           <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
             All

@@ -5,7 +5,7 @@ import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { isScheduledRun } from "@/domains/schedules/ids";
 import { type AgentKey, resolveAgentKey } from "./agentKey";
-import { normalizeKey } from "./boardRef";
+import { issueKeyFrom } from "./boardLookup";
 import { commentTool, moveIssueTool, startAgentTool } from "./ticketActions";
 
 export { WRITE_TOOL_NAMES, WRITE_TOOLS } from "./writeTools";
@@ -39,7 +39,7 @@ function startAgentSummary(key: string): string {
 
 /** A short, human-readable description of a pending action for the confirm card. */
 export function actionSummary(name: string, input: unknown): string {
-  const key = normalizeKey(field(input, "issue_key"));
+  const key = issueKeyFrom(field(input, "issue_key"));
   switch (name) {
     case "move_issue":
       return `Move ${key} → ${clip(field(input, "target_status"), 40)}`;

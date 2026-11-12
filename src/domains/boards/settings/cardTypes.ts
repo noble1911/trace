@@ -23,3 +23,13 @@ export function typeCardCount(issues: { issueType: string }[], name: string): nu
 export function typeMoveTargets<T extends NamedType>(types: T[], id: string): T[] {
   return types.filter((t) => t.id !== id);
 }
+
+/**
+ * Where a deleted type's cards go: the choice while it's still offered ("" is no type),
+ * else the first other type, else none. Types change while the prompt is open (one can be
+ * deleted from its own row), so a choice that's gone is never sent.
+ */
+export function deleteTarget(targets: NamedType[], chosen: string): string {
+  if (chosen === "" || targets.some((t) => t.id === chosen)) return chosen;
+  return targets[0]?.id ?? "";
+}

@@ -3,6 +3,7 @@ import { groupIssuesByColumn } from "@/domains/board/columns";
 import { dedupePrs } from "@/domains/board/prDedupe";
 import type { BoardData, PullRequest } from "@/domains/issues/types";
 import type { AgentLight } from "@/domains/live/types";
+import { agentsOnBoard } from "./boardAgents";
 
 // Deterministic board metrics. All numbers come from here — the orchestrator
 // LLM (later phases) only narrates these, never computes them, because LLMs
@@ -121,12 +122,16 @@ export function computeBoardStats(input: StatsInput): BoardStats {
 
 /**
  * Narrow a stats input to a single assignee so the panel mirrors the board's
- * assignee filter. `null` (everyone) is an identity pass-through. Filtering at
+ * assignee filter. `null` (everyone) keeps every ticket. Filtering at
  * the input boundary keeps every downstream metric — columns, agents, PRs,
  * throughput — consistently scoped to that person's tickets.
  */
 export function filterByAssignee(input: StatsInput, assignee: string | null): StatsInput {
-  if (assignee === null || !input.board) return input;
+  if (!input.board) return input;
+  // Everyone: every ticket, but still only this board's agents (`boardAgents`).
+  if (assignee === null) {
+    return { ...input, runningAgents: agentsOnBoard(input.runningAgents, input.board.issues) };
+  }
   const issues = input.board.issues.filter((i) => i.assignee?.accountId === assignee);
   const keys = new Set(issues.map((i) => i.key));
   const pullRequests: Record<string, PullRequest[]> = {};
@@ -136,7 +141,7 @@ export function filterByAssignee(input: StatsInput, assignee: string | null): St
   return {
     ...input,
     board: { ...input.board, issues },
-    runningAgents: new Set([...input.runningAgents].filter((k) => keys.has(k))),
+    runningAgents: agentsOnBoard(input.runningAgents, issues),
     pullRequests,
     activity: input.activity.filter((e) => e.issueKey != null && keys.has(e.issueKey)),
   };

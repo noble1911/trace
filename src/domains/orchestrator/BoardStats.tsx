@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useActivityStore } from "@/domains/activity/store";
+import { effectiveAssignee } from "@/domains/board/assignee";
 import { columnColor } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
@@ -25,8 +26,7 @@ export function BoardStats({ board }: { board: BoardData }) {
   const setSprintGoal = useOrchestratorStore((s) => s.setSprintGoal);
 
   // Mirror the board: until the user picks, the filter defaults to themselves.
-  const effectiveAssignee =
-    assigneeFilter === undefined ? (currentUser?.accountId ?? null) : assigneeFilter;
+  const assignee = effectiveAssignee(boardProvider, assigneeFilter, currentUser?.accountId ?? null);
 
   const stats = useMemo<Stats>(
     () =>
@@ -40,19 +40,19 @@ export function BoardStats({ board }: { board: BoardData }) {
             activity,
             now: Date.now(),
           },
-          effectiveAssignee
+          assignee
         )
       ),
-    [board, runningAgents, live, pullRequests, activity, effectiveAssignee]
+    [board, runningAgents, live, pullRequests, activity, assignee]
   );
 
   const scopeName =
-    effectiveAssignee === null
+    assignee === null
       ? "Everyone"
-      : effectiveAssignee === currentUser?.accountId
+      : assignee === currentUser?.accountId
         ? currentUser.displayName
-        : (board.issues.find((i) => i.assignee?.accountId === effectiveAssignee)?.assignee
-            ?.displayName ?? "Selected assignee");
+        : (board.issues.find((i) => i.assignee?.accountId === assignee)?.assignee?.displayName ??
+          "Selected assignee");
 
   return (
     <>
