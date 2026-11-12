@@ -160,4 +160,27 @@ mod tests {
         assert!(system.path.join("Glass.aiff").is_file());
         assert!(Os::audio_extensions().contains(&"aiff"));
     }
+
+    /// The real adapter: a `caffeinate` child exists while held and is gone after.
+    #[test]
+    fn hold_runs_caffeinate_until_released() {
+        fn caffeinate_children() -> String {
+            let out = crate::platform::process::command("pgrep")
+                .args(["-P", &std::process::id().to_string(), "-x", "caffeinate"])
+                .output()
+                .expect("pgrep runs");
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        }
+        let hold = <super::Os as crate::platform::ports::SleepInhibitor>::hold()
+            .expect("caffeinate starts");
+        assert!(
+            !caffeinate_children().is_empty(),
+            "no caffeinate child while held"
+        );
+        drop(hold);
+        assert!(
+            caffeinate_children().is_empty(),
+            "caffeinate outlived its hold"
+        );
+    }
 }

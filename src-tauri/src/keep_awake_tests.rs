@@ -82,26 +82,3 @@ fn a_machine_that_cannot_be_held_is_asked_once_per_wish() {
     holder.apply(true);
     assert_eq!(fake.counts(), (2, 0));
 }
-
-/// The real macOS adapter: a `caffeinate` child exists while held and is gone after.
-#[cfg(target_os = "macos")]
-#[test]
-fn macos_hold_runs_caffeinate_until_released() {
-    fn caffeinate_children() -> String {
-        let out = crate::platform::process::command("pgrep")
-            .args(["-P", &std::process::id().to_string(), "-x", "caffeinate"])
-            .output()
-            .expect("pgrep runs");
-        String::from_utf8_lossy(&out.stdout).trim().to_string()
-    }
-    let hold = <Os as SleepInhibitor>::hold().expect("caffeinate starts");
-    assert!(
-        !caffeinate_children().is_empty(),
-        "no caffeinate child while held"
-    );
-    drop(hold);
-    assert!(
-        caffeinate_children().is_empty(),
-        "caffeinate outlived its hold"
-    );
-}
