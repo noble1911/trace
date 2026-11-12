@@ -6,9 +6,11 @@ import {
   boardInitials,
   boardsByUse,
   boardsNeedingYou,
+  isEntrySelected,
   lastUsedBoard,
   parseLastOpened,
   pickRailBoards,
+  pickRailEntries,
 } from "./railBoardList.ts";
 
 const board = (provider: ProviderKind, id: string, name = id): BoardOption => ({
@@ -121,5 +123,68 @@ describe("parseLastOpened", () => {
   it("keeps finite numbers only", () => {
     assert.deepEqual(parseLastOpened({ a: 1, b: "2", c: Number.NaN, d: null }), { a: 1 });
     for (const raw of [null, 3, "x", [1, 2]]) assert.deepEqual(parseLastOpened(raw), {});
+  });
+});
+
+describe("the rail's buttons, one per kind of board", () => {
+  const b = (provider: "jira" | "pylon" | "custom", id: string): BoardOption => ({
+    key: `${provider}:${id}`,
+    provider,
+    boardId: id,
+    name: `${provider} ${id}`,
+  });
+  const many = [
+    b("jira", "1"),
+    b("jira", "2"),
+    b("jira", "3"),
+    b("pylon", "open"),
+    b("custom", "a"),
+    b("custom", "b"),
+  ];
+
+  it("shows Jira and Pylon once each, then each of trace's own boards", () => {
+    const { shown, hasMore } = pickRailEntries(many, {}, null);
+    assert.deepEqual(
+      shown.map((e) => [e.board.key, e.isTracker]),
+      [
+        ["jira:1", true],
+        ["pylon:open", true],
+        ["custom:a", false],
+        ["custom:b", false],
+      ]
+    );
+    assert.equal(hasMore, true, "two Jira boards have no button: All boards lists them");
+  });
+
+  it("a tracker's button opens its last-used board, or the one on screen", () => {
+    const used = pickRailEntries(many, { "jira:3": 50, "jira:2": 10 }, null);
+    assert.equal(used.shown[0].board.key, "jira:3");
+    const onScreen = pickRailEntries(many, { "jira:3": 50 }, "jira:2");
+    assert.equal(onScreen.shown[0].board.key, "jira:2");
+  });
+
+  it("marks the tracker's button for any of its boards, and a trace board only for itself", () => {
+    const { shown } = pickRailEntries(many, {}, "jira:2");
+    assert.equal(isEntrySelected(shown[0], many[1]), true);
+    assert.equal(isEntrySelected(shown[2], many[1]), false);
+    assert.equal(isEntrySelected(shown[2], many[4]), true);
+    assert.equal(isEntrySelected(shown[3], many[4]), false);
+  });
+
+  it("has nothing more to list when every board has a button", () => {
+    const few = [b("jira", "1"), b("custom", "a")];
+    assert.equal(pickRailEntries(few, {}, null).hasMore, false);
+  });
+
+  it("keeps to the limit, trackers first", () => {
+    const lots = [
+      b("jira", "1"),
+      b("pylon", "open"),
+      ...["a", "b", "c", "d", "e", "f"].map((id) => b("custom", id)),
+    ];
+    const { shown, hasMore } = pickRailEntries(lots, {}, "custom:f", 4);
+    assert.equal(shown.length, 4);
+    assert.equal(shown[3].board.key, "custom:f", "the board on screen keeps a button");
+    assert.equal(hasMore, true);
   });
 });

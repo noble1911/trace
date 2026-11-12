@@ -53,6 +53,57 @@ export function pickRailBoards(
   return { shown, hasMore: sorted.length > limit };
 }
 
+/** One button in the rail's Boards group. */
+export interface RailEntry {
+  /** The board it opens. */
+  board: BoardOption;
+  /** Stands for its whole tracker (Jira, Pylon): the tracker's last-used board. A
+   * tracker can have many boards, so the rail shows the type once and the topbar's
+   * switcher picks among them. False for a board kept in trace, listed itself. */
+  isTracker: boolean;
+}
+
+export interface RailEntries {
+  shown: RailEntry[];
+  /** Boards exist that have no button of their own: "All boards" lists every one. */
+  hasMore: boolean;
+}
+
+/**
+ * The group's buttons: one per tracker that has boards (Jira, then Pylon), opening that
+ * tracker's last-used board (the one on screen, when it's that tracker's), then trace's
+ * own boards, most recently opened first, up to `limit` buttons in all. The board on
+ * screen always has a button.
+ */
+export function pickRailEntries(
+  boards: readonly BoardOption[],
+  lastOpened: LastOpened,
+  selectedKey: string | null,
+  limit = RAIL_BOARD_LIMIT
+): RailEntries {
+  const sorted = boardsByUse(boards, lastOpened);
+  const trackers = (["jira", "pylon"] as const)
+    .map((kind) => {
+      const own = sorted.filter((b) => b.provider === kind);
+      const board = own.find((b) => b.key === selectedKey) ?? own[0];
+      return board ? { board, isTracker: true } : null;
+    })
+    .filter((e): e is RailEntry => e !== null);
+  const custom = sorted.filter((b) => b.provider === "custom");
+  const room = Math.max(0, limit - trackers.length);
+  const { shown } = pickRailBoards(custom, lastOpened, selectedKey, room);
+  const entries = [...trackers, ...shown.map((board) => ({ board, isTracker: false }))];
+  return { shown: entries, hasMore: boards.length > entries.length };
+}
+
+/** Whether `entry` is the one for the board on screen: its tracker's, or itself. */
+export function isEntrySelected(entry: RailEntry, selected: BoardOption | undefined): boolean {
+  if (!selected) return false;
+  return entry.isTracker
+    ? entry.board.provider === selected.provider
+    : entry.board.key === selected.key;
+}
+
 /** The board the Boards button opens: the one last opened, else the one selected, else
  * the first; null with no boards at all. */
 export function lastUsedBoard(
