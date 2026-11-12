@@ -2,9 +2,10 @@
 
 use serde_json::json;
 
-use super::tools::{self, Arg};
+use super::tools;
 use super::{linked, parse, JiraMcp};
 use crate::issues::models::{IssueComment, PullRequest};
+use crate::mcp_client::args::Arg;
 use crate::mcp_client::ToolCaller;
 
 /// The newest comments kept, as the REST adapter keeps.

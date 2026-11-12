@@ -18,7 +18,7 @@ export function connectJira(site: string, email: string, token: string): Promise
   return invoke("connect_jira", { site, email, token });
 }
 
-/** A tracker site an MCP login reaches (Jira: one per Atlassian site). */
+/** A tracker site an MCP login reaches (Jira: one per Atlassian site; Pylon has none). */
 export interface TrackerSite {
   /** Jira's cloudId. */
   id: string;
@@ -36,6 +36,16 @@ export type McpConnectResult =
  * logging in through the browser first if need be. `cloudId` picks the site. */
 export function connectJiraMcp(cloudId?: string): Promise<McpConnectResult> {
   return invoke("connect_jira_mcp", { cloudId: cloudId ?? null });
+}
+
+/** A Pylon data region: its workspaces have separate logins and MCP servers. */
+export type PylonRegion = "us" | "eu";
+
+/** Connect Pylon's board through trace's Pylon login (Integrations → MCP servers), logging in
+ * through the browser first if need be. Without `region`, the server trace is logged in to (or
+ * the region it already knows, else US). Never resolves to a site choice. */
+export function connectPylonMcp(region?: PylonRegion): Promise<McpConnectResult> {
+  return invoke("connect_pylon_mcp", { region: region ?? null });
 }
 
 export function connectPylon(token: string): Promise<IssueUser> {

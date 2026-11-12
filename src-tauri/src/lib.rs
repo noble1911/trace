@@ -32,6 +32,7 @@ pub mod plans;
 pub mod platform;
 pub mod preflight;
 pub mod pylon;
+pub mod pylon_mcp;
 // The homepage clip recorder's hooks; never in a release build (site/README.md).
 #[cfg(feature = "recording")]
 pub mod recording;
@@ -101,6 +102,7 @@ pub fn run() {
             commands::issues::connect_jira,
             commands::issues::connect_pylon,
             commands::issues_mcp::connect_jira_mcp,
+            commands::issues_mcp::connect_pylon_mcp,
             commands::issues::provider_sessions,
             commands::issues::provider_current_user,
             commands::issues::disconnect_provider,

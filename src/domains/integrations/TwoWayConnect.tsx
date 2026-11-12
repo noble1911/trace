@@ -18,7 +18,7 @@ function hostOf(url: string): string {
 }
 
 // A tracker's two ways to connect: its own login (over its MCP server, the primary), then an
-// API token. Jira's today; Pylon's next, with its own `LoginWay` and store action.
+// API token. Jira's and Pylon's, each with its own `LoginWay` and store action.
 export function TwoWayConnect({ way, onLogin, children }: TwoWayConnectProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

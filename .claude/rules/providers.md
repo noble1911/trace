@@ -40,6 +40,9 @@ connection per tracker. `issues/mcp_link.rs` holds the rule and the record:
 - A new MCP adapter plugs in with a `from_link(&McpLink)`, one `mcp_link::restore` arm in
   `session::restore_all`, a connect command, and a `login` way in `domains/integrations/registry.ts`
   (the dialog's `TwoWayConnect` offers it beside the token form).
+- MCP adapters (`jira_mcp/`, `pylon_mcp/`) are generic over `mcp_client::ToolCaller` and build
+  arguments from each tool's advertised schema with `mcp_client::args` (candidate names, type
+  coercion): the vendors document tool names, not argument shapes. Tests run on `FakeCaller`.
 
 ## Pylon specifics
 
@@ -57,6 +60,11 @@ connection per tracker. `issues/mcp_link.rs` holds the rule and the record:
   internal notes) — powers the `{comments}` placeholder in the agent kickoff brief.
 - No dev-status integration → `get_pull_requests` returns empty; the frontend skips PR fan-out for
   non-Jira providers.
+- Over MCP (`pylon_mcp/`): the same board, from `search_issues` (window as a `filter_json`, else
+  newest-first to the window's edge; pages capped), `get_issue_statuses` for custom columns
+  (else discovered), `update_issue` (state), `send_issue_note`, `get_issue_messages`.
+  **Never `send_issue_reply`**: it writes to the customer. US or EU server by
+  `pylon_mcp/region.rs`'s rule (the one logged in to, else the known region, else US).
 
 ## Adding a provider
 

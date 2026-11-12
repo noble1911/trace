@@ -86,6 +86,7 @@ src-tauri/src/
 ├── jira/                   # Jira provider: auth, client, parse, board, dev  (Jira Cloud REST)
 ├── jira_mcp/               # Jira provider over Atlassian's MCP server (trace's login); issues/mcp_link picks REST or MCP
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
+├── pylon_mcp/              # Pylon provider over Pylon's MCP server (US or EU, trace's login); same board as pylon/
 ├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
 ├── agent_tools/            # trace's own tools served to its agents over loopback MCP (renderer runs them)
 ├── plans/                  # the Plan tab's documents: capture (plan mode, transcripts), versions, store
@@ -96,6 +97,7 @@ src-tauri/src/
 ├── execution/              # where agents run: AgentHost port; this machine, or a cloud sandbox
 │                           #   (sandbox/ + vercel/: terminal in tmux, chat as a background command)
 ├── mcp_auth/               # trace's own OAuth logins to the team's MCP servers, for sandboxes
+├── mcp_client/             # trace calling MCP tools: ToolCaller port, HTTP adapter, schema-driven args
 └── commands/               # thin wrappers: agent, session, schedules, issues, activity, pr, diff, tests, repos, editor
 ```
 

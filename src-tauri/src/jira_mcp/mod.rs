@@ -35,10 +35,11 @@ use crate::helpers::ttl_cache::TtlCache;
 use crate::issues::mcp_link::McpLink;
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 use crate::issues::{IssueProvider, ProviderKind, ProviderSession, Via};
+use crate::mcp_client::args::Arg;
 use crate::mcp_client::http::{self, HttpCaller};
 use crate::mcp_client::ToolCaller;
 use site::Site;
-use tools::{Arg, Op, Toolset};
+use tools::{Op, Toolset};
 
 /// Atlassian's MCP server: the same login as Integrations → MCP servers.
 pub const SERVER_URL: &str = "https://mcp.atlassian.com/v2/mcp";

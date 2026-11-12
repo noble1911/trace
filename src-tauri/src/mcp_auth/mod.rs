@@ -144,17 +144,11 @@ pub fn statuses() -> Vec<ServerStatus> {
 }
 
 /// Your region per service, where trace knows it: Pylon's, from the
-/// connected Pylon tracker.
+/// connected Pylon tracker (its MCP record or its API connection).
 fn known_regions() -> Vec<(&'static str, catalog::Region)> {
-    let Some(conn) = crate::pylon::auth::load() else {
-        return Vec::new();
-    };
-    let region = if conn.base_url == crate::pylon::EU_BASE_URL {
-        catalog::Region::Eu
-    } else {
-        catalog::Region::Us
-    };
-    vec![("pylon", region)]
+    crate::pylon_mcp::region::known()
+        .map(|r| vec![("pylon", r)])
+        .unwrap_or_default()
 }
 
 /// The header that logs a call in to `server`, fresh: Err when its OAuth

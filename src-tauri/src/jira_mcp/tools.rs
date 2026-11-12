@@ -7,16 +7,16 @@
 //! `getAccessibleAtlassianResources`) take what v1's schemas say (`cloudId`,
 //! `jql`, `fields` as an array, `nextPageToken`, `issueIdOrKey`,
 //! `transition: { id }`); the board tools' are guesses. So arguments are built
-//! from the server's own advertised input schema where it gives one: each
-//! [`Arg`] lists the names (and value shapes) a server might use, and the
-//! first one the schema lists is sent, its value coerced to the schema's
-//! type. A naming difference then doesn't break the board.
+//! from the server's own advertised input schema where it gives one
+//! (`mcp_client::args`, shared with `pylon_mcp`): a naming difference then
+//! doesn't break the board.
 
 use std::collections::HashMap;
 
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use super::route::Route;
+use crate::mcp_client::args::{self, Arg};
 use crate::mcp_client::ToolInfo;
 
 /// One thing the adapter does, and the tools that do it, preferred first (a
@@ -97,34 +97,6 @@ pub const CARD_FIELDS: &[&str] = &[
     "parent",
 ];
 
-/// One argument: the names (and value shapes) a server might call it,
-/// preferred first.
-pub struct Arg {
-    alts: Vec<(&'static str, Value)>,
-    /// Sent even when the schema doesn't list it: the call means nothing without it.
-    always: bool,
-}
-
-impl Arg {
-    /// Always sent, under the first of `alts` the schema lists (else the first).
-    pub fn must(alts: Vec<(&'static str, Value)>) -> Self {
-        Self { alts, always: true }
-    }
-
-    /// Always sent, under `name`.
-    pub fn need(name: &'static str, value: Value) -> Self {
-        Self::must(vec![(name, value)])
-    }
-
-    /// Sent when the schema lists one of its names, or has no `properties` at all.
-    pub fn opt(alts: Vec<(&'static str, Value)>) -> Self {
-        Self {
-            alts,
-            always: false,
-        }
-    }
-}
-
 /// The tools a server offers (their input schemas, by name) and how to reach
 /// the ones it doesn't list directly.
 pub struct Toolset {
@@ -178,30 +150,7 @@ impl Toolset {
 
     /// `tool`'s arguments from `args`, shaped by its advertised schema.
     pub fn args(&self, tool: &str, args: Vec<Arg>) -> Value {
-        let props = self
-            .schemas
-            .get(tool)
-            .and_then(|s| s.get("properties"))
-            .and_then(Value::as_object);
-        let mut out = Map::new();
-        for arg in args {
-            let listed = props.and_then(|p| arg.alts.iter().find(|(k, _)| p.contains_key(*k)));
-            let chosen = match (listed, props) {
-                (Some(alt), _) => Some(alt),
-                // The schema says nothing: send everything as first named.
-                (None, None) => arg.alts.first(),
-                (None, Some(_)) if arg.always => arg.alts.first(),
-                (None, Some(_)) => None,
-            };
-            if let Some((key, value)) = chosen {
-                let ty = props
-                    .and_then(|p| p.get(*key))
-                    .and_then(|s| s.get("type"))
-                    .and_then(Value::as_str);
-                out.insert(key.to_string(), coerce(value.clone(), ty));
-            }
-        }
-        Value::Object(out)
+        args::shape(self.schemas.get(tool), args)
     }
 
     /// What to send for a call to `tool`: itself when listed, else through
@@ -212,29 +161,6 @@ impl Toolset {
         }
         let (name, args) = self.route.wrap(tool, args, write);
         (name, args, true)
-    }
-}
-
-/// `value` in the JSON type the schema asks for, where one converts to the
-/// other (a numeric board id sent as a number, a field list as a CSV string).
-fn coerce(value: Value, ty: Option<&str>) -> Value {
-    match (ty, value) {
-        (Some("integer" | "number"), Value::String(s)) => match s.trim().parse::<i64>() {
-            Ok(n) => Value::from(n),
-            Err(_) => Value::String(s),
-        },
-        (Some("string"), Value::Number(n)) => Value::String(n.to_string()),
-        (Some("string"), Value::Array(items)) => {
-            let parts: Vec<String> = items
-                .iter()
-                .map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string))
-                .collect();
-            Value::String(parts.join(","))
-        }
-        (Some("array"), Value::String(s)) => {
-            Value::Array(s.split(',').map(|p| Value::from(p.trim())).collect())
-        }
-        (_, value) => value,
     }
 }
 

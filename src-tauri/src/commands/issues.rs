@@ -37,8 +37,8 @@ fn set_provider(state: &AppState, provider: Provider) -> Result<(), String> {
             crate::pylon::auth::save(conn)?;
             mcp_link::clear(ProviderKind::Pylon);
         }
-        // Saved by `issues_mcp::connect_jira_mcp`, which builds it.
-        Provider::JiraMcp(_) => {}
+        // Saved by `issues_mcp::connect_{jira,pylon}_mcp`, which build them.
+        Provider::JiraMcp(_) | Provider::PylonMcp(_) => {}
         // Nothing to save: custom boards have no credentials.
         Provider::Custom(_) => {}
     }

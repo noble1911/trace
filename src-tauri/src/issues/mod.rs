@@ -5,8 +5,9 @@
 //! Each provider owns its auth/client modules (`jira/`, `pylon/`); this module
 //! holds the shared interface and the `Provider` enum stored in `AppState`.
 //! Custom boards (`custom_boards/`) are one more provider, kept in a local file.
-//! Jira has two adapters, REST (`jira/`) and MCP (`jira_mcp/`), both of kind
-//! `ProviderKind::Jira`; `mcp_link` decides which one a connection uses.
+//! Jira and Pylon each have two adapters, REST (`jira/`, `pylon/`) and MCP
+//! (`jira_mcp/`, `pylon_mcp/`), of the tracker's kind; `mcp_link` decides
+//! which one a connection uses.
 
 pub mod mcp_link;
 pub mod models;
@@ -18,6 +19,7 @@ use crate::custom_boards::CustomBoards;
 use crate::jira::JiraConnection;
 use crate::jira_mcp::JiraMcpConnection;
 use crate::pylon::PylonConnection;
+use crate::pylon_mcp::PylonMcpConnection;
 
 use models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
 
@@ -64,6 +66,8 @@ pub enum Provider {
     /// Jira over Atlassian's MCP server, with trace's own login (`jira_mcp`).
     JiraMcp(JiraMcpConnection),
     Pylon(PylonConnection),
+    /// Pylon over Pylon's MCP server, with trace's own login (`pylon_mcp`).
+    PylonMcp(PylonMcpConnection),
     Custom(CustomBoards),
 }
 
@@ -71,7 +75,7 @@ impl Provider {
     pub fn kind(&self) -> ProviderKind {
         match self {
             Provider::Jira(_) | Provider::JiraMcp(_) => ProviderKind::Jira,
-            Provider::Pylon(_) => ProviderKind::Pylon,
+            Provider::Pylon(_) | Provider::PylonMcp(_) => ProviderKind::Pylon,
             Provider::Custom(_) => ProviderKind::Custom,
         }
     }
@@ -165,6 +169,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.current_user().await,
             Provider::JiraMcp(c) => c.current_user().await,
             Provider::Pylon(c) => c.current_user().await,
+            Provider::PylonMcp(c) => c.current_user().await,
             Provider::Custom(c) => c.current_user().await,
         }
     }
@@ -174,6 +179,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.list_boards().await,
             Provider::JiraMcp(c) => c.list_boards().await,
             Provider::Pylon(c) => c.list_boards().await,
+            Provider::PylonMcp(c) => c.list_boards().await,
             Provider::Custom(c) => c.list_boards().await,
         }
     }
@@ -183,6 +189,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.get_board(board_id).await,
             Provider::JiraMcp(c) => c.get_board(board_id).await,
             Provider::Pylon(c) => c.get_board(board_id).await,
+            Provider::PylonMcp(c) => c.get_board(board_id).await,
             Provider::Custom(c) => c.get_board(board_id).await,
         }
     }
@@ -196,6 +203,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.transition_issue(issue_key, target_status_ids).await,
             Provider::JiraMcp(c) => c.transition_issue(issue_key, target_status_ids).await,
             Provider::Pylon(c) => c.transition_issue(issue_key, target_status_ids).await,
+            Provider::PylonMcp(c) => c.transition_issue(issue_key, target_status_ids).await,
             Provider::Custom(c) => c.transition_issue(issue_key, target_status_ids).await,
         }
     }
@@ -205,6 +213,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.add_comment(issue_key, body).await,
             Provider::JiraMcp(c) => c.add_comment(issue_key, body).await,
             Provider::Pylon(c) => c.add_comment(issue_key, body).await,
+            Provider::PylonMcp(c) => c.add_comment(issue_key, body).await,
             Provider::Custom(c) => c.add_comment(issue_key, body).await,
         }
     }
@@ -214,6 +223,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.list_comments(issue_id).await,
             Provider::JiraMcp(c) => c.list_comments(issue_id).await,
             Provider::Pylon(c) => c.list_comments(issue_id).await,
+            Provider::PylonMcp(c) => c.list_comments(issue_id).await,
             Provider::Custom(c) => c.list_comments(issue_id).await,
         }
     }
@@ -227,6 +237,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.get_pull_requests(issue_id, fresh).await,
             Provider::JiraMcp(c) => c.get_pull_requests(issue_id, fresh).await,
             Provider::Pylon(c) => c.get_pull_requests(issue_id, fresh).await,
+            Provider::PylonMcp(c) => c.get_pull_requests(issue_id, fresh).await,
             Provider::Custom(c) => c.get_pull_requests(issue_id, fresh).await,
         }
     }
@@ -236,6 +247,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.status_category(issue_key).await,
             Provider::JiraMcp(c) => c.status_category(issue_key).await,
             Provider::Pylon(c) => c.status_category(issue_key).await,
+            Provider::PylonMcp(c) => c.status_category(issue_key).await,
             Provider::Custom(c) => c.status_category(issue_key).await,
         }
     }
@@ -245,6 +257,7 @@ impl IssueProvider for Provider {
             Provider::Jira(c) => c.session_info(),
             Provider::JiraMcp(c) => c.session_info(),
             Provider::Pylon(c) => c.session_info(),
+            Provider::PylonMcp(c) => c.session_info(),
             Provider::Custom(c) => c.session_info(),
         }
     }

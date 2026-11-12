@@ -4,6 +4,7 @@ import {
   connectJira,
   connectJiraMcp,
   connectPylon,
+  connectPylonMcp,
   disconnectProvider,
   listBoards,
   providerCurrentUser,
@@ -37,6 +38,9 @@ interface IssuesStore {
    * the login reaches several (call again with one's id), else null; rejects with the reason. */
   connectJiraMcp: (cloudId?: string) => Promise<TrackerSite[] | null>;
   connectPylon: (token: string) => Promise<void>;
+  /** Connect Pylon over trace's Pylon login (MCP). Always null (no sites to pick); rejects
+   * with the reason. Same shape as `connectJiraMcp`, for `TwoWayConnect`. */
+  connectPylonMcp: () => Promise<TrackerSite[] | null>;
   disconnect: (provider: ProviderKind) => Promise<void>;
   /** Re-list one tracker's boards: after a custom board is made, renamed or deleted. */
   reloadBoards: (provider: ProviderKind) => Promise<void>;
@@ -140,6 +144,18 @@ export const useIssuesStore = create<IssuesStore>((set, get) => ({
       users: { ...s.users, jira: result.user },
     }));
     await loadProvider(set, "jira");
+    return null;
+  },
+
+  async connectPylonMcp() {
+    const result = await connectPylonMcp();
+    if (result.status === "chooseSite") return result.sites;
+    set((s) => ({
+      error: null,
+      sessions: { ...s.sessions, pylon: result.session },
+      users: { ...s.users, pylon: result.user },
+    }));
+    await loadProvider(set, "pylon");
     return null;
   },
 

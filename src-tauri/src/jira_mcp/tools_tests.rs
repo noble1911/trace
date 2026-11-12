@@ -1,5 +1,6 @@
 //! Arguments shaped by advertised schemas; the connect check.
 use super::*;
+use crate::mcp_client::args::Arg;
 use serde_json::json;
 
 fn tool(name: &str, schema: Value) -> ToolInfo {

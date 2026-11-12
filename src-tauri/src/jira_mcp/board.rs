@@ -14,10 +14,11 @@
 use serde_json::{json, Value};
 
 use super::parse::{self, BoardConfig, StatusMeta};
-use super::tools::{self, Arg, CARD_FIELDS};
+use super::tools::{self, CARD_FIELDS};
 use super::JiraMcp;
 use crate::issues::models::{BoardData, BoardSummary, Issue};
 use crate::jira::scope::{self, BoardSettings};
+use crate::mcp_client::args::Arg;
 use crate::mcp_client::ToolCaller;
 
 /// Runaway guards, as on REST.

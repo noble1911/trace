@@ -48,6 +48,12 @@ export const INTEGRATIONS: Integration[] = [
     name: "Pylon",
     logo: pylonLogo,
     description: "Your open Pylon issues on their own board, ready for an agent.",
-    account: () => "api.usepylon.com",
+    account: (session) => session.site ?? "api.usepylon.com",
+    login: {
+      heading: "Pylon login",
+      label: "Connect with your Pylon login",
+      note: "Uses the same Pylon login as Integrations → MCP servers, and needs no API token.",
+      connected: "Connected with your Pylon login",
+    },
   },
 ];

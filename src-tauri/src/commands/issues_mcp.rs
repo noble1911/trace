@@ -1,6 +1,7 @@
 //! Connecting a tracker's board over its MCP server, with trace's own login
-//! (`mcp_auth`) instead of an API key. Thin: the adapter is `jira_mcp`, the
-//! choice of adapter `issues::mcp_link`. Pylon's MCP connect joins it here.
+//! (`mcp_auth`) instead of an API key. Thin: the adapters are `jira_mcp` and
+//! `pylon_mcp`, the choice of adapter `issues::mcp_link`, Pylon's region
+//! `pylon_mcp::region`.
 
 use serde::Serialize;
 use tauri::{AppHandle, State};
@@ -11,6 +12,8 @@ use crate::issues::{IssueProvider, Provider, ProviderKind, ProviderSession};
 use crate::jira_mcp::{self, site::Site, Opened};
 use crate::mcp_auth::{catalog, flow, Source};
 use crate::mcp_client::http;
+use crate::pylon_mcp::region::{self, Plan};
+use crate::pylon_mcp::{self, PylonMcpConnection};
 use crate::state::AppState;
 
 /// How a connect over MCP ended. No token, ever.
@@ -68,5 +71,55 @@ pub async fn connect_jira_mcp(
     let provider = Provider::JiraMcp(conn);
     let session = provider.session_info();
     state.providers.write().insert(ProviderKind::Jira, provider);
+    Ok(McpConnected::Connected { user, session })
+}
+
+/// Open Pylon's board on `url`'s server and validate the login with `get_me`.
+async fn open_pylon(url: &str) -> Result<(PylonMcpConnection, IssueUser), String> {
+    let conn = pylon_mcp::open(http::for_url(url)?, url).await?;
+    let user = conn.current_user().await?;
+    Ok((conn, user))
+}
+
+/// Connect Pylon's board through trace's Pylon login: the US or EU server by
+/// `pylon_mcp::region`'s rule (`region`, `"us"` | `"eu"`, names one; logging
+/// in first if need be). Validated before anything is saved: only then does
+/// it replace an API-token connection (whose credentials are deleted).
+#[tauri::command]
+pub async fn connect_pylon_mcp(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    region: Option<String>,
+) -> Result<McpConnected, String> {
+    let requested = region.as_deref().map(region::parse).transpose()?;
+    let logged_in = |r| mcp_link::logged_in(region::url(r));
+    let (conn, user) = match region::plan(requested, logged_in, region::known()) {
+        Plan::Use(r) => {
+            ensure_login(&app, region::url(r)).await?;
+            open_pylon(region::url(r)).await?
+        }
+        Plan::Probe(order) => {
+            let mut last = String::new();
+            let mut found = None;
+            for r in order {
+                match open_pylon(region::url(r)).await {
+                    Ok(ok) => {
+                        found = Some(ok);
+                        break;
+                    }
+                    Err(e) => last = e,
+                }
+            }
+            found.ok_or(last)?
+        }
+    };
+    mcp_link::save(ProviderKind::Pylon, &conn.link())?;
+    crate::pylon::auth::clear()?;
+    let provider = Provider::PylonMcp(conn);
+    let session = provider.session_info();
+    state
+        .providers
+        .write()
+        .insert(ProviderKind::Pylon, provider);
     Ok(McpConnected::Connected { user, session })
 }

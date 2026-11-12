@@ -18,6 +18,7 @@
 //! `issues::Provider`. `ToolCaller: Send + Sync` so `&self` can be held across
 //! an `.await` inside an `IssueProvider` future.
 
+pub mod args;
 pub mod http;
 mod sse;
 mod transport;

@@ -5,7 +5,7 @@
 //! no login, so they're always there.
 
 use crate::custom_boards::CustomBoards;
-use crate::{jira, jira_mcp, pylon};
+use crate::{jira, jira_mcp, pylon, pylon_mcp};
 
 use super::mcp_link::{self, Pick};
 use super::{Provider, ProviderKind};
@@ -22,8 +22,13 @@ pub fn restore_all() -> Vec<Provider> {
         },
         None => {}
     }
-    if let Some(conn) = pylon::auth::load() {
-        out.push(Provider::Pylon(conn));
+    match mcp_link::restore(ProviderKind::Pylon, pylon::auth::load()) {
+        Some(Pick::Api(conn)) => out.push(Provider::Pylon(conn)),
+        Some(Pick::Mcp(link)) => match pylon_mcp::from_link(&link) {
+            Ok(conn) => out.push(Provider::PylonMcp(conn)),
+            Err(e) => eprintln!("trace: Pylon over MCP not restored: {e}"),
+        },
+        None => {}
     }
     out
 }

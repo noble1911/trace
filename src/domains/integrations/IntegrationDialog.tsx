@@ -19,8 +19,10 @@ export function IntegrationDialog({ integration, onClose }: IntegrationDialogPro
   const user = useIssuesStore((s) => s.users[kind]);
   const disconnect = useIssuesStore((s) => s.disconnect);
   const clearConnectError = useIssuesStore((s) => s.clearConnectError);
-  // Each tracker with a `login` way names its store action here (Pylon's joins Jira's).
-  const connectWithLogin = useIssuesStore((s) => (kind === "jira" ? s.connectJiraMcp : undefined));
+  // Each tracker with a `login` way names its store action here.
+  const connectWithLogin = useIssuesStore((s) =>
+    kind === "jira" ? s.connectJiraMcp : kind === "pylon" ? s.connectPylonMcp : undefined
+  );
   const wasConnected = useState(() => Boolean(session))[0];
 
   // Don't greet this dialog with the last attempt's failure.
