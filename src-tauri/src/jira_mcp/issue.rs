@@ -31,9 +31,15 @@ pub async fn transition<T: ToolCaller>(
         .call(&tools::TRANSITIONS, vec![c.cloud(), issue_arg(key)])
         .await?;
     let transitions = parse::transitions(&v);
+    // The server names a move's target status but may not give its id: the
+    // site's statuses say what the target ids are called.
+    let names: Vec<String> = match transitions.iter().any(|t| t.to_id.is_none()) {
+        true => super::statuses::names(c, target_status_ids).await,
+        false => Vec::new(),
+    };
     let chosen = transitions
         .iter()
-        .find(|t| target_status_ids.contains(&t.to_id));
+        .find(|t| t.lands_on(target_status_ids, &names));
     let Some(chosen) = chosen else {
         let allowed: Vec<&str> = transitions
             .iter()
@@ -122,7 +128,8 @@ pub async fn list_comments<T: ToolCaller>(
     c: &JiraMcp<T>,
     issue_id: &str,
 ) -> Result<Vec<IssueComment>, String> {
-    let adf = || Arg::opt(vec![("responseContentFormat", json!("adf"))]);
+    // v2 answers in Markdown or HTML only (no ADF).
+    let adf = || Arg::opt(vec![("responseContentFormat", json!("markdown"))]);
     let listed = match c.offers(&tools::COMMENTS).await {
         true => {
             let args = vec![

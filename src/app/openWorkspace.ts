@@ -8,6 +8,7 @@ import { agentRoster } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
 import type { CreatedBy } from "@/domains/sessions/types";
 import type { NavId } from "./nav";
+import { pageNav, registerPageNav } from "./pageNav";
 
 /**
  * Open whatever a workspace id belongs to: a scheduled run (on the Scheduled
@@ -36,16 +37,12 @@ export function openWorkspace(workspaceId: string, setNav: (nav: NavId) => void)
   void openIssueAnywhere(workspaceId);
 }
 
-// The app's page setter, for openers in code that isn't handed one (a session
-// row's "by …" chip opening a scheduled prompt, which lives on its own page).
-let appNav: ((nav: NavId) => void) | null = null;
-
-/** App registers its page setter here once. */
+/** App registers its page setter once, for openers that aren't handed one (`pageNav`). */
 export function useAppNavForOpeners(setNav: (nav: NavId) => void): void {
   useEffect(() => {
-    appNav = setNav;
+    registerPageNav(setNav);
     return () => {
-      if (appNav === setNav) appNav = null;
+      if (pageNav() === setNav) registerPageNav(null);
     };
   }, [setNav]);
 }
@@ -55,7 +52,7 @@ export function useAppNavForOpeners(setNav: (nav: NavId) => void): void {
  * scheduled prompt (on the run, when it's still kept). Says so when it's gone.
  */
 export function openCreator(cb: CreatedBy): void {
-  const setNav = appNav ?? (() => {});
+  const setNav = pageNav() ?? (() => {});
   if (cb.kind === "agent") {
     if (cb.parent === "ticket") {
       void openIssueAnywhere(cb.workspaceId);

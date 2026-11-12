@@ -32,11 +32,21 @@ export const SIDEBAR_ITEMS: SidebarItemDef[] = [
   { id: "fleet", label: "Fleet", desc: "Every running agent." },
   { id: "sessions", label: "Sessions", desc: "Sessions not tied to a ticket." },
   { id: "scheduled", label: "Scheduled prompts", desc: "Prompts that run on a schedule." },
-  { id: "pr", label: "Pull requests", desc: "Pull requests Jira links to the board's tickets." },
+  {
+    id: "pr",
+    label: "Pull requests",
+    desc: "Pull requests your sessions and tickets raised, and those Jira links to the board.",
+  },
   { id: "activity", label: "Activity", desc: "What trace and its agents have done." },
   { id: "integrations", label: "Integrations", desc: "Connect trackers, GitHub and more." },
   { id: "settings", label: "Settings", desc: "Always shown, at the bottom.", isFixed: true },
 ];
+
+/** The board pages' one row in Settings → Sidebar while they're grouped. */
+export const BOARD_GROUP_ITEM = {
+  label: "Boards",
+  desc: "Every board, Jira's, Pylon's and your own, under one button.",
+};
 
 export const DEFAULT_SIDEBAR: SidebarEntry[] = SIDEBAR_ITEMS.map((d) => ({
   id: d.id,

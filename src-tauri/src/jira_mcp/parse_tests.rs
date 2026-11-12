@@ -14,7 +14,7 @@ fn a_site_listed_per_product_is_one_site() {
     ]});
     let found = sites(&v);
     assert_eq!(found.len(), 2);
-    assert_eq!(found[1].name, "https://b.atlassian.net", "no name: its URL");
+    assert_eq!(found[1].name, "b.atlassian.net", "no name: its host");
     assert_eq!(found[0].host(), "a.atlassian.net");
     assert_eq!(
         choose(found.clone(), Some("b")).map(|s| s.id),
@@ -62,7 +62,7 @@ fn status_categories_normalise_from_keys_and_names() {
 fn transitions_take_a_flat_target_too() {
     let v = json!([{ "id": 5, "toStatusId": 10 }]);
     let t = transitions(&v);
-    assert_eq!((t[0].id.as_str(), t[0].to_id.as_str()), ("5", "10"));
+    assert_eq!((t[0].id.as_str(), t[0].to_id.as_deref()), ("5", Some("10")));
 }
 
 #[test]

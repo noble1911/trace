@@ -1,6 +1,7 @@
 import { type CSSProperties, type DragEvent, useRef } from "react";
 import { FilterChip } from "@/components/FilterChip";
 import { AddColumn } from "@/domains/boards/AddColumn";
+import { BoardGlyph } from "@/domains/boards/BoardGlyph";
 import { BoardMenu } from "@/domains/boards/BoardMenu";
 import { CustomColumn } from "@/domains/boards/CustomColumn";
 import { useCustomTypeFilter } from "@/domains/boards/typeFilterStore";
@@ -70,6 +71,8 @@ export function Board() {
   // A custom board (trace's own) is editable, and has no assignees to filter by. Its
   // card types filter like issue types, remembered per board (`typeFilterStore`).
   const isCustom = boardProvider === "custom";
+  // The board's glyph before its name: its type's, or the icon chosen in its settings.
+  const glyphBoard = boardKey && boardProvider ? { key: boardKey, provider: boardProvider } : null;
   // Until the user picks, the filter defaults to themselves (`assignee.ts`).
   const assignee = effectiveAssignee(boardProvider, assigneeFilter, currentUserId);
 
@@ -132,7 +135,14 @@ export function Board() {
     <div className="board">
       <div className="board-header">
         <div>
-          <h1>{data.sprintName ?? data.boardName}</h1>
+          <h1>
+            {glyphBoard && (
+              <span className="board-glyph">
+                <BoardGlyph board={glyphBoard} size={16} />
+              </span>
+            )}
+            {data.sprintName ?? data.boardName}
+          </h1>
           <div className="desc">
             {filtered.length} {noun}
             {filtered.length === 1 ? "" : "s"} · {activeCount} active

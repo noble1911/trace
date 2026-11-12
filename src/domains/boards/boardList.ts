@@ -1,9 +1,12 @@
+import { goToPage } from "@/app/pageNav";
 import { toast } from "@/app/toast";
 import { useBoardStore } from "@/domains/board/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { boardOptionKey } from "@/domains/issues/types";
 import type { BoardSettings } from "@/ipc/boardSettings";
 import { customBoardCreate, deleteCustomBoard, renameCustomBoard } from "@/ipc/customBoards";
+import { useBoardIcons } from "./boardIcons";
+import { useBoardRecency } from "./boardRecency";
 import type { BoardRepos } from "./settings/repoChoice";
 import { useBoardSetup } from "./settings/store";
 import { type BoardTemplateDef, templatePayload } from "./templates";
@@ -11,7 +14,8 @@ import { useBoardsUi } from "./uiStore";
 
 // Making, renaming and deleting custom boards. The switcher's list is the issues
 // store's, so each change re-lists the custom boards from the backend rather than
-// patching a copy, then says which one to show.
+// patching a copy, then says which one to show. A deleted board's icon and "last
+// opened" go with it.
 
 const reason = (err: unknown) => String(err).replace(/^Error:\s*/i, "");
 
@@ -32,6 +36,8 @@ export async function createBoard(
     const issues = useIssuesStore.getState();
     await issues.reloadBoards("custom");
     issues.selectBoard(key);
+    // Made from another board's page (the rail's Boards group): show it on its own.
+    goToPage("boards");
   } catch (err) {
     toast.error(`Couldn't make the board: ${reason(err)}`);
     return false;
@@ -70,6 +76,9 @@ export async function deleteBoard(boardId: string, name: string): Promise<void> 
     toast.error(`Couldn't delete ${name}: ${reason(err)}`);
     return;
   }
+  const key = boardOptionKey("custom", boardId);
+  useBoardIcons.getState().setIcon(key, null);
+  useBoardRecency.getState().forget(key);
   const issues = useIssuesStore.getState();
   await issues.reloadBoards("custom");
   // Another custom board if there is one; none leaves the Boards page empty.

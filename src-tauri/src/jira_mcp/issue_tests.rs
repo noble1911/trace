@@ -56,7 +56,7 @@ async fn arguments_follow_the_real_v1_schemas() {
         .expect("search");
     let search = &c.caller().calls_to("searchJiraIssuesUsingJql")[0];
     assert!(search["fields"].is_array());
-    assert_eq!(search["responseContentFormat"], "adf");
+    assert_eq!(search["responseContentFormat"], "markdown");
     assert_eq!(search.get("startAt"), None, "not in the schema");
 }
 

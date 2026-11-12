@@ -16,3 +16,6 @@ export const RAIL_ICONS: Record<NavId, (p: IconProps) => JSX.Element> = {
   integrations: I.Plug,
   settings: I.Settings,
 };
+
+/** The Boards button that stands for every board page while they're grouped. */
+export const BOARD_GROUP_ICON = I.Board;

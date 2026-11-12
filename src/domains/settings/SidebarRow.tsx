@@ -1,7 +1,7 @@
-import type { DragEvent, KeyboardEvent } from "react";
+import type { DragEvent, JSX, KeyboardEvent, ReactNode } from "react";
 import { navTracker } from "@/app/nav";
 import { RAIL_ICONS } from "@/app/railIcons";
-import { I } from "@/components/Icon";
+import { I, type IconProps } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { Segmented } from "@/components/Segmented";
 import { Switch } from "@/components/Switch";
@@ -33,6 +33,11 @@ interface SidebarRowProps {
   onNudge: (delta: -1 | 1) => void;
   /** How to reach a hidden page ("Search (Ctrl+Shift+K)"). */
   searchHint: string;
+  /** A row that isn't one page (the grouped boards) brings its own glyph, status line
+   * and show/hide control. */
+  icon?: (p: IconProps) => JSX.Element;
+  line?: string;
+  control?: ReactNode;
 }
 
 /** Why a page is or isn't on the rail now — the rule's reason, in one line. */
@@ -55,9 +60,10 @@ function status(
 // show/hide control, and move buttons (sidebarMoveUp/Down on the row do the same).
 export function SidebarRow(props: SidebarRowProps) {
   const { def, entry, connected, canUp, canDown, isDragging, dragProps, searchHint } = props;
-  const Icon = RAIL_ICONS[def.id];
-  const tracker = navTracker(def.id);
-  const line = def.isFixed ? def.desc : status(entry, tracker, connected, searchHint);
+  const Icon = props.icon ?? RAIL_ICONS[def.id];
+  const tracker = props.control ? undefined : navTracker(def.id);
+  const line =
+    props.line ?? (def.isFixed ? def.desc : status(entry, tracker, connected, searchHint));
   const onKeyDown = (e: KeyboardEvent) => {
     if (def.isFixed) return;
     const delta = isShortcut("sidebarMoveUp", e) ? -1 : isShortcut("sidebarMoveDown", e) ? 1 : 0;
@@ -84,26 +90,27 @@ export function SidebarRow(props: SidebarRowProps) {
         <span className="hint">{line || def.desc}</span>
       </span>
       <span className="sb-control">
-        {def.isFixed ? (
-          <span className="sb-fixed">Always shown</span>
-        ) : tracker ? (
-          <Segmented<Visibility>
-            label={`Show ${def.label}`}
-            value={entry.visibility}
-            options={[
-              { value: "auto", label: `With ${TRACKER_NAMES[tracker]}` },
-              { value: "shown", label: "Show" },
-              { value: "hidden", label: "Hide" },
-            ]}
-            onChange={props.onVisibility}
-          />
-        ) : (
-          <Switch
-            on={entry.visibility !== "hidden"}
-            onChange={(on) => props.onVisibility(on ? "auto" : "hidden")}
-            label={`Show ${def.label}`}
-          />
-        )}
+        {props.control ??
+          (def.isFixed ? (
+            <span className="sb-fixed">Always shown</span>
+          ) : tracker ? (
+            <Segmented<Visibility>
+              label={`Show ${def.label}`}
+              value={entry.visibility}
+              options={[
+                { value: "auto", label: `With ${TRACKER_NAMES[tracker]}` },
+                { value: "shown", label: "Show" },
+                { value: "hidden", label: "Hide" },
+              ]}
+              onChange={props.onVisibility}
+            />
+          ) : (
+            <Switch
+              on={entry.visibility !== "hidden"}
+              onChange={(on) => props.onVisibility(on ? "auto" : "hidden")}
+              label={`Show ${def.label}`}
+            />
+          ))}
       </span>
       <span className="sb-move">
         {!def.isFixed && (

@@ -27,7 +27,11 @@ mod issue_tests;
 #[cfg(test)]
 mod live;
 #[cfg(test)]
+mod live_probe;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod v2_tests;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -147,6 +151,9 @@ async fn call_with<T: ToolCaller>(
     let (tool, args, wrapped) = tools.dispatch(name, args, op.write);
     let value = caller.call(&tool, args).await?;
     let value = if wrapped { route::unwrap(value) } else { value };
+    // The real v2 server puts every answer under `data`, and reports a failed
+    // Jira call as `{ error: true, message }` in an otherwise successful result.
+    let value = route::unwrap(parse::failure(name, value)?);
     // A read's answer is parsed as JSON: text in its place mustn't read as empty.
     match op.write {
         true => Ok(value),
@@ -205,8 +212,12 @@ impl<T: ToolCaller> JiraMcp<T> {
     }
 
     /// Run `op` with `args`.
-    pub(crate) async fn call(&self, op: &Op, args: Vec<Arg>) -> Result<Value, String> {
+    pub(crate) async fn call(&self, op: &Op, mut args: Vec<Arg>) -> Result<Value, String> {
         let tools = self.toolset().await?;
+        // Tools with a `view` answer compactly by default (no status ids or
+        // categories, which columns are matched by): ask for Jira's own shape.
+        // Sent only to tools whose schema lists it.
+        args.push(Arg::opt(vec![("view", json!("full"))]));
         call_with(&self.inner.caller, tools, op, args).await
     }
 

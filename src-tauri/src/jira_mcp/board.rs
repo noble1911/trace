@@ -92,25 +92,64 @@ async fn board_scope<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<Bo
         c.call(&tools::BOARD_CONFIG, vec![c.cloud(), board]),
         list_boards(c)
     );
-    let config = config::board_config(&config?);
+    let mut config = config::board_config(&config?);
     config.filter()?;
     let listed = boards
         .ok()
         .and_then(|bs| bs.into_iter().find(|b| b.id == board_id));
+    let board_type = listed
+        .as_ref()
+        .map(|b| b.board_type.clone())
+        .or_else(|| config.board_type.clone())
+        .unwrap_or_else(|| "kanban".to_string());
+    if board_type == "kanban" && config.backlog_statuses.is_empty() {
+        config.backlog_statuses = backlog_statuses(c, board_id).await;
+    }
     let scope = BoardScope {
         name: listed
             .as_ref()
             .map(|b| b.name.clone())
             .or_else(|| config.name.clone())
             .unwrap_or_else(|| format!("Board {board_id}")),
-        board_type: listed
-            .map(|b| b.board_type)
-            .or_else(|| config.board_type.clone())
-            .unwrap_or_else(|| "kanban".to_string()),
+        board_type,
         config,
     };
     c.inner.scopes.put(board_id.to_string(), scope.clone());
     Ok(scope)
+}
+
+/// The statuses of a Kanban board's backlog, which Jira keeps on its own
+/// Backlog screen: the board's configuration doesn't say which column that
+/// is, but the server can list the backlog's issues, and their statuses name
+/// it. Read from the backlog's first page, so an empty backlog names none and
+/// its column stays (empty). Best effort: no tool or a failed call, none.
+async fn backlog_statuses<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Vec<String> {
+    if !c.offers(&tools::BOARD_ISSUES).await {
+        return Vec::new();
+    }
+    let args = vec![
+        c.cloud(),
+        Arg::need("boardId", json!(board_id)),
+        Arg::need("dataset", json!("backlog")),
+        Arg::opt(vec![("fields", json!(["status"]))]),
+        Arg::opt(vec![("maxResults", json!(100))]),
+    ];
+    let Ok(v) = c.call(&tools::BOARD_ISSUES, args).await else {
+        return Vec::new();
+    };
+    let mut out: Vec<String> = Vec::new();
+    for issue in v
+        .get("issues")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let id = parse::id_of(issue.pointer("/fields/status/id"));
+        if let Some(id) = id.filter(|id| !out.contains(id)) {
+            out.push(id);
+        }
+    }
+    out
 }
 
 /// The running sprint's name, if the board has one. Best effort: no sprint
@@ -146,8 +185,9 @@ pub async fn search<T: ToolCaller>(c: &JiraMcp<T>, jql: &str) -> Result<Vec<Issu
             Arg::need("jql", json!(jql)),
             Arg::opt(vec![("fields", json!(CARD_FIELDS))]),
             Arg::opt(vec![("maxResults", json!(100))]),
-            // ADF: descriptions render as the REST adapter's do.
-            Arg::opt(vec![("responseContentFormat", json!("adf"))]),
+            // v2 answers in Markdown or HTML only (no ADF): Markdown reads as
+            // text, which is what the card and the agent's brief want.
+            Arg::opt(vec![("responseContentFormat", json!("markdown"))]),
         ];
         if let Some(t) = &token {
             args.push(Arg::need("nextPageToken", json!(t)));

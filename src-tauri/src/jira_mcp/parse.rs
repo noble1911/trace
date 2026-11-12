@@ -74,6 +74,23 @@ pub fn readable(tool: &str, v: Value) -> Result<Value, String> {
     ))
 }
 
+/// Err when the server answered a tool with its own failure report
+/// (`{ "error": true, "message": … }`): Jira refused the call. A text answer
+/// that is that JSON (as a failed call's is) counts too.
+pub fn failure(tool: &str, v: Value) -> Result<Value, String> {
+    let parsed = match &v {
+        Value::String(s) => serde_json::from_str::<Value>(s).ok(),
+        _ => None,
+    };
+    let report = parsed.as_ref().unwrap_or(&v);
+    if report.get("error").and_then(Value::as_bool) == Some(true) {
+        let said = text(report, &["message", "error_description"]).unwrap_or("no reason given");
+        let said: String = said.chars().take(300).collect();
+        return Err(format!("Jira refused {tool}: {said}"));
+    }
+    Ok(v)
+}
+
 /// An id, sent as a string or a number.
 pub fn id_of(v: Option<&Value>) -> Option<String> {
     match v? {
@@ -166,6 +183,19 @@ pub fn statuses(v: &Value) -> StatusMeta {
         .collect()
 }
 
+/// Status names by id, from any list of statuses: the real v2 server's site
+/// list gives `{ id, name }` with no category, so it can name a status
+/// though it can't place one.
+pub fn status_names(v: &Value) -> HashMap<String, String> {
+    let mut list = items(v, &["values", "statuses", "results"]).to_vec();
+    if let Some(one) = v.get("status").filter(|s| s.is_object()) {
+        list.push(one.clone());
+    }
+    list.iter()
+        .filter_map(|s| Some((id_of(s.get("id"))?, text(s, &["name"])?.to_string())))
+        .collect()
+}
+
 /// One page of `searchJiraIssuesUsingJql`: its cards and the next page's
 /// token. Err when it isn't a list of issues, or none of its issues read.
 pub fn issue_page(v: &Value) -> Result<(Vec<Issue>, Option<String>), String> {
@@ -192,8 +222,21 @@ pub fn active_sprint(v: &Value) -> Option<String> {
 /// An available transition: its id and the status it lands on.
 pub struct Transition {
     pub id: String,
-    pub to_id: String,
+    /// The target status's id. The real v2 server leaves it out (it gives
+    /// the target's name and category only): then the name is matched.
+    pub to_id: Option<String>,
     pub to_name: String,
+}
+
+impl Transition {
+    /// Whether this move lands on one of `targets` (status ids), whose names
+    /// are `names`: by id when the server gave one, else by name.
+    pub fn lands_on(&self, targets: &[String], names: &[String]) -> bool {
+        match &self.to_id {
+            Some(id) => targets.contains(id),
+            None => names.iter().any(|n| n.eq_ignore_ascii_case(&self.to_name)),
+        }
+    }
 }
 
 /// The transitions `listJiraIssueTransitions` offers from the issue's status:
@@ -204,13 +247,19 @@ pub fn transitions(v: &Value) -> Vec<Transition> {
         .iter()
         .filter_map(|t| {
             let to = t.get("to").or_else(|| t.get("toStatus"));
+            let to_id = id_of(to.and_then(|s| s.get("id")).or_else(|| t.get("toStatusId")));
+            let to_name = to
+                .and_then(|s| text(s, &["name"]))
+                .unwrap_or("")
+                .to_string();
+            // A move with neither can't be matched to a column.
+            if to_id.is_none() && to_name.is_empty() {
+                return None;
+            }
             Some(Transition {
                 id: id_of(t.get("id"))?,
-                to_id: id_of(to.and_then(|s| s.get("id")).or_else(|| t.get("toStatusId")))?,
-                to_name: to
-                    .and_then(|s| text(s, &["name"]))
-                    .unwrap_or("")
-                    .to_string(),
+                to_id,
+                to_name,
             })
         })
         .collect()

@@ -6,6 +6,7 @@ import { kickoffPromptTemplate } from "@/domains/agent/defaults";
 import { useIssuesStore } from "@/domains/issues/store";
 import type { BoardSettings } from "@/ipc/boardSettings";
 import type { SettingsDialog } from "../uiStore";
+import { BoardIconPicker } from "./BoardIconPicker";
 import { CardTypesEditor } from "./CardTypesEditor";
 import { RepoPicker } from "./RepoPicker";
 import { DEFAULT_BOARD_SETTINGS, useBoardSetup } from "./store";
@@ -15,8 +16,8 @@ const PLACEHOLDERS = ["{key}", "{summary}", "{description}", "{comments}", "{typ
 const reason = (err: unknown) => String(err).replace(/^Error:\s*/i, "");
 
 // "Board settings…" from any board's ⋯: the kickoff prompt its cards' agents start with
-// and the repos they start in, saved together on Save; on a custom board, its card types
-// too, each change applied as it's made. Columns are edited on the board itself.
+// and the repos they start in, saved together on Save; on a custom board, its icon and
+// card types too, each change applied as it's made. Columns are edited on the board itself.
 export function BoardSettingsModal({
   dialog,
   onClose,
@@ -145,6 +146,15 @@ function SettingsForm({ title, boardKey, customId, initial, onClose }: SettingsF
           </span>
         </div>
       </form>
+      {customId && (
+        <div className="field">
+          <span className="bd-field-label">Icon</span>
+          <BoardIconPicker boardKey={boardKey} />
+          <span className="hint">
+            Shown for this board in the rail, the board switcher and its header. Applies at once.
+          </span>
+        </div>
+      )}
       {customId && (
         <div className="field">
           <span className="bd-field-label">Card types</span>

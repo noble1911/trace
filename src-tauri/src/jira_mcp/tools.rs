@@ -1,15 +1,12 @@
 //! Every Atlassian MCP tool the Jira adapter calls, and how its arguments are
 //! built: the one place that knows tool names and argument shapes.
 //!
-//! **The shapes are partly guessed.** Atlassian documents the v2 server's tool
-//! names but not their arguments. The names here that v1 also has
-//! (`searchJiraIssuesUsingJql`, `getJiraIssue`, `transitionJiraIssue`,
-//! `getAccessibleAtlassianResources`) take what v1's schemas say (`cloudId`,
-//! `jql`, `fields` as an array, `nextPageToken`, `issueIdOrKey`,
-//! `transition: { id }`); the board tools' are guesses. So arguments are built
-//! from the server's own advertised input schema where it gives one
-//! (`mcp_client::args`, shared with `pylon_mcp`): a naming difference then
-//! doesn't break the board.
+//! Atlassian documents the v2 server's tool names but not their arguments, so
+//! arguments are built from the server's own advertised input schema
+//! (`mcp_client::args`, shared with `pylon_mcp`): each `Arg` lists the names a
+//! value may go under (v2's, then v1's), and the one the schema lists is sent.
+//! The reads were checked against the real server (`live.rs`); the two writes
+//! follow its schemas (`transitionId`, `commentBody`) and aren't run live.
 
 use std::collections::HashMap;
 
@@ -72,6 +69,9 @@ pub const SPRINTS: Op = read(&["listJiraBoardSprints"], false);
 pub const STATUSES: Op = read(&["listJiraStatuses"], false);
 /// Optional: without it, comments come from `getJiraIssue`'s comment field.
 pub const COMMENTS: Op = read(&["listJiraIssueComments"], false);
+/// Optional: a Kanban board's backlog, to learn which column is the backlog
+/// (Jira shows it on its own screen, not on the board).
+pub const BOARD_ISSUES: Op = read(&["getJiraBoardIssueData"], false);
 /// Optional: linked pull requests; none without it.
 pub const LINKED: Op = read(&["getTeamworkGraphContext"], false);
 
@@ -89,6 +89,7 @@ pub const ALL: &[&Op] = &[
     &SPRINTS,
     &STATUSES,
     &COMMENTS,
+    &BOARD_ISSUES,
     &LINKED,
 ];
 
