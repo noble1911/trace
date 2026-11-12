@@ -11,7 +11,8 @@ abstraction. Jira specifics follow. We never hardcode columns or maintain a loca
   the app config dir (`jira/auth.rs`) so the app reconnects silently on launch. The token **never** crosses to
   the renderer and is **never** logged. (The OS keychain re-prompts on every unsigned dev rebuild — switch back
   to it once release builds are code-signed.)
-- No valid connection → the Board and Pull requests pages aren't in the rail.
+- No valid connection → the Board page isn't in the rail (nor Jira's boards in the grouped Boards button), and
+  Pull requests lists only sessions' and ticket workspaces' PRs.
 
 ## Columns come from the user's board (not the design's 4 columns)
 
@@ -73,9 +74,24 @@ abstraction. Jira specifics follow. We never hardcode columns or maintain a loca
   tools through `executeRead`/`executeWrite` if the server only shows its `discover` front.
 - Same board semantics as REST: columns from `getJiraBoardConfig`, cards from `jira::scope`'s JQL
   (`filter = <id>` when the config has no filter JQL) paged through `searchJiraIssuesUsingJql`
-  (`nextPageToken`). The board-config screen (done cutoff, Kanban backlog column) isn't reachable,
-  so `BoardSettings::defaults` per board type apply, as on REST without board-admin rights; a
-  column the config flags as the backlog is still dropped.
+  (`nextPageToken`). The board-config screen isn't reachable, so the done cutoff is
+  `BoardSettings::defaults` per board type, as on REST without board-admin rights (a Kanban
+  board set to hide done issues after 1 week shows 2 weeks' worth). The Kanban backlog column
+  *is* found: `getJiraBoardIssueData` with `dataset: "backlog"` lists the backlog's issues, and
+  their statuses name the column to drop.
+- What the real server does (checked live 2026-11-12; `v2_tests.rs` encodes it, and
+  `cargo test jira_mcp_live -- --ignored --nocapture` re-checks it, printing counts only):
+  every answer is under `data` (taken off in one place, `call_with`); a failed Jira call is
+  `{ error: true, message }` in a successful result; tools with a `view` answer compactly
+  (no status ids) unless asked for `"full"`; content is `markdown` or `html`, never ADF;
+  `listJiraStatuses` needs a `mode` and gives names without categories (categories come from
+  cards); a transition names its target status without its id, so a move is matched by name
+  (`statuses::names`); a board without sprints answers the sprints tool with a 400.
+  `jira_mcp_live_shapes` (`live_probe.rs`) prints any read tool's answer as keys and types.
+- **Verified live: every read** (sites, user, boards, config, cards, backlog, statuses,
+  comments, the list of moves). **Not run live: the two writes** (`transitionJiraIssue`,
+  `addOrEditJiraIssueComment`): their arguments follow the server's schemas and are tested on
+  `FakeCaller` only. Linked PRs are empty over MCP (v2's `getGraphContext` isn't wired).
 - Every call names the site's `cloudId` (`getAccessibleAtlassianResources`; a site listed once per
   product is merged by id, Confluence-only ones are left out). Several sites: the connect asks
   which, and the choice is saved.

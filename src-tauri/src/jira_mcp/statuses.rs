@@ -37,7 +37,12 @@ pub async fn site_statuses<T: ToolCaller>(c: &JiraMcp<T>) -> StatusMeta {
     if !c.offers(&tools::STATUSES).await {
         return StatusMeta::new();
     }
-    let args = vec![c.cloud(), Arg::opt(vec![("maxResults", json!(200))])];
+    // v2 requires `mode`: `site` lists every status on the site.
+    let args = vec![
+        c.cloud(),
+        Arg::opt(vec![("mode", json!("site"))]),
+        Arg::opt(vec![("maxResults", json!(200))]),
+    ];
     let meta = match c.call(&tools::STATUSES, args).await {
         Ok(v) => parse::statuses(&v),
         Err(_) => StatusMeta::new(),
@@ -46,6 +51,35 @@ pub async fn site_statuses<T: ToolCaller>(c: &JiraMcp<T>) -> StatusMeta {
         c.inner.statuses.put("all".into(), meta.clone());
     }
     meta
+}
+
+/// What the statuses `ids` are called, for matching a move to its target:
+/// the server lists a move's target by name, not id. From the site's list,
+/// then one lookup per id it doesn't have (a team-managed project's statuses
+/// aren't in the site list). An id nothing names is left out.
+pub async fn names<T: ToolCaller>(c: &JiraMcp<T>, ids: &[String]) -> Vec<String> {
+    if !c.offers(&tools::STATUSES).await {
+        return Vec::new();
+    }
+    let ask = |extra: Vec<Arg>| async {
+        let mut args = vec![c.cloud()];
+        args.extend(extra);
+        c.call(&tools::STATUSES, args).await.ok()
+    };
+    let site = ask(vec![Arg::need("mode", json!("site"))]).await;
+    let mut known = site.as_ref().map(parse::status_names).unwrap_or_default();
+    let missing: Vec<&String> = ids.iter().filter(|id| !known.contains_key(*id)).collect();
+    for id in missing.into_iter().take(MAX_LOOKUPS) {
+        let one = ask(vec![
+            Arg::need("mode", json!("status")),
+            Arg::need("statusIdOrName", json!(id)),
+        ])
+        .await;
+        if let Some(found) = one.as_ref().map(parse::status_names) {
+            known.extend(found.into_iter().filter(|(k, _)| k == id));
+        }
+    }
+    ids.iter().filter_map(|id| known.get(id).cloned()).collect()
 }
 
 /// Steps 1–3: fill in what the config, the site's list and the cards say.

@@ -17,9 +17,9 @@ pub struct Site {
     pub url: String,
 }
 
-/// The Jira sites in `getAccessibleAtlassianResources`. A site is listed
-/// once per product (Jira's scopes, Confluence's), so they're merged by id;
-/// one whose entries carry scopes but none of Jira's is left out.
+/// The Jira sites in `getAccessibleAtlassianResources`. v1 lists a site once
+/// per product (Jira's scopes, Confluence's), so entries are merged by id; v2
+/// lists it once with its products. A site without Jira is left out.
 pub fn sites(v: &Value) -> Vec<Site> {
     let entries = items(v, &["resources", "sites", "values"]);
     let mut out: Vec<Site> = Vec::new();
@@ -30,7 +30,14 @@ pub fn sites(v: &Value) -> Vec<Site> {
         if out.iter().any(|s| s.id == id) {
             continue;
         }
+        // v2 lists each site's products (`{ id: "jira", access }`); v1 listed a
+        // site once per product with that product's scopes. Neither: assume Jira.
         let jira = |e: &Value| {
+            if let Some(products) = e.get("products").and_then(Value::as_array) {
+                return products
+                    .iter()
+                    .any(|p| p.get("id").or(Some(p)).and_then(Value::as_str) == Some("jira"));
+            }
             e.get("scopes")
                 .and_then(Value::as_array)
                 .is_none_or(|scopes| {
@@ -48,8 +55,15 @@ pub fn sites(v: &Value) -> Vec<Site> {
             continue;
         }
         let url = text(e, &["url", "siteUrl"]).unwrap_or_default().to_string();
-        let name = text(e, &["name", "displayName"]).map_or_else(|| url.clone(), str::to_string);
-        out.push(Site { id, name, url });
+        // v2 gives no name: the host stands in for one.
+        let named = text(e, &["name", "displayName"]).map(str::to_string);
+        let site = Site {
+            id,
+            name: String::new(),
+            url,
+        };
+        let name = named.unwrap_or_else(|| site.host());
+        out.push(Site { name, ..site });
     }
     out
 }

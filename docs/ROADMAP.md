@@ -91,9 +91,11 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       and move like any ticket. Every board, Jira's and Pylon's too, can have its own kickoff
       prompt and repos (Board settings). Not yet: a board whose agents run in a plain folder.
 - [~] **Trackers over MCP:** Jira and Pylon boards can run on your login to the tracker's MCP
-      server in place of an API token (an API token, if saved, is used). *Built against the
-      vendors' documented tools; not yet run against the real servers* (`cargo test
-      jira_mcp_live pylon_mcp_live -- --ignored` once connected).
+      server in place of an API token (an API token, if saved, is used). *Jira: every read
+      checked against the real server (`cargo test jira_mcp_live -- --ignored`); moving a card
+      and commenting follow its schemas but haven't been run live; no linked PRs, and the done
+      cutoff is Jira's default. Pylon: built from its documented tools, not yet run against the
+      real server (`pylon_mcp_live`).*
 - [x] **Board tools for agents:** `list_boards`, `get_board` for any board with its columns and
       setup, moving, commenting and starting agents on boards that aren't shown, and
       `create_card` / `update_card` on custom boards.

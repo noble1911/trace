@@ -123,9 +123,13 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
 
 - **Issue ⇄ card:** every board card is an issue from a connected tracker, or a card on a custom board (below).
   Several trackers can be connected at once, and
-  each has its own page in the rail, shown only while it's connected (`app/nav.ts`: Board and Pull requests for
+  each has its own page in the rail, shown only while it's connected (`app/nav.ts`: Board for
   Jira, Pylon for Pylon) unless the user pins it in Settings → Sidebar, which also orders and hides
-  the rail's pages (`domains/sidebar/`). A page's switcher lists that tracker's boards, keyed `provider:boardId`. Only one board is loaded at a
+  the rail's pages (`domains/sidebar/`). By default the board pages are one Boards button
+  (`sidebar/boardGroup.ts`) with your boards beneath it, most recently opened first
+  (`boards/RailBoards.tsx`, `railBoardList.ts`); picking one switches page and board in one step. A page's
+  switcher lists that tracker's boards, keyed `provider:boardId`. Pull requests needs no tracker: it lists
+  sessions' and ticket workspaces' PRs as well as Jira's (`prs/prRows.ts`). Only one board is loaded at a
   time, and a ticket's detail needs its board, so open tickets through `board/openIssueAnywhere.ts` unless it's
   known to be on the loaded board. Apart from custom boards' cards there is no local ticket
   store — the tracker is the source of truth. On Jira (REST or MCP), a board shows exactly what its Jira board shows —
