@@ -205,3 +205,34 @@ pub trait PageSnapshot {
         None
     }
 }
+
+/// An active request to keep the computer awake; releases it when dropped. Make and
+/// drop it on the same thread: Windows' request belongs to the thread that made it.
+pub struct SleepHold {
+    release: Option<Box<dyn FnOnce() + Send>>,
+}
+
+impl SleepHold {
+    /// A hold that undoes itself by running `release`.
+    pub fn new(release: impl FnOnce() + Send + 'static) -> Self {
+        Self {
+            release: Some(Box::new(release)),
+        }
+    }
+}
+
+impl Drop for SleepHold {
+    fn drop(&mut self) {
+        if let Some(release) = self.release.take() {
+            release();
+        }
+    }
+}
+
+/// Keeping the computer from sleeping on its own while agents work. The display may
+/// still sleep: only the system is held.
+pub trait SleepInhibitor {
+    /// Start holding. `None` when this machine can't be held (no `systemd-inhibit`,
+    /// a refused spawn): trace carries on, and the computer sleeps as it always has.
+    fn hold() -> Option<SleepHold>;
+}

@@ -22,7 +22,9 @@ pub mod helpers;
 pub mod interrupted;
 pub mod issues;
 pub mod jira;
+pub mod keep_awake;
 mod mcp_auth;
+pub mod mcp_client;
 pub mod permissions;
 pub mod plans;
 pub mod platform;
@@ -76,6 +78,8 @@ pub fn run() {
             schedule::runner::start(app.handle().clone());
             // Idle-workspace cleanup; a no-op until enabled in Settings.
             cleanup::runner::start(app.handle().clone());
+            // The computer stays awake while agents run, unless switched off in Settings.
+            keep_awake::start(app.handle().clone());
             // Worktree setup hooks report progress to the renderer.
             repo_catalog::setup::init(app.handle().clone());
             Ok(())
@@ -266,6 +270,8 @@ pub fn run() {
             commands::cleanup::set_cleanup_settings,
             commands::cleanup::preview_cleanup,
             commands::cleanup::run_cleanup_now,
+            commands::keep_awake::get_keep_awake,
+            commands::keep_awake::set_keep_awake,
             commands::orchestrator::get_anthropic_key,
             commands::orchestrator::set_anthropic_key,
             commands::orchestrator::orchestrator_cli,
@@ -316,6 +322,7 @@ pub fn run() {
                 state.shutting_down.store(true, Ordering::SeqCst);
                 // A PTY's agent ends with its pseudo-terminal; a chat agent has to be stopped.
                 agent_session::runtime::stop_all_now(&state);
+                keep_awake::release_blocking();
             }
         });
 }

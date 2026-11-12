@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
 use super::ports::{
-    AgentEnvironment, Editor, EditorLauncher, Launcher, ProcessGroup, ProcessHost, SoundFolder,
-    SoundPlayer, ToolLocator,
+    AgentEnvironment, Editor, EditorLauncher, Launcher, ProcessGroup, ProcessHost, SleepHold,
+    SleepInhibitor, SoundFolder, SoundPlayer, ToolLocator,
 };
 use super::{unix, Os};
 
@@ -112,6 +112,16 @@ impl SoundPlayer for Os {
 
     fn play(path: &Path) -> io::Result<Child> {
         unix::play_with(&["afplay"], path)
+    }
+}
+
+impl SleepInhibitor for Os {
+    /// `caffeinate -i` stops idle sleep but lets the display sleep, and `-w` ties it to
+    /// trace's pid, so it exits by itself if trace is killed.
+    fn hold() -> Option<SleepHold> {
+        let mut command = super::process::command("caffeinate");
+        command.args(["-i", "-w", &std::process::id().to_string()]);
+        unix::hold_with(command)
     }
 }
 

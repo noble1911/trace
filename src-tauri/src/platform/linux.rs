@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
 use super::ports::{
-    AgentEnvironment, Editor, EditorLauncher, Launcher, ProcessGroup, ProcessHost, SoundFolder,
-    SoundPlayer, ToolLocator,
+    AgentEnvironment, Editor, EditorLauncher, Launcher, ProcessGroup, ProcessHost, SleepHold,
+    SleepInhibitor, SoundFolder, SoundPlayer, ToolLocator,
 };
 use super::{unix, Os};
 
@@ -160,6 +160,32 @@ impl SoundPlayer for Os {
 
     fn play(path: &Path) -> io::Result<Child> {
         unix::play_with(&["paplay", "pw-play", "aplay"], path)
+    }
+}
+
+impl SleepInhibitor for Os {
+    /// A `systemd-inhibit` lock around a `sleep` that never ends. Without systemd the
+    /// spawn fails and nothing is held. If trace is killed, the kernel kills the
+    /// inhibitor (`PR_SET_PDEATHSIG`), which drops the lock: the leftover `sleep`
+    /// holds nothing.
+    fn hold() -> Option<SleepHold> {
+        use std::os::unix::process::CommandExt;
+        let mut command = super::process::command("systemd-inhibit");
+        command.args([
+            "--what=idle:sleep",
+            "--who=trace",
+            "--why=Agents are running",
+            "sleep",
+            "infinity",
+        ]);
+        // SAFETY: only an async-signal-safe `prctl` runs between fork and exec.
+        unsafe {
+            command.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL as libc::c_ulong);
+                Ok(())
+            });
+        }
+        unix::hold_with(command)
     }
 }
 

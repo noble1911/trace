@@ -169,3 +169,21 @@ impl super::ports::PdfPrinter for Os {
         rx
     }
 }
+
+/// Hold the computer awake for as long as `command` runs: spawn it in its own process
+/// group, and on release kill the group and reap it, so nothing is left behind.
+/// `None` when it can't start (the tool isn't installed).
+pub fn hold_with(mut command: Command) -> Option<super::ports::SleepHold> {
+    command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    own_group(&mut command);
+    let mut child = command.spawn().ok()?;
+    let mut group = track_group(&child);
+    Some(super::ports::SleepHold::new(move || {
+        group.stop();
+        let _ = child.kill();
+        let _ = child.wait();
+    }))
+}
