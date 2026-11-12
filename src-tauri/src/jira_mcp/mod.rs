@@ -11,13 +11,17 @@
 //! adapter a Jira connection uses is `issues::mcp_link`'s rule.
 
 pub mod board;
+pub mod config;
 pub mod issue;
 mod linked;
 pub mod parse;
 mod route;
 pub mod site;
+mod statuses;
 pub mod tools;
 
+#[cfg(test)]
+mod guard_tests;
 #[cfg(test)]
 mod issue_tests;
 #[cfg(test)]
@@ -101,8 +105,22 @@ pub async fn open<T: ToolCaller>(caller: T, wanted: Option<&str>) -> Result<Open
     })
 }
 
-/// The saved connection, from its record: no network until first use.
+/// Whether `url` is Atlassian's MCP server, the only one the adapter talks to.
+fn is_atlassian(url: &str) -> bool {
+    let norm = |u: &str| u.trim().trim_end_matches('/').to_ascii_lowercase();
+    norm(url) == norm(SERVER_URL)
+}
+
+/// The saved connection, from its record: no network until first use. A
+/// record naming another server is refused: the record is a file on disk, and
+/// trace's Atlassian login must only ever go to Atlassian.
 pub fn from_link(link: &McpLink) -> Result<JiraMcpConnection, String> {
+    if !is_atlassian(&link.server_url) {
+        return Err(format!(
+            "The saved Jira connection names {}, not Atlassian's MCP server. Connect Jira again.",
+            link.server_url
+        ));
+    }
     let id = link.cloud_id.clone().ok_or("No Jira site is saved.")?;
     let url = link.site_url.clone().unwrap_or_default();
     let site = Site {
@@ -128,7 +146,12 @@ async fn call_with<T: ToolCaller>(
     let args = tools.args(name, args);
     let (tool, args, wrapped) = tools.dispatch(name, args, op.write);
     let value = caller.call(&tool, args).await?;
-    Ok(if wrapped { route::unwrap(value) } else { value })
+    let value = if wrapped { route::unwrap(value) } else { value };
+    // A read's answer is parsed as JSON: text in its place mustn't read as empty.
+    match op.write {
+        true => Ok(value),
+        false => parse::readable(name, value),
+    }
 }
 
 impl<T: ToolCaller> JiraMcp<T> {
@@ -150,6 +173,7 @@ impl<T: ToolCaller> JiraMcp<T> {
         }
     }
 
+    /// The Jira site every call names (by its cloudId).
     pub fn site(&self) -> &Site {
         &self.inner.site
     }
@@ -196,7 +220,7 @@ impl<T: ToolCaller> IssueProvider for JiraMcp<T> {
     async fn current_user(&self) -> Result<IssueUser, String> {
         let cloud = Arg::opt(vec![("cloudId", json!(self.inner.site.id))]);
         let v = self.call(&tools::ME, vec![cloud]).await?;
-        Ok(parse::user(&v))
+        parse::user(&v)
     }
 
     async fn list_boards(&self) -> Result<Vec<BoardSummary>, String> {

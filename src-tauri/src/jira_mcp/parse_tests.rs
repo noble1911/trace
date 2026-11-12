@@ -29,7 +29,7 @@ fn a_site_listed_per_product_is_one_site() {
 #[test]
 fn boards_take_numeric_or_string_ids() {
     let v = json!([{ "boardId": "3", "name": "Ops", "boardType": "KANBAN" }, { "name": "no id" }]);
-    let b = boards(&v);
+    let b = boards(&v).expect("boards");
     assert_eq!(b.len(), 1);
     assert_eq!(
         (b[0].id.as_str(), b[0].board_type.as_str()),
@@ -38,30 +38,18 @@ fn boards_take_numeric_or_string_ids() {
 }
 
 #[test]
-fn a_simplified_board_config_reads_too() {
-    let v = json!({ "configuration": {
-        "filterId": 77, "subQuery": "component = UI",
-        "columns": [
-            { "name": "Backlog", "isBacklog": true, "statuses": ["1"] },
-            { "name": "Doing", "statuses": [{ "id": 3, "name": "Doing", "statusCategory": "IN_PROGRESS" }] },
-        ] } });
-    let c = board_config(&v);
-    assert_eq!(c.filter_id.as_deref(), Some("77"));
-    assert_eq!(c.sub_query.as_deref(), Some("component = UI"));
-    assert_eq!(c.backlog_statuses, ["1"]);
-    let doing = &c.columns[1].statuses[0];
-    assert_eq!((doing.id.as_str(), doing.name.as_str()), ("3", "Doing"));
-    assert_eq!(doing.category, "indeterminate");
-}
-
-#[test]
 fn status_categories_normalise_from_keys_and_names() {
     let v = json!({ "values": [
         { "id": "1", "name": "Open", "statusCategory": "TODO" },
         { "id": "2", "name": "Shipped", "statusCategory": { "key": "done" } },
         { "id": 3, "name": "Review", "statusCategory": { "name": "In Progress" } },
+        { "id": 4, "name": "No category" },
     ]});
     let meta = statuses(&v);
+    assert!(
+        !meta.contains_key("4"),
+        "left to the board to place, not guessed"
+    );
     assert_eq!(meta["1"].1, "new");
     assert_eq!(meta["2"].1, "done");
     assert_eq!(
@@ -80,7 +68,7 @@ fn transitions_take_a_flat_target_too() {
 #[test]
 fn the_rest_user_shape_still_reads() {
     let v = json!({ "accountId": "x", "displayName": "Ada", "emailAddress": "a@b" });
-    let u = user(&v);
+    let u = user(&v).expect("user");
     assert_eq!(
         (u.account_id.as_str(), u.email.as_deref()),
         ("x", Some("a@b"))
@@ -89,9 +77,10 @@ fn the_rest_user_shape_still_reads() {
 
 #[test]
 fn a_last_page_has_no_next_token_whatever_it_says() {
-    let (_, next) = issue_page(&json!({ "issues": [], "isLast": true, "nextPageToken": "x" }));
+    let (_, next) =
+        issue_page(&json!({ "issues": [], "isLast": true, "nextPageToken": "x" })).expect("page");
     assert_eq!(next, None);
-    let (_, next) = issue_page(&json!({ "issues": [], "nextPageToken": "y" }));
+    let (_, next) = issue_page(&json!({ "issues": [], "nextPageToken": "y" })).expect("page");
     assert_eq!(next.as_deref(), Some("y"));
 }
 

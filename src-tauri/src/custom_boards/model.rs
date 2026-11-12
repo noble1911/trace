@@ -58,9 +58,10 @@ impl Category {
 pub struct BoardsFile {
     #[serde(default)]
     pub boards: Vec<Board>,
-    /// The number the last card was given, across every board. Only ever goes up,
-    /// so a deleted card's key (and the worktree and conversation named after it)
-    /// is never handed to a new card.
+    /// The number the last card was given, across every board. The counter that
+    /// hands numbers out now lives in its own file (`counter`), so losing this one
+    /// can't reset it; this is still kept up to date for an older trace, and read
+    /// as a floor (an existing file's counter carries over).
     #[serde(default)]
     pub last_number: u64,
 }

@@ -58,6 +58,7 @@ pub fn create_board(file: &mut BoardsFile, id: String, name: &str) -> Result<Boa
     Ok(board)
 }
 
+/// Rename a board. The name is trimmed and can't be empty.
 pub fn rename_board(file: &mut BoardsFile, board_id: &str, name: &str) -> Result<(), String> {
     let name = clean_name(name, "A board")?;
     board_mut(file, board_id)?.name = name;

@@ -15,11 +15,15 @@ fn new_card(summary: &str) -> NewCard {
     }
 }
 
+/// A card as the next number after the file's (what `counter` hands out on a
+/// fresh machine).
 fn add(file: &mut BoardsFile, board: &str, summary: &str) -> Card {
+    let number = file.last_number + 1;
     create_card(
         file,
         board,
         new_card(summary),
+        number,
         "2026-11-12T00:00:00Z".into(),
     )
     .expect("card")
@@ -30,13 +34,19 @@ fn card<'a>(file: &'a BoardsFile, key: &str) -> &'a Card {
 }
 
 #[test]
-fn keys_count_up_across_every_board_and_are_never_reused() {
+fn a_card_takes_the_number_its_given_and_the_file_keeps_up() {
     let mut file = two_boards();
     assert_eq!(add(&mut file, "a", "one").key, "local-1");
-    assert_eq!(add(&mut file, "b", "two").key, "local-2");
-    delete_card(&mut file, "local-2", |_| false).expect("delete");
-    assert_eq!(add(&mut file, "a", "three").key, "local-3");
-    assert_eq!(file.last_number, 3);
+    let c = create_card(&mut file, "b", new_card("two"), 7, "t".into()).expect("card");
+    assert_eq!(c.key, "local-7");
+    assert_eq!(file.last_number, 7, "kept for an older trace");
+    let c = create_card(&mut file, "b", new_card("three"), 4, "t".into()).expect("card");
+    assert_eq!((c.key.as_str(), file.last_number), ("local-4", 7));
+    let again = create_card(&mut file, "a", new_card("dup"), 7, "t".into());
+    assert!(
+        again.is_err(),
+        "a key already on a board is never given twice"
+    );
 }
 
 #[test]
@@ -60,7 +70,7 @@ fn a_new_card_takes_what_its_given() {
         labels: Some(vec![" ui ".into(), "".into(), "ui".into(), "be".into()]),
         type_id: None,
     };
-    let c = create_card(&mut file, "a", given, "t".into()).expect("card");
+    let c = create_card(&mut file, "a", given, 1, "t".into()).expect("card");
     assert_eq!(c.column, "in-progress");
     assert_eq!(c.priority, "p0");
     assert_eq!(c.description.as_deref(), Some("Details"));
@@ -70,18 +80,18 @@ fn a_new_card_takes_what_its_given() {
 #[test]
 fn bad_cards_are_refused_and_use_no_number() {
     let mut file = two_boards();
-    assert!(create_card(&mut file, "a", new_card(" "), "t".into()).is_err());
-    assert!(create_card(&mut file, "zz", new_card("x"), "t".into()).is_err());
+    assert!(create_card(&mut file, "a", new_card(" "), 1, "t".into()).is_err());
+    assert!(create_card(&mut file, "zz", new_card("x"), 1, "t".into()).is_err());
     let bad_priority = NewCard {
         priority: Some("high".into()),
         ..new_card("x")
     };
-    assert!(create_card(&mut file, "a", bad_priority, "t".into()).is_err());
+    assert!(create_card(&mut file, "a", bad_priority, 1, "t".into()).is_err());
     let bad_column = NewCard {
         column_id: Some("gone".into()),
         ..new_card("x")
     };
-    assert!(create_card(&mut file, "a", bad_column, "t".into()).is_err());
+    assert!(create_card(&mut file, "a", bad_column, 1, "t".into()).is_err());
     assert_eq!(file.last_number, 0);
     assert!(file.boards.iter().all(|b| b.cards.is_empty()));
 }

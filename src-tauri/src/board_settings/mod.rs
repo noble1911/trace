@@ -4,6 +4,7 @@
 //! (`store`). The rules here are pure functions, so they're tested without a disk.
 //! See `docs/BOARDS_PLAN.md`, "Board setup".
 
+pub mod pin;
 pub mod start_repo;
 pub mod store;
 

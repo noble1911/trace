@@ -46,18 +46,42 @@ fn an_issue_is_normalised_to_rests_shape() {
 
 #[test]
 fn me_reads_the_user_or_rests_org_centric_shape() {
-    let flat = me(&json!({ "id": "u1", "name": "Sam", "email": "sam@example.com" }));
+    let flat = me(&json!({ "id": "u1", "name": "Sam", "email": "sam@example.com" })).expect("me");
     assert_eq!(
         (flat.account_id.as_str(), flat.display_name.as_str()),
         ("u1", "Sam")
     );
     let rest = me(
         &json!({ "data": { "name": "Org", "user": { "id": "u2", "email": "kim@example.com" } } }),
-    );
+    )
+    .expect("me");
     assert_eq!(
         (rest.account_id.as_str(), rest.display_name.as_str()),
         ("u2", "kim")
     );
+}
+
+#[test]
+fn a_login_with_no_id_doesnt_validate() {
+    let err = me(&json!({ "data": { "name": "Org" } }))
+        .err()
+        .expect("refused");
+    assert_eq!(
+        err,
+        "Pylon's MCP server didn't say who trace is signed in as."
+    );
+}
+
+#[test]
+fn text_in_place_of_json_is_an_error_quoting_it() {
+    let err = readable("search_issues", json!("Rate limited, try later")).expect_err("refused");
+    assert_eq!(
+        err,
+        "Pylon's MCP server answered search_issues with something trace couldn't read: \
+         Rate limited, try later"
+    );
+    assert!(readable("search_issues", json!({ "data": [] })).is_ok());
+    assert!(listed(&json!({ "other": [] }), &["issues"], "issues").is_err());
 }
 
 #[test]

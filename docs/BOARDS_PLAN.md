@@ -71,6 +71,8 @@ Disconnecting the tracker removes the record, not the MCP login agents use.
   New boards start with To do / In progress / Done.
 - A card is an `Issue`: key `local-<n>` (one counter across all custom boards),
   summary, description, priority, labels, column, comments (stored with the card).
+  The counter is kept in its own file (`custom-card-counter.json`), so losing the
+  boards file can never hand out a used key.
   `local-` is lowercase, so it can't be a Jira key (`ABC-123`) or a Pylon one (`#123`):
   `ProviderKind::for_issue_key`, `activity::looks_like_issue_key`, the frontend's
   `trackerForIssueKey` and the agent's context (`claude/context.rs`: "card local-12 on

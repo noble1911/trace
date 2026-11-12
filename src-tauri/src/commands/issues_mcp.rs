@@ -98,20 +98,7 @@ pub async fn connect_pylon_mcp(
             ensure_login(&app, region::url(r)).await?;
             open_pylon(region::url(r)).await?
         }
-        Plan::Probe(order) => {
-            let mut last = String::new();
-            let mut found = None;
-            for r in order {
-                match open_pylon(region::url(r)).await {
-                    Ok(ok) => {
-                        found = Some(ok);
-                        break;
-                    }
-                    Err(e) => last = e,
-                }
-            }
-            found.ok_or(last)?
-        }
+        Plan::Probe(order) => region::probe(order, |r| open_pylon(region::url(r))).await?,
     };
     mcp_link::save(ProviderKind::Pylon, &conn.link())?;
     crate::pylon::auth::clear()?;

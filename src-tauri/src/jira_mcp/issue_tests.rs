@@ -101,3 +101,42 @@ async fn comments_come_oldest_first_from_either_tool() {
         json!(["comment"])
     );
 }
+
+#[tokio::test]
+async fn a_comment_is_posted_as_the_text_written_not_as_markdown() {
+    let fake = FakeCaller::new()
+        .with("addOrEditJiraIssueComment", json!({ "id": "9" }))
+        .listing(&every_tool());
+    let c = conn(fake);
+    c.add_comment(
+        "PM-1",
+        "Fix *all* of snake_case [x]\n# not a heading\n1. not a list",
+    )
+    .await
+    .expect("commented");
+    assert_eq!(
+        c.caller().calls_to("addOrEditJiraIssueComment")[0]["cloudId"],
+        "c-acme"
+    );
+    assert_eq!(
+        c.caller().calls_to("addOrEditJiraIssueComment")[0]["commentBody"],
+        "Fix \\*all\\* of snake\\_case \\[x\\]\n\\# not a heading\n1\\. not a list"
+    );
+}
+
+#[test]
+fn only_what_markdown_would_format_is_escaped() {
+    use super::issue::markdown_literal;
+    assert_eq!(
+        markdown_literal("Ships Friday. 3 - 1 = 2"),
+        "Ships Friday. 3 - 1 = 2"
+    );
+    assert_eq!(
+        markdown_literal("  - item\n> quote"),
+        "  \\- item\n\\> quote"
+    );
+    assert_eq!(
+        markdown_literal("C:\\dir <main> `x` a|b ~y"),
+        "C:\\\\dir \\<main> \\`x\\` a\\|b \\~y"
+    );
+}

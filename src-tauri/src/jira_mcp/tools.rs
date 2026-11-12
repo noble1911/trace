@@ -37,21 +37,30 @@ const fn read(names: &'static [&'static str], required: bool) -> Op {
     }
 }
 
+/// The login's sites (cloudIds), on connect.
 pub const SITES: Op = read(&["getAccessibleAtlassianResources"], true);
+/// Who's signed in: validates the login on connect.
 pub const ME: Op = read(&["getJiraCurrentUser", "atlassianUserInfo"], true);
+/// The boards in the switcher.
 pub const BOARDS: Op = read(&["listJiraBoards"], true);
+/// A board's filter and columns.
 pub const BOARD_CONFIG: Op = read(&["getJiraBoardConfig"], true);
+/// The board's cards (its filter as JQL), and placing an empty column's status.
 pub const SEARCH: Op = read(&["searchJiraIssuesUsingJql"], true);
+/// One issue: its status, and comments where there's no comments tool.
 pub const ISSUE: Op = read(&["getJiraIssue"], true);
+/// Where an issue can move from its status.
 pub const TRANSITIONS: Op = read(
     &["listJiraIssueTransitions", "getTransitionsForJiraIssue"],
     true,
 );
+/// Moving a card.
 pub const TRANSITION: Op = Op {
     names: &["transitionJiraIssue"],
     required: true,
     write: true,
 };
+/// Commenting on an issue.
 pub const COMMENT: Op = Op {
     names: &["addOrEditJiraIssueComment", "addCommentToJiraIssue"],
     required: true,
@@ -116,7 +125,9 @@ impl Toolset {
         let set = Self { schemas, route };
         // Behind discover/execute the deferred tools aren't listed: a call
         // that names a missing one fails on its own, with the server's words.
-        if set.route == Route::Direct {
+        // A flat listing (the board's own tools named, as `?tools=all` gives)
+        // is checked even when it lists the execute tools beside them.
+        if set.route == Route::Direct || set.is_flat() {
             let missing: Vec<&str> = ALL
                 .iter()
                 .filter(|op| op.required && set.listed(op).is_none())
@@ -130,6 +141,15 @@ impl Toolset {
             }
         }
         Ok(set)
+    }
+
+    /// Whether the server lists Jira's board tools by name, which the
+    /// discover/execute front never does: then every tool the board needs
+    /// should be listed too, and one that isn't is missing.
+    fn is_flat(&self) -> bool {
+        [&BOARDS, &BOARD_CONFIG]
+            .iter()
+            .any(|op| self.listed(op).is_some())
     }
 
     fn listed(&self, op: &Op) -> Option<&'static str> {

@@ -131,25 +131,6 @@ pub fn play_with(players: &[&str], path: &Path) -> io::Result<std::process::Chil
     Err(last)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn printenv_output_keeps_values_with_equals_signs() {
-        let map = parse_printenv("A=1\nB=x=y\nnot a var\n=skip\n");
-        assert_eq!(map.get("A").map(String::as_str), Some("1"));
-        assert_eq!(map.get("B").map(String::as_str), Some("x=y"));
-        assert_eq!(map.len(), 2);
-    }
-
-    #[test]
-    fn this_process_is_alive_and_a_silly_pid_is_not() {
-        assert!(is_alive(std::process::id()));
-        assert!(!is_alive(u32::MAX));
-    }
-}
-
 /// WebKitGTK prints through its own dialog (`window.print()`), which saves as PDF.
 /// macOS writes the file itself: `macos_pdf`.
 #[cfg(target_os = "linux")]
@@ -186,4 +167,23 @@ pub fn hold_with(mut command: Command) -> Option<super::ports::SleepHold> {
         let _ = child.kill();
         let _ = child.wait();
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn printenv_output_keeps_values_with_equals_signs() {
+        let map = parse_printenv("A=1\nB=x=y\nnot a var\n=skip\n");
+        assert_eq!(map.get("A").map(String::as_str), Some("1"));
+        assert_eq!(map.get("B").map(String::as_str), Some("x=y"));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn this_process_is_alive_and_a_silly_pid_is_not() {
+        assert!(is_alive(std::process::id()));
+        assert!(!is_alive(u32::MAX));
+    }
 }

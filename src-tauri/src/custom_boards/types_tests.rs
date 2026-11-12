@@ -22,7 +22,8 @@ fn new_card(type_id: Option<&str>) -> NewCard {
 }
 
 fn add_card(file: &mut BoardsFile, type_id: Option<&str>) -> String {
-    create_card(file, "b", new_card(type_id), "t".into())
+    let number = file.last_number + 1;
+    create_card(file, "b", new_card(type_id), number, "t".into())
         .expect("card")
         .key
 }
@@ -91,11 +92,12 @@ fn the_issue_type_is_the_type_name_or_task() {
     assert_eq!(issue_type(&file, &bug), "Defect");
     // A board without types: every card is a Task.
     create_board(&mut file, "plain".into(), "Plain").expect("board");
-    let c = create_card(&mut file, "plain", new_card(None), "t".into()).expect("card");
+    let number = file.last_number + 1;
+    let c = create_card(&mut file, "plain", new_card(None), number, "t".into()).expect("card");
     assert!(c.type_id.is_none());
     assert_eq!(issue_type(&file, &c.key), "Task");
     // A type id from elsewhere is refused.
-    assert!(create_card(&mut file, "b", new_card(Some("zz")), "t".into()).is_err());
+    assert!(create_card(&mut file, "b", new_card(Some("zz")), 99, "t".into()).is_err());
 }
 
 #[test]

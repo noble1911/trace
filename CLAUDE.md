@@ -1,8 +1,9 @@
 # CLAUDE.md
 
-Guidance for working in **trace** — a desktop app for managing parallel Claude coding sessions. Its Kanban board
-shows issues from a connected tracker (Jira or Pylon, optional); starting work on one spawns an interactive Claude
-CLI session in an isolated git worktree. Sessions and scheduled prompts work with no tracker connected.
+Guidance for working in **trace** — a desktop app for managing parallel Claude coding sessions. Its Kanban boards
+show issues from a connected tracker (Jira or Pylon, optional) or cards on trace's own custom boards; starting work
+on one spawns an interactive Claude CLI session in an isolated git worktree. Sessions and scheduled prompts work
+with no tracker connected.
 
 ## Stack
 
@@ -15,7 +16,8 @@ CLI session in an isolated git worktree. Sessions and scheduled prompts work wit
 - **Issue trackers:** pluggable providers behind `issues::IssueProvider` (see `.claude/rules/providers.md`).
   **Jira:** Cloud REST (Agile v1.0 + Platform v3), HTTP Basic (email + API token). **Pylon:** REST, Bearer
   token. Credentials live in user-only (`0600`) files in the app config dir — *not* the keychain; see
-  `.claude/rules/jira.md` for why.
+  `.claude/rules/jira.md` for why. Without an API key, either runs over its vendor's MCP server with trace's
+  own login (`jira_mcp/`, `pylon_mcp/`; a saved key wins). **Custom boards** are trace's own, in a local file.
 - **Tooling:** Biome (lint + format), `tsc --noEmit`, `cargo test`.
 
 ## The one rule that matters most: keep files small
@@ -53,6 +55,7 @@ src/
     ├── github/             # GitHub sign-in (trace's own token), repo browser, clone, post-clone setup step
     ├── repos/              # the repo model (remote + checkouts) and its worktree setup editor
     ├── board/              # Board, Column, Card, filters; store also tracks agent run-state + PTY buffers
+    ├── boards/             # the Boards page: custom boards' editing, new-board templates, board settings
     ├── agent/              # AgentDetail + tabs (chat/ticket/files/terminal/tests/PR), xterm registry, defaults
     ├── plans/              # the Plan tab: plans and published documents, versions, task list, export
     ├── browser/            # the Browser tab: pages in an isolated native webview laid over the pane
@@ -87,6 +90,8 @@ src-tauri/src/
 ├── jira_mcp/               # Jira provider over Atlassian's MCP server (trace's login); issues/mcp_link picks REST or MCP
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
 ├── pylon_mcp/              # Pylon provider over Pylon's MCP server (US or EU, trace's login); same board as pylon/
+├── custom_boards/          # trace's own boards: an IssueProvider over custom-boards.json; `local-<n>` card keys
+├── board_settings/         # any board's brief + repos (board-settings.json), and pinning a start to its repo
 ├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
 ├── agent_tools/            # trace's own tools served to its agents over loopback MCP (renderer runs them)
 ├── plans/                  # the Plan tab's documents: capture (plan mode, transcripts), versions, store
@@ -94,11 +99,12 @@ src-tauri/src/
 ├── gallery/                # Gallery tab: sets, scanning, path containment, the `trace-img` protocol
 ├── repo_catalog/           # per-repo remote, checkouts, default branch + worktree setup hooks
 ├── interrupted.rs          # ledger of live agents; ones cut off by quit/update/crash are offered back
+├── keep_awake.rs           # holds idle sleep off while an agent runs (port: platform::SleepInhibitor)
 ├── execution/              # where agents run: AgentHost port; this machine, or a cloud sandbox
 │                           #   (sandbox/ + vercel/: terminal in tmux, chat as a background command)
 ├── mcp_auth/               # trace's own OAuth logins to the team's MCP servers, for sandboxes
 ├── mcp_client/             # trace calling MCP tools: ToolCaller port, HTTP adapter, schema-driven args
-└── commands/               # thin wrappers: agent, session, schedules, issues, activity, pr, diff, tests, repos, editor
+└── commands/               # thin wrappers: agent, session, schedules, issues, custom_boards, board_settings, pr, …
 ```
 
 Detailed rules live in `.claude/rules/` — read the one relevant to your change:
@@ -115,16 +121,31 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
 
 ## Core concepts
 
-- **Issue ⇄ card:** every board card is an issue from a connected tracker. Several can be connected at once, and
+- **Issue ⇄ card:** every board card is an issue from a connected tracker, or a card on a custom board (below).
+  Several trackers can be connected at once, and
   each has its own page in the rail, shown only while it's connected (`app/nav.ts`: Board and Pull requests for
   Jira, Pylon for Pylon) unless the user pins it in Settings → Sidebar, which also orders and hides
   the rail's pages (`domains/sidebar/`). A page's switcher lists that tracker's boards, keyed `provider:boardId`. Only one board is loaded at a
   time, and a ticket's detail needs its board, so open tickets through `board/openIssueAnywhere.ts` unless it's
-  known to be on the loaded board. There is no local ticket
-  store — the tracker is the source of truth. On Jira, a board shows exactly what its Jira board shows —
+  known to be on the loaded board. Apart from custom boards' cards there is no local ticket
+  store — the tracker is the source of truth. On Jira (REST or MCP), a board shows exactly what its Jira board shows —
   saved filter + sub-filter, open sprints only while one runs, minus the Kanban backlog column and anything
   finished before the board's done cutoff (`jira/scope.rs`); columns come from the user's *board
-  configuration*. On Pylon, from a rolling 30-day window with state-derived columns. Never hardcoded.
+  configuration*. On Pylon, from a rolling 30-day window with state-derived columns. Never hardcoded. An MCP
+  adapter never shows a board it only half read: a payload it can't parse, a config with no filter or columns,
+  or a column whose statuses it can't place is an error on the board, not an empty or unscoped one.
+- **Custom boards:** boards the user makes in trace (`custom_boards/`, the Boards page, `domains/boards/`),
+  always connected, behind the same `IssueProvider`. A column is one status with a category (`new` |
+  `indeterminate` | `done`), so auto-start and cleanup work without column names; cards have card types,
+  each with an optional brief. Keys are `local-<n>` from one counter in its own file
+  (`custom_boards/counter.rs`), so a lost `custom-boards.json` never hands a new card an old card's
+  worktree. Deleting a card or board is refused while its agent runs, in this trace or another
+  (`running-agents.json`). Design: `docs/BOARDS_PLAN.md`.
+- **Board settings:** any board (Jira, Pylon or custom), keyed `provider:boardId`, can carry a kickoff brief
+  and the repos its cards start in (`board_settings/`). The brief for a start is the card type's, else the
+  board's, else the global one. A ticket with no repo of its own is pinned to the board's
+  (`board_settings::pin`; several and no default opens the picker), and the pin is taken back if the start
+  fails before its worktree exists.
 - **Agent:** an interactive `claude` (or `codex`) TUI hosted in a PTY, rooted in a git worktree created for one
   issue. Output is raw ANSI bytes rendered in xterm.js (not structured JSON — it's a screen, not data). A
   `provider` axis (`"anthropic"` | `"moonshot"` | `"wafer"` | `"wafer-fast"` | `"deepseek"` |

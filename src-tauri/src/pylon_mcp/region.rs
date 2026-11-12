@@ -12,10 +12,14 @@
 //!    (the catalog offers both while the region is unknown; US is Pylon's
 //!    default, as on REST).
 
+use std::future::Future;
+
 use crate::issues::{mcp_link, ProviderKind};
 use crate::mcp_auth::catalog::Region;
 
+/// Pylon's US MCP server (its default region).
 pub const US_URL: &str = "https://mcp.usepylon.com";
+/// Pylon's EU MCP server: a separate login from the US one.
 pub const EU_URL: &str = "https://mcp.eu.usepylon.com";
 
 /// A region's server.
@@ -69,6 +73,23 @@ pub fn plan(
     }
 }
 
+/// Rule 3's probe: `open` each region in `order`, keeping the first that
+/// validates. Err is the last region's error, when none does.
+pub async fn probe<R, F, Fut>(order: [Region; 2], mut open: F) -> Result<R, String>
+where
+    F: FnMut(Region) -> Fut,
+    Fut: Future<Output = Result<R, String>>,
+{
+    let mut last = String::new();
+    for region in order {
+        match open(region).await {
+            Ok(found) => return Ok(found),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
 /// The region trace already knows for Pylon: the saved board record's
 /// server, else the saved API connection's region. Also what Integrations →
 /// MCP servers uses to offer only your region's Pylon server.
@@ -119,6 +140,26 @@ mod tests {
     fn neither_logged_in_logs_in_to_the_known_region_else_us() {
         assert_eq!(plan(None, NONE, Some(Region::Eu)), Plan::Use(Region::Eu));
         assert_eq!(plan(None, NONE, None), Plan::Use(Region::Us));
+    }
+
+    #[tokio::test]
+    async fn the_probe_keeps_the_first_region_that_validates() {
+        let eu_works = |r: Region| async move {
+            match r {
+                Region::Eu => Ok(r),
+                Region::Us => Err("no such account".to_string()),
+            }
+        };
+        assert_eq!(
+            probe([Region::Us, Region::Eu], eu_works).await,
+            Ok(Region::Eu)
+        );
+        let none = |r: Region| async move { Err::<Region, _>(format!("{r:?} refused")) };
+        assert_eq!(
+            probe([Region::Us, Region::Eu], none).await,
+            Err("Eu refused".to_string()),
+            "the last region's error"
+        );
     }
 
     #[test]

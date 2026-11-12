@@ -24,18 +24,38 @@ pub struct Op {
     pub name: &'static str,
     /// The board can't work without it: checked on connect.
     pub required: bool,
+    /// Changes something in Pylon. A read's answer must be JSON trace can
+    /// read; a write's is only checked for failure.
+    pub write: bool,
 }
 
 const fn op(name: &'static str, required: bool) -> Op {
-    Op { name, required }
+    Op {
+        name,
+        required,
+        write: false,
+    }
 }
 
+/// Who's signed in: validates the login on connect.
 pub const ME: Op = op("get_me", true);
+/// The board's cards (the rolling window).
 pub const SEARCH: Op = op("search_issues", true);
+/// One issue: its state.
 pub const ISSUE: Op = op("get_issue", true);
-pub const UPDATE: Op = op("update_issue", true);
+/// Moving a card (setting its state).
+pub const UPDATE: Op = Op {
+    name: "update_issue",
+    required: true,
+    write: true,
+};
 /// An internal note: never a reply to the customer.
-pub const NOTE: Op = op("send_issue_note", true);
+pub const NOTE: Op = Op {
+    name: "send_issue_note",
+    required: true,
+    write: true,
+};
+/// An issue's thread, for an agent's brief.
 pub const MESSAGES: Op = op("get_issue_messages", true);
 /// Optional: the organisation's statuses, custom ones included. Without it,
 /// custom statuses are discovered on the issues, as on REST.
@@ -53,19 +73,10 @@ pub const ALL: &[&Op] = &[
 #[cfg(test)]
 pub const CUSTOMER_REPLY: &str = "send_issue_reply";
 
-/// The issue argument for a card key (`#123`) or id: the number (or id)
-/// without the `#`, under whichever name the tool lists. Pylon's tools take
-/// "an id or number" in one argument, as its REST API does.
-pub fn issue_arg(key: &str) -> Arg {
-    let id = key.trim_start_matches('#');
-    Arg::must(vec![
-        ("issue_id", json!(id)),
-        ("id", json!(id)),
-        ("issue_id_or_number", json!(id)),
-        ("issue_number", json!(id)),
-        ("number", json!(id)),
-    ])
-}
+/// Arguments that take an issue's number.
+const NUMBER_ARGS: &[&str] = &["issue_number", "number", "issue_id_or_number"];
+/// Arguments that take an issue's id (Pylon's take "an id or number").
+const ID_ARGS: &[&str] = &["issue_id", "id"];
 
 /// The paging arguments: a page size (when the tool takes one) and the
 /// previous page's cursor.
@@ -123,5 +134,47 @@ impl Toolset {
     /// `op`'s arguments from `args`, shaped by its advertised schema.
     pub fn args(&self, op: &Op, args: Vec<Arg>) -> Value {
         args::shape(self.schema(op), args)
+    }
+
+    /// The issue argument for `key` on `op`'s tool. A card key (`#123`) is a
+    /// number: under a number argument when the tool lists one, else under
+    /// its id argument, which Pylon's tools take "an id or number" in, as its
+    /// REST API does, unless the schema says that argument is a UUID (Err:
+    /// a number can't go there, and trace has no id for a bare key). An id
+    /// goes under the id argument.
+    pub fn issue_arg(&self, op: &Op, key: &str) -> Result<Arg, String> {
+        let props = self
+            .schema(op)
+            .and_then(|s| s.get("properties"))
+            .and_then(Value::as_object);
+        let Some(number) = key.strip_prefix('#') else {
+            let mut alts: Vec<&'static str> = ID_ARGS.to_vec();
+            alts.extend(NUMBER_ARGS);
+            return Ok(Arg::must(alts.iter().map(|n| (*n, json!(key))).collect()));
+        };
+        let listed = |names: &[&'static str]| {
+            names
+                .iter()
+                .copied()
+                .find(|n| props.is_some_and(|p| p.contains_key(*n)))
+        };
+        if let Some(name) = listed(NUMBER_ARGS) {
+            return Ok(Arg::need(name, json!(number)));
+        }
+        let id_arg = listed(ID_ARGS);
+        let is_uuid = id_arg
+            .and_then(|n| props?.get(n)?.get("format")?.as_str())
+            .is_some_and(|f| f.eq_ignore_ascii_case("uuid"));
+        if is_uuid {
+            return Err(format!(
+                "Pylon's {} takes an issue's id, not its number, so trace can't act on {key}.",
+                op.name
+            ));
+        }
+        let mut alts: Vec<&'static str> = ID_ARGS.to_vec();
+        alts.extend(NUMBER_ARGS);
+        Ok(Arg::must(
+            alts.iter().map(|n| (*n, json!(number))).collect(),
+        ))
     }
 }

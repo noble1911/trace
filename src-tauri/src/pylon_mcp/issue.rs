@@ -3,8 +3,8 @@
 
 use serde_json::json;
 
-use super::tools::{self, issue_arg, page_args};
-use super::{parse, PylonMcp};
+use super::tools::{self, page_args};
+use super::{parse, thread, PylonMcp};
 use crate::issues::models::IssueComment;
 use crate::mcp_client::args::Arg;
 use crate::mcp_client::ToolCaller;
@@ -16,7 +16,10 @@ const MESSAGE_PAGE: usize = 100;
 const MAX_MESSAGE_PAGES: usize = 10;
 
 /// Move an issue to the first target state. Pylon has no workflow gates: the
-/// state is just set, by slug, as on REST (`PATCH /issues/{id}`).
+/// state is just set, by slug, as on REST (`PATCH /issues/{id}`). Then checked:
+/// the update's answer, or a fresh read of the issue, must show the new state,
+/// because a lenient server can accept an argument it ignores, and a move that
+/// silently didn't happen would snap the card back with no reason given.
 pub async fn transition<T: ToolCaller>(
     c: &PylonMcp<T>,
     key: &str,
@@ -30,8 +33,22 @@ pub async fn transition<T: ToolCaller>(
         ("status", json!(state)),
         ("state_slug", json!(state)),
     ]);
-    c.call(&tools::UPDATE, vec![issue_arg(key), to]).await?;
-    Ok(())
+    let issue = c.issue_arg(&tools::UPDATE, key).await?;
+    let answer = c.call(&tools::UPDATE, vec![issue, to]).await?;
+    if parse::state_of(&answer).as_ref() == Some(state) {
+        return Ok(());
+    }
+    let issue = c.issue_arg(&tools::ISSUE, key).await?;
+    let now = parse::state_of(&c.call(&tools::ISSUE, vec![issue]).await?);
+    match now {
+        Some(now) if &now == state => Ok(()),
+        Some(now) => Err(format!(
+            "Pylon accepted the move of {key}, but it's still in {now}."
+        )),
+        None => Err(format!(
+            "Pylon accepted the move of {key}, but trace couldn't read its state back."
+        )),
+    }
 }
 
 /// Post an **internal note** (Pylon's comment equivalent), never a reply:
@@ -48,7 +65,8 @@ pub async fn add_note<T: ToolCaller>(c: &PylonMcp<T>, key: &str, text: &str) -> 
         ("note", json!(plain)),
         ("text", json!(plain)),
     ]);
-    c.call(&tools::NOTE, vec![issue_arg(key), body]).await?;
+    let issue = c.issue_arg(&tools::NOTE, key).await?;
+    c.call(&tools::NOTE, vec![issue, body]).await?;
     Ok(())
 }
 
@@ -62,9 +80,9 @@ pub async fn list_comments<T: ToolCaller>(
     let mut cursor: Option<String> = None;
     for _ in 0..MAX_MESSAGE_PAGES {
         let mut args = page_args(MESSAGE_PAGE, cursor.as_deref());
-        args.push(issue_arg(issue_id));
+        args.push(c.issue_arg(&tools::MESSAGES, issue_id).await?);
         let v = c.call(&tools::MESSAGES, args).await?;
-        let page = parse::messages(&v);
+        let page = thread::messages(&v)?;
         let empty = page.is_empty();
         out.extend(page);
         cursor = parse::next_cursor(&v);
@@ -82,7 +100,8 @@ pub async fn list_comments<T: ToolCaller>(
 
 /// One issue's status category, from its state slug (`closed` → `done`).
 pub async fn status_category<T: ToolCaller>(c: &PylonMcp<T>, key: &str) -> Result<String, String> {
-    let v = c.call(&tools::ISSUE, vec![issue_arg(key)]).await?;
+    let issue = c.issue_arg(&tools::ISSUE, key).await?;
+    let v = c.call(&tools::ISSUE, vec![issue]).await?;
     let state = parse::state_of(&v).ok_or_else(|| format!("{key} has no state."))?;
     Ok(state_category(&state))
 }

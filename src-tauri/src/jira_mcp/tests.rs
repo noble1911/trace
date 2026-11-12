@@ -122,7 +122,7 @@ async fn cards_map_like_the_rest_adapters() {
 #[tokio::test]
 async fn a_scrum_board_scopes_to_its_running_sprint() {
     let config = json!({ "filter": { "id": 55 }, "columnConfig": { "columns": [
-        { "name": "To Do", "statuses": [{ "id": "1" }] } ] } });
+        { "name": "To Do", "statuses": [{ "id": "1", "statusCategory": "new" }] } ] } });
     let sprints = json!({ "values": [{ "id": 4, "name": "Sprint 4", "state": "active" }] });
     let fake = FakeCaller::new()
         .with("getJiraBoardConfig", config)

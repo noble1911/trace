@@ -179,6 +179,16 @@ pub(crate) fn assign_repo(workspace_id: &str, repo: &str) -> Result<(), String> 
     })
 }
 
+/// Undo [`assign_repo`] for a start that failed: remove the workspace's pin, but
+/// only while it's still `repo` (something since may have pinned it elsewhere).
+pub(crate) fn unassign_repo(workspace_id: &str, repo: &str) -> Result<(), String> {
+    update(|cfg| {
+        if cfg.assignments.get(workspace_id).map(String::as_str) == Some(repo) {
+            cfg.assignments.remove(workspace_id);
+        }
+    })
+}
+
 /// The worktree directory NAME for a workspace: an adopted dir if linked,
 /// else the conventional slugified id.
 pub(crate) fn workspace_dirname(workspace_id: &str) -> String {

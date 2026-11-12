@@ -163,21 +163,36 @@ impl SoundPlayer for Os {
     }
 }
 
+/// `systemd-inhibit`'s arguments for a hold while process `pid` (trace) lives.
+///
+/// `--what=idle` stops the machine idling into sleep and nothing more: a suspend
+/// the user asks for (the lid, the menu) still happens, as with macOS's
+/// `caffeinate -i`. What runs under the lock is `tail --pid=<trace> -f
+/// /dev/null`, which ends by itself once trace is gone, so a killed trace leaves
+/// nothing behind (a `sleep infinity` would outlive it, orphaned).
+fn inhibit_args(pid: u32) -> Vec<String> {
+    let pid = format!("--pid={pid}");
+    let args = [
+        "--what=idle",
+        "--who=trace",
+        "--why=Agents are running",
+        "tail",
+        pid.as_str(),
+        "-f",
+        "/dev/null",
+    ];
+    args.iter().map(|a| a.to_string()).collect()
+}
+
 impl SleepInhibitor for Os {
-    /// A `systemd-inhibit` lock around a `sleep` that never ends. Without systemd the
-    /// spawn fails and nothing is held. If trace is killed, the kernel kills the
-    /// inhibitor (`PR_SET_PDEATHSIG`), which drops the lock: the leftover `sleep`
-    /// holds nothing.
+    /// A `systemd-inhibit` idle lock for as long as trace runs ([`inhibit_args`]).
+    /// Without systemd the spawn fails and nothing is held. If trace is killed,
+    /// the kernel kills the inhibitor (`PR_SET_PDEATHSIG`), which drops the lock,
+    /// and its `tail` notices trace is gone and ends too.
     fn hold() -> Option<SleepHold> {
         use std::os::unix::process::CommandExt;
         let mut command = super::process::command("systemd-inhibit");
-        command.args([
-            "--what=idle:sleep",
-            "--who=trace",
-            "--why=Agents are running",
-            "sleep",
-            "infinity",
-        ]);
+        command.args(inhibit_args(std::process::id()));
         // SAFETY: only an async-signal-safe `prctl` runs between fork and exec.
         unsafe {
             command.pre_exec(|| {
@@ -201,7 +216,17 @@ impl EditorLauncher for Os {
 
 #[cfg(test)]
 mod tests {
-    use super::path_without;
+    use super::{inhibit_args, path_without};
+
+    #[test]
+    fn the_inhibitor_holds_idle_sleep_only_and_ends_with_trace() {
+        let args = inhibit_args(4242);
+        assert_eq!(
+            args[0], "--what=idle",
+            "a suspend the user asks for still happens"
+        );
+        assert_eq!(args[3..], ["tail", "--pid=4242", "-f", "/dev/null"]);
+    }
 
     #[test]
     fn appimage_dirs_leave_path() {

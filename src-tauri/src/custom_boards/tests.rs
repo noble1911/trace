@@ -215,3 +215,29 @@ fn card_types_end_to_end() {
     assert_eq!(boards.config(&id).expect("config").name, "T");
     assert!(boards.config("nope").is_err());
 }
+
+#[test]
+fn a_lost_boards_file_never_hands_an_old_key_to_a_new_card() {
+    let (dir, boards) = boards();
+    let id = boards.create_board("B", None).expect("create").id;
+    boards.create_card(&id, card("One")).expect("card");
+    boards.create_card(&id, card("Two")).expect("card");
+    // The file goes (moved aside as corrupt, or deleted): the counter stays.
+    std::fs::remove_file(dir.path().join("custom-boards.json")).expect("remove");
+    let id = boards.create_board("B", None).expect("create").id;
+    let issue = boards.create_card(&id, card("Three")).expect("card");
+    assert_eq!(issue.key, "local-3");
+}
+
+#[test]
+fn a_boards_file_from_before_the_counter_carries_its_number_over() {
+    let (dir, boards) = boards();
+    let id = boards.create_board("B", None).expect("create").id;
+    let path = dir.path().join("custom-boards.json");
+    let mut raw: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).expect("read")).expect("json");
+    raw["lastNumber"] = serde_json::json!(41);
+    std::fs::write(&path, raw.to_string()).expect("write");
+    let issue = boards.create_card(&id, card("Next")).expect("card");
+    assert_eq!(issue.key, "local-42");
+}

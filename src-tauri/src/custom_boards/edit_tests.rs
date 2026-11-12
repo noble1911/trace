@@ -13,7 +13,10 @@ fn card_in(file: &mut BoardsFile, column: &str) -> String {
         column_id: Some(column.into()),
         ..NewCard::default()
     };
-    create_card(file, "b1", card, "t".into()).expect("card").key
+    let number = file.last_number + 1;
+    create_card(file, "b1", card, number, "t".into())
+        .expect("card")
+        .key
 }
 
 fn column_ids(file: &BoardsFile) -> Vec<&str> {

@@ -2,7 +2,6 @@
 //! Pylon or custom), keyed `provider:boardId`. Thin wrappers over
 //! `board_settings`; the IPC contract is in `docs/BOARDS_PLAN.md`.
 
-use crate::board_settings::start_repo::{self, StartRepo};
 use crate::board_settings::{self, store, BoardSettings};
 use crate::commands::repos;
 
@@ -25,34 +24,6 @@ pub fn board_settings_set(
     let configured = repos::list_repos()?;
     let settings = board_settings::validate(settings, &configured)?;
     store::set(&store::default_path(), &board_key, settings)
-}
-
-/// Before a ticket's agent starts: when its board's settings pick the repo and the
-/// ticket has none saved, pin it as the ticket's assignment, as the repo picker
-/// does (`set_issue_repo`), so the start and later diff/PR/tests resolve it.
-/// Several board repos and no default is the "No repository assigned" error the
-/// picker opens on. A missing or unreadable settings file never blocks a start:
-/// today's rules apply.
-pub(crate) fn pin_board_repo(issue_key: &str, board_key: Option<&str>) -> Result<(), String> {
-    let Some(key) = board_key.filter(|k| board_settings::check_key(k).is_ok()) else {
-        return Ok(());
-    };
-    let settings = match store::get(&store::default_path(), key) {
-        Ok(settings) => settings,
-        Err(e) => {
-            eprintln!("trace: board settings unreadable, using today's repo rules: {e}");
-            return Ok(());
-        }
-    };
-    if settings.repos.is_empty() {
-        return Ok(());
-    }
-    let saved = repos::issue_repo(issue_key.to_string())?;
-    let configured = repos::list_repos()?;
-    match start_repo::resolve(saved.as_deref(), &settings, &configured)? {
-        StartRepo::Board(repo) => repos::set_issue_repo(issue_key.to_string(), repo),
-        StartRepo::Saved(_) | StartRepo::Fallback => Ok(()),
-    }
 }
 
 /// After a repo is removed from trace: drop it from every board's settings.

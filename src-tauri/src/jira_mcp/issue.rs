@@ -58,7 +58,40 @@ pub async fn transition<T: ToolCaller>(
     Ok(())
 }
 
-/// Post a plain-text comment (sent as Markdown, which plain text is).
+/// Characters Markdown may read as formatting anywhere in a line.
+const INLINE_MARKS: &[char] = &['\\', '`', '*', '_', '[', ']', '<', '~', '|'];
+
+/// `text` as Markdown that renders as exactly that text: every character
+/// Markdown could read as formatting backslash-escaped (inline marks anywhere;
+/// `#`, `>`, `-`, `+` and `1.` only where they'd start a heading, quote or
+/// list). The comment tools take Markdown, and trace's comments are plain text,
+/// as the REST adapter posts them: `snake_case` or `*` mustn't become italics.
+pub fn markdown_literal(text: &str) -> String {
+    let lines: Vec<String> = text.lines().map(escape_line).collect();
+    lines.join("\n")
+}
+
+fn escape_line(line: &str) -> String {
+    let indent = line.len() - line.trim_start().len();
+    let (lead, rest) = line.split_at(indent);
+    let mut out = lead.to_string();
+    let digits = rest.chars().take_while(char::is_ascii_digit).count();
+    let block = match rest.chars().next() {
+        Some('#' | '>' | '-' | '+') => Some(0),
+        _ if digits > 0 && matches!(rest[digits..].chars().next(), Some('.' | ')')) => Some(digits),
+        _ => None,
+    };
+    for (i, ch) in rest.chars().enumerate() {
+        if INLINE_MARKS.contains(&ch) || block == Some(i) {
+            out.push('\\');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Post a plain-text comment, escaped so the Markdown the tools take renders
+/// it as written ([`markdown_literal`]).
 pub async fn add_comment<T: ToolCaller>(
     c: &JiraMcp<T>,
     key: &str,
@@ -68,6 +101,7 @@ pub async fn add_comment<T: ToolCaller>(
     if text.is_empty() {
         return Err("Comment body is empty.".to_string());
     }
+    let text = markdown_literal(text);
     let body = Arg::must(vec![
         ("commentBody", json!(text)),
         ("body", json!(text)),

@@ -8,10 +8,16 @@
 //! `{ field, operator, value }`, which is what `build_filter` emits). When the
 //! tool's schema lists a filter argument, the window is asked for as
 //! `created_at time_is_after <30 days ago>`. If it lists none, or the
-//! filtered search fails, pages are read newest-first and reading stops at
-//! the first page that reaches past the window (a filtered read stops there
-//! too, should a server ignore the filter). Either way, at most
-//! `MAX_PAGES` pages and `pylon::board::MAX_ISSUES` issues.
+//! filtered search fails or finds nothing (a server that misread the filter
+//! would otherwise show an empty board), pages are read unfiltered and the
+//! window is applied here. Reading stops early at the first page reaching
+//! past the window only when the tool lists a `sort`, so newest-first was
+//! really asked for; otherwise every page is read, up to the caps.
+//!
+//! **The caps.** At most `MAX_PAGES` pages and `pylon::board::MAX_ISSUES`
+//! issues, as on REST (whose own cap is just as silent in the UI). Stopping at
+//! a cap with pages left is logged, so a board that's missing cards can be
+//! told apart from one that has none.
 
 use serde_json::{json, Value};
 
@@ -40,6 +46,8 @@ pub fn window_filter(since: chrono::DateTime<chrono::Utc>) -> Value {
     json!({ "field": "created_at", "operator": "time_is_after", "value": since.to_rfc3339() })
 }
 
+/// The one virtual board's columns and cards (`open-issues`). Err for any
+/// other board, and for issues trace can't read, rather than an empty board.
 pub async fn get_board<T: ToolCaller>(
     c: &PylonMcp<T>,
     board_id: &str,
@@ -55,11 +63,19 @@ pub async fn get_board<T: ToolCaller>(
         .filter(|v| parse::created(v).is_none_or(|t| t >= since))
         .collect();
     let names = user_names(c, &raw).await;
-    let issues: Vec<Issue> = raw
+    let shown: Vec<&Value> = raw.iter().filter(|v| visible(v)).collect();
+    let issues: Vec<Issue> = shown
         .iter()
-        .filter(|v| visible(v))
         .filter_map(|v| parse::issue(v, &names))
         .collect();
+    // Issues there but none readable is a payload trace doesn't understand,
+    // not an empty board.
+    if issues.is_empty() && !shown.is_empty() {
+        return Err(format!(
+            "Pylon's MCP server sent {} issues trace couldn't read.",
+            shown.len()
+        ));
+    }
     Ok(BoardData {
         board_id: board_id.to_string(),
         board_name: "Pylon Issues".to_string(),
@@ -70,28 +86,36 @@ pub async fn get_board<T: ToolCaller>(
 }
 
 /// The window's issues: filtered when the tool takes a filter, else (or if
-/// that fails) newest-first up to the window's edge.
+/// that fails or finds nothing) unfiltered, the window applied by the caller.
 async fn fetch_issues<T: ToolCaller>(
     c: &PylonMcp<T>,
     since: chrono::DateTime<chrono::Utc>,
 ) -> Result<Vec<Value>, String> {
     let schema = c.toolset().await?.schema(&tools::SEARCH);
     let says_nothing = schema.and_then(|s| s.get("properties")).is_none();
+    // Newest-first is only relied on when the tool says it takes a sort.
+    let ordered = args::lists(schema, &["sort"]);
     if says_nothing || args::lists(schema, FILTER_KEYS) {
-        if let Ok(found) = pages(c, Some(window_filter(since)), since).await {
-            return Ok(found);
+        match pages(c, Some(window_filter(since)), ordered, since).await {
+            Ok(found) if !found.is_empty() => return Ok(found),
+            _ => {}
         }
     }
-    pages(c, None, since).await
+    pages(c, None, ordered, since).await
 }
 
+/// Up to `MAX_PAGES` pages of `search_issues`. `ordered`: the tool takes the
+/// newest-first sort, so the first page reaching past the window is the last
+/// one needed.
 async fn pages<T: ToolCaller>(
     c: &PylonMcp<T>,
     filter: Option<Value>,
+    ordered: bool,
     since: chrono::DateTime<chrono::Utc>,
 ) -> Result<Vec<Value>, String> {
     let mut out: Vec<Value> = Vec::new();
     let mut cursor: Option<String> = None;
+    let mut cut_short = false;
     for _ in 0..MAX_PAGES {
         let mut args = page_args(PAGE_SIZE, cursor.as_deref());
         if let Some(f) = &filter {
@@ -104,16 +128,24 @@ async fn pages<T: ToolCaller>(
         args.push(Arg::opt(vec![("sort", newest_first)]));
         args.push(Arg::opt(vec![("include_messages", json!(false))]));
         let v = c.call(&tools::SEARCH, args).await?;
-        let page = parse::list(&v, ISSUE_KEYS);
+        let page = parse::listed(&v, ISSUE_KEYS, "issues")?;
         let oldest = page.last().and_then(parse::created);
         // Filtered, this never trips; it stops a server that ignored the filter.
-        let past_window = oldest.is_some_and(|t| t < since);
+        let past_window = ordered && oldest.is_some_and(|t| t < since);
         let empty = page.is_empty();
         out.extend(page);
         cursor = parse::next_cursor(&v);
-        if empty || past_window || cursor.is_none() || out.len() >= MAX_ISSUES {
+        let done = empty || past_window || cursor.is_none();
+        cut_short = !done;
+        if done || out.len() >= MAX_ISSUES {
             break;
         }
+    }
+    if cut_short || out.len() > MAX_ISSUES {
+        eprintln!(
+            "trace: the Pylon board stopped at {} issues with more pages left; older ones aren't shown",
+            out.len().min(MAX_ISSUES)
+        );
     }
     out.truncate(MAX_ISSUES);
     Ok(out)

@@ -9,7 +9,7 @@ use super::cards::{self, CardPatch, NewCard};
 use super::model::{fresh_id, now_iso, BoardsFile, Category};
 use super::template::{self, BoardTemplate};
 use super::view::BoardConfig;
-use super::{edit, store, types, view, CustomBoards};
+use super::{counter, edit, store, types, view, CustomBoards};
 use crate::issues::models::{BoardData, BoardSummary, Issue};
 
 impl CustomBoards {
@@ -65,6 +65,7 @@ impl CustomBoards {
         })
     }
 
+    /// Board `board_id`'s setup beyond its columns: id, name and card types.
     pub fn config(&self, board_id: &str) -> Result<BoardConfig, String> {
         let file = store::load(&self.path)?;
         file.board(board_id)
@@ -72,6 +73,7 @@ impl CustomBoards {
             .ok_or_else(|| edit::no_board(board_id))
     }
 
+    /// Add a card type at the end, with a fresh id; answers the board's config.
     pub fn add_card_type(
         &self,
         board_id: &str,
@@ -93,6 +95,7 @@ impl CustomBoards {
         })
     }
 
+    /// Rename a card type and/or set its brief (`types::update_type`).
     pub fn update_card_type(
         &self,
         board_id: &str,
@@ -105,6 +108,8 @@ impl CustomBoards {
         })
     }
 
+    /// Delete a card type, moving its cards to `move_cards_to` (refused when
+    /// it has cards and that's omitted).
     pub fn delete_card_type(
         &self,
         board_id: &str,
@@ -116,6 +121,7 @@ impl CustomBoards {
         })
     }
 
+    /// Rename a board.
     pub fn rename_board(&self, board_id: &str, name: &str) -> Result<(), String> {
         store::edit(&self.path, |file| edit::rename_board(file, board_id, name))
     }
@@ -131,6 +137,8 @@ impl CustomBoards {
         })
     }
 
+    /// Add a column (one status) at the end, with a fresh id; `category` is
+    /// `new` | `indeterminate` | `done`.
     pub fn add_column(
         &self,
         board_id: &str,
@@ -148,6 +156,7 @@ impl CustomBoards {
         })
     }
 
+    /// Rename a column and/or change its category; omitted ones stay.
     pub fn update_column(
         &self,
         board_id: &str,
@@ -161,6 +170,7 @@ impl CustomBoards {
         })
     }
 
+    /// Move a column to `to_index` (clamped to the board's columns).
     pub fn move_column(
         &self,
         board_id: &str,
@@ -172,6 +182,8 @@ impl CustomBoards {
         })
     }
 
+    /// Delete a column, moving its cards to `move_cards_to` (refused when it
+    /// has cards and that's omitted, and for a board's last column).
     pub fn delete_column(
         &self,
         board_id: &str,
@@ -183,14 +195,27 @@ impl CustomBoards {
         })
     }
 
+    /// Add a card, as the next `local-<n>` (`counter`), and answer it as an
+    /// `Issue`. The number is reserved first, under the counter's own lock (two
+    /// files' locks are never held at once).
     pub fn create_card(&self, board_id: &str, card: NewCard) -> Result<Issue, String> {
         let created = now_iso();
+        let floor = counter::floor_of(&store::load(&self.path)?);
+        let number = match self.check_machine {
+            true => counter::reserve(&self.counter_path(), floor, counter::taken_here())?,
+            false => counter::reserve(&self.counter_path(), floor, |_| false)?,
+        };
         store::edit(&self.path, |file| {
-            let card = cards::create_card(file, board_id, card, created)?;
+            let card = cards::create_card(file, board_id, card, number, created)?;
             Self::issue_of(file, &card.key)
         })
     }
 
+    fn counter_path(&self) -> std::path::PathBuf {
+        counter::path_beside(&self.path)
+    }
+
+    /// Change card `key`'s fields (`CardPatch`), and answer it as an `Issue`.
     pub fn update_card(&self, key: &str, patch: CardPatch) -> Result<Issue, String> {
         store::edit(&self.path, |file| {
             cards::update_card(file, key, patch)?;

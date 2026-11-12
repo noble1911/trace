@@ -38,6 +38,8 @@ fn local_assignee() -> Assignee {
     }
 }
 
+/// A board as the switcher lists it, typed `custom` so the frontend knows it
+/// can edit it.
 pub fn summary(board: &Board) -> BoardSummary {
     BoardSummary {
         id: board.id.clone(),
@@ -119,6 +121,7 @@ pub struct BoardConfig {
     pub card_types: Vec<CardType>,
 }
 
+/// A board's setup beyond its columns (`custom_board_config`): its card types.
 pub fn config(board: &Board) -> BoardConfig {
     BoardConfig {
         id: board.id.clone(),

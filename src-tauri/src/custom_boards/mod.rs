@@ -8,6 +8,7 @@
 //! `local-<n>`, one counter across every board. See `docs/BOARDS_PLAN.md`.
 
 pub mod cards;
+pub mod counter;
 pub mod edit;
 pub mod model;
 mod ops;
@@ -32,6 +33,10 @@ const COMMENT_AUTHOR: &str = view::LOCAL_USER_NAME;
 #[derive(Clone)]
 pub struct CustomBoards {
     path: PathBuf,
+    /// Whether a new card's key skips ones this machine has a worktree or repo
+    /// assignment for (`counter::taken_here`). Off in tests, whose temp boards
+    /// mustn't depend on the machine's repos.
+    check_machine: bool,
 }
 
 impl Default for CustomBoards {
@@ -45,13 +50,17 @@ impl CustomBoards {
     pub fn new() -> Self {
         Self {
             path: store::default_path(),
+            check_machine: true,
         }
     }
 
     /// Boards kept at `path` (tests).
     #[cfg(test)]
     pub fn at(path: PathBuf) -> Self {
-        Self { path }
+        Self {
+            path,
+            check_machine: false,
+        }
     }
 }
 

@@ -5,6 +5,7 @@ pub mod activity;
 pub mod agent;
 pub mod agent_chat;
 pub mod agent_options;
+pub mod agent_start;
 pub mod agent_tools;
 pub mod board_settings;
 pub mod browser;

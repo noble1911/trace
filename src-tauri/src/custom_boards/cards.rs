@@ -77,17 +77,23 @@ fn no_card(key: &str) -> String {
     format!("There's no card {key}. It may have been deleted.")
 }
 
-/// Add a card at the end of its column and give it the next key. The counter is
-/// shared by every board and only goes up, so no two cards ever share a key.
+/// Add a card at the end of its column, as card `number` (`local-<number>`),
+/// handed out by `counter::reserve`, which never hands out one twice. The
+/// file's `lastNumber` is kept up to it too, for an older trace that still
+/// counts there.
 pub fn create_card(
     file: &mut BoardsFile,
     board_id: &str,
     card: NewCard,
+    number: u64,
     created: String,
 ) -> Result<Card, String> {
     let summary = clean_summary(&card.summary)?;
     let priority = clean_priority(card.priority.as_deref().unwrap_or(DEFAULT_PRIORITY))?;
-    let number = file.last_number + 1;
+    let key = format!("{KEY_PREFIX}{number}");
+    if file.find_card(&key).is_some() {
+        return Err(format!("There's already a card {key}."));
+    }
     let board = board_mut(file, board_id)?;
     let column = match card.column_id {
         Some(id) => board
@@ -105,7 +111,7 @@ pub fn create_card(
         None => board.card_types.first().map(|t| t.id.clone()),
     };
     let card = Card {
-        key: format!("{KEY_PREFIX}{number}"),
+        key,
         summary,
         description: clean_description(card.description),
         priority,
@@ -116,10 +122,12 @@ pub fn create_card(
         created,
     };
     board.cards.push(card.clone());
-    file.last_number = number;
+    file.last_number = file.last_number.max(number);
     Ok(card)
 }
 
+/// Apply `patch` to card `key` (wherever it is), all of it or none: every
+/// field is checked before any is changed.
 pub fn update_card(file: &mut BoardsFile, key: &str, patch: CardPatch) -> Result<Card, String> {
     let summary = patch.summary.as_deref().map(clean_summary).transpose()?;
     let priority = patch.priority.as_deref().map(clean_priority).transpose()?;
@@ -188,6 +196,8 @@ pub fn transition(
     Ok(())
 }
 
+/// Add a comment to card `key`, kept with the card (custom boards have no
+/// tracker to post to). Refused when empty.
 pub fn add_comment(
     file: &mut BoardsFile,
     key: &str,

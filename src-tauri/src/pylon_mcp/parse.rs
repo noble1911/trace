@@ -13,33 +13,61 @@ use std::collections::HashMap;
 
 use serde_json::{json, Map, Value};
 
-use crate::issues::models::{IssueComment, IssueUser};
-use crate::pylon::models::{parse_comment, parse_issue};
+use crate::issues::models::IssueUser;
+use crate::pylon::models::parse_issue;
 
 /// id → (display name, avatar), for labelling assignees.
 pub type UserNames = HashMap<String, (String, Option<String>)>;
 
-fn str_at<'a>(v: &'a Value, keys: &[&str]) -> Option<&'a str> {
+pub(super) fn str_at<'a>(v: &'a Value, keys: &[&str]) -> Option<&'a str> {
     keys.iter()
         .find_map(|k| v.get(*k).and_then(Value::as_str))
         .filter(|s| !s.is_empty())
 }
 
 /// The list in a result: the result itself, under one of `keys`, or under
-/// `data` (itself a list, or holding one of `keys`).
+/// `data` (itself a list, or holding one of `keys`). Lenient (none found is
+/// an empty list): for what's best effort.
 pub fn list(v: &Value, keys: &[&str]) -> Vec<Value> {
+    found_list(v, keys).unwrap_or_default()
+}
+
+fn found_list(v: &Value, keys: &[&str]) -> Option<Vec<Value>> {
     let under = |v: &Value| keys.iter().find_map(|k| v.get(*k)?.as_array().cloned());
     if let Some(a) = v.as_array() {
-        return a.clone();
+        return Some(a.clone());
     }
     if let Some(a) = under(v) {
-        return a;
+        return Some(a);
     }
-    match v.get("data") {
-        Some(Value::Array(a)) => a.clone(),
-        Some(d) => under(d).unwrap_or_default(),
-        None => Vec::new(),
+    match v.get("data")? {
+        Value::Array(a) => Some(a.clone()),
+        d => under(d),
     }
+}
+
+/// [`list`] for what the board is made of: Err when there's no list at all,
+/// so a payload of another shape never reads as "no issues". `what` names the
+/// items in the error.
+pub fn listed(v: &Value, keys: &[&str], what: &str) -> Result<Vec<Value>, String> {
+    found_list(v, keys)
+        .ok_or_else(|| format!("Pylon's MCP server sent {what} in a shape trace couldn't read."))
+}
+
+/// A read tool's result, as long as it's JSON trace can read: an object or an
+/// array. Anything else (text a server sent instead of JSON, or nothing) is an
+/// error quoting it, where reading it as a list would give an empty one.
+pub fn readable(tool: &str, v: Value) -> Result<Value, String> {
+    if v.is_object() || v.is_array() {
+        return Ok(v);
+    }
+    let said = match &v {
+        Value::String(s) => s.trim().chars().take(200).collect::<String>(),
+        other => other.to_string(),
+    };
+    Err(format!(
+        "Pylon's MCP server answered {tool} with something trace couldn't read: {said}"
+    ))
 }
 
 /// A result's next cursor, when there's another page.
@@ -142,8 +170,10 @@ pub fn users(v: &Value) -> UserNames {
 }
 
 /// The signed-in user from `get_me`: the user itself, or REST's org-centric
-/// `{ data: { name (org), user: { id, email } } }`.
-pub fn me(v: &Value) -> IssueUser {
+/// `{ data: { name (org), user: { id, email } } }`. Err without an id:
+/// connecting validates the login with this, and a placeholder would let a
+/// broken login through.
+pub fn me(v: &Value) -> Result<IssueUser, String> {
     let data = v.get("data").unwrap_or(v);
     let user = data.get("user").unwrap_or(data);
     let email = str_at(user, &["email"]).map(str::to_string);
@@ -153,14 +183,15 @@ pub fn me(v: &Value) -> IssueUser {
         .or_else(|| str_at(data, &["name"]))
         .unwrap_or("Pylon")
         .to_string();
-    IssueUser {
-        account_id: str_at(user, &["id", "user_id"])
-            .unwrap_or_default()
-            .to_string(),
+    let Some(id) = str_at(user, &["id", "user_id"]) else {
+        return Err("Pylon's MCP server didn't say who trace is signed in as.".to_string());
+    };
+    Ok(IssueUser {
+        account_id: id.to_string(),
         display_name,
         email,
         avatar_url: str_at(user, &["avatar_url"]).map(str::to_string),
-    }
+    })
 }
 
 /// One of the organisation's statuses.
@@ -185,54 +216,6 @@ pub fn statuses(v: &Value) -> Vec<Status> {
                 slug: str_at(s, &["slug", "state", "value"])?.to_string(),
                 label: str_at(s, &["label", "name"]).map(str::to_string),
             })
-        })
-        .collect()
-}
-
-/// A thread entry in REST's message shape (`message_html`, `author.name`,
-/// `timestamp`, `is_private`).
-fn normalise_message(v: &Value) -> Value {
-    let mut o: Map<String, Value> = v.as_object().cloned().unwrap_or_default();
-    if !o.contains_key("message_html") {
-        let body = str_at(v, &["body_html", "html", "body", "text", "content"]);
-        o.insert("message_html".into(), json!(body.unwrap_or_default()));
-    }
-    let author = v.get("author").or_else(|| v.get("user"));
-    let name = match author {
-        Some(Value::String(s)) => Some(s.as_str()),
-        Some(a) => str_at(a, &["name", "display_name", "email"]),
-        None => str_at(v, &["author_name"]),
-    };
-    if let Some(name) = name {
-        o.insert("author".into(), json!({ "name": name }));
-    }
-    if !o.contains_key("timestamp") {
-        if let Some(t) = str_at(v, &["created_at", "sent_at"]) {
-            o.insert("timestamp".into(), json!(t));
-        }
-    }
-    if !o.contains_key("is_private") {
-        let private = ["is_internal", "private", "internal"]
-            .iter()
-            .find_map(|k| v.get(*k).and_then(Value::as_bool));
-        o.insert("is_private".into(), json!(private.unwrap_or(false)));
-    }
-    Value::Object(o)
-}
-
-/// The thread entries in a `get_issue_messages` result.
-pub fn messages(v: &Value) -> Vec<(Option<chrono::DateTime<chrono::Utc>>, IssueComment)> {
-    list(v, &["messages", "results"])
-        .iter()
-        .map(normalise_message)
-        .filter_map(|m| {
-            let c = parse_comment(&m)?;
-            let at = c
-                .created
-                .as_deref()
-                .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
-                .map(|t| t.with_timezone(&chrono::Utc));
-            Some((at, c))
         })
         .collect()
 }

@@ -10,12 +10,18 @@
 //! and the Kanban backlog column), so Jira's defaults per board type apply, as
 //! they do on REST without board-admin rights; a column the config itself
 //! flags as the backlog is still dropped.
+//!
+//! Never a silently wrong board: a config with no filter or no columns, a
+//! payload trace can't read, or a column whose statuses can't be placed
+//! (`statuses`) is an error the board shows, not a board.
+
+use std::collections::HashSet;
 
 use serde_json::{json, Value};
 
-use super::parse::{self, BoardConfig, StatusMeta};
+use super::config::{self, BoardConfig};
 use super::tools::{self, CARD_FIELDS};
-use super::JiraMcp;
+use super::{parse, statuses, JiraMcp};
 use crate::issues::models::{BoardData, BoardSummary, Issue};
 use crate::jira::scope::{self, BoardSettings};
 use crate::mcp_client::args::Arg;
@@ -56,7 +62,7 @@ pub async fn list_boards<T: ToolCaller>(c: &JiraMcp<T>) -> Result<Vec<BoardSumma
         }
         let v = c.call(&tools::BOARDS, args).await?;
         let before = out.len();
-        for b in parse::boards(&v) {
+        for b in parse::boards(&v)? {
             if !out.iter().any(|o| o.id == b.id) {
                 out.push(b);
             }
@@ -71,7 +77,8 @@ pub async fn list_boards<T: ToolCaller>(c: &JiraMcp<T>) -> Result<Vec<BoardSumma
     Ok(out)
 }
 
-/// The board's name, type and configuration (cached).
+/// The board's name, type and configuration (cached). Err, and nothing
+/// cached, when the configuration lacks a filter or columns.
 async fn board_scope<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<BoardScope, String> {
     if let Some(scope) = c.inner.scopes.get(board_id) {
         return Ok(scope);
@@ -85,7 +92,8 @@ async fn board_scope<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<Bo
         c.call(&tools::BOARD_CONFIG, vec![c.cloud(), board]),
         list_boards(c)
     );
-    let config = parse::board_config(&config?);
+    let config = config::board_config(&config?);
+    config.filter()?;
     let listed = boards
         .ok()
         .and_then(|bs| bs.into_iter().find(|b| b.id == board_id));
@@ -123,29 +131,14 @@ async fn open_sprint<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Option<St
     parse::active_sprint(&v)
 }
 
-/// The site's statuses (cached; empty when the server has no status tool).
-async fn status_meta<T: ToolCaller>(c: &JiraMcp<T>) -> StatusMeta {
-    if let Some(meta) = c.inner.statuses.get("all") {
-        return meta;
-    }
-    if !c.offers(&tools::STATUSES).await {
-        return StatusMeta::new();
-    }
-    let args = vec![c.cloud(), Arg::opt(vec![("maxResults", json!(200))])];
-    let meta = match c.call(&tools::STATUSES, args).await {
-        Ok(v) => parse::statuses(&v),
-        Err(_) => StatusMeta::new(),
-    };
-    if !meta.is_empty() {
-        c.inner.statuses.put("all".into(), meta.clone());
-    }
-    meta
-}
-
-/// Every issue `jql` finds, all pages.
+/// Every issue `jql` finds, all pages, each once. Paging ends at the last
+/// page, at a token the server already gave (it would loop), or at a page that
+/// adds no issue not already seen (a server that ignores the token).
 pub async fn search<T: ToolCaller>(c: &JiraMcp<T>, jql: &str) -> Result<Vec<Issue>, String> {
     let jql = format!("{jql} ORDER BY Rank ASC");
-    let mut out = Vec::new();
+    let mut out: Vec<Issue> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut tokens: HashSet<String> = HashSet::new();
     let mut token: Option<String> = None;
     loop {
         let mut args = vec![
@@ -160,10 +153,15 @@ pub async fn search<T: ToolCaller>(c: &JiraMcp<T>, jql: &str) -> Result<Vec<Issu
             args.push(Arg::need("nextPageToken", json!(t)));
         }
         let v = c.call(&tools::SEARCH, args).await?;
-        let (issues, next) = parse::issue_page(&v);
-        out.extend(issues);
-        token = next;
-        if token.is_none() || out.len() >= MAX_ISSUES {
+        let (issues, next) = parse::issue_page(&v)?;
+        let before = out.len();
+        for issue in issues {
+            if seen.insert(issue.key.clone()) {
+                out.push(issue);
+            }
+        }
+        token = next.filter(|t| tokens.insert(t.clone()));
+        if token.is_none() || out.len() == before || out.len() >= MAX_ISSUES {
             break;
         }
     }
@@ -179,33 +177,24 @@ pub async fn get_board<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<
         true => open_sprint(c, board_id).await,
         false => None,
     };
-    let filter = scope.config.filter_jql.clone().or_else(|| {
-        let id = scope.config.filter_id.as_ref()?;
-        Some(format!("filter = {id}"))
-    });
+    // Checked when the scope was read: never an unscoped search.
+    let filter = scope.config.filter()?;
     let jql = scope::board_jql(
-        filter.as_deref(),
+        Some(&filter),
         scope.config.sub_query.as_deref(),
         &settings,
         sprint.is_some(),
     );
-    let (issues, meta) = tokio::join!(search(c, &jql), status_meta(c));
+    let (issues, meta) = tokio::join!(search(c, &jql), statuses::site_statuses(c));
     let issues = issues?;
     let mut columns = scope::visible_columns(scope.config.columns, &settings.backlog_statuses);
-    // Label each column's statuses: the site's list first, then the cards'
-    // own, then whatever the config carried.
-    for col in &mut columns {
-        for status in &mut col.statuses {
-            let from_card = issues.iter().find(|i| i.status_id == status.id);
-            if let Some((name, category)) = meta.get(&status.id) {
-                status.name = name.clone();
-                status.category = category.clone();
-            } else if let Some(card) = from_card {
-                status.name = card.status_name.clone();
-                status.category = card.status_category.clone();
-            }
-        }
+    statuses::fill(&mut columns, &meta, &issues);
+    let unplaced = statuses::unplaced(&columns);
+    if !unplaced.is_empty() {
+        let found = statuses::look_up(c, &unplaced).await;
+        statuses::fill(&mut columns, &found, &[]);
     }
+    let columns = statuses::finish(columns)?;
     Ok(BoardData {
         board_id: board_id.to_string(),
         board_name: scope.name,

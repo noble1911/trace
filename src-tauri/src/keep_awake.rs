@@ -44,10 +44,12 @@ pub fn count_agents<'a>(pty_ids: impl Iterator<Item = &'a str>, chat_agents: usi
     pty_ids.filter(|id| !id.starts_with("term:")).count() + chat_agents
 }
 
+/// The live count from state. One lock at a time: the PTY ids are copied out
+/// and that guard dropped before the chat registry takes its own.
 fn live_agents(state: &AppState) -> usize {
-    let ptys = state.pty_sessions.lock();
+    let ptys: Vec<String> = state.pty_sessions.lock().keys().cloned().collect();
     let chats = state.chat_agents.workspaces().len();
-    count_agents(ptys.keys().map(String::as_str), chats)
+    count_agents(ptys.iter().map(String::as_str), chats)
 }
 
 /// The hold itself, with how to take one. Idempotent: applying the same wish twice
@@ -60,6 +62,8 @@ pub struct Holder {
 }
 
 impl Holder {
+    /// A holder that takes holds with `acquire` (the OS port in the app, a fake
+    /// in tests), holding nothing yet.
     pub fn new(acquire: impl Fn() -> Option<SleepHold> + Send + 'static) -> Self {
         Self {
             acquire: Box::new(acquire),

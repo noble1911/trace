@@ -47,7 +47,9 @@ pub struct Posted {
 }
 
 /// trace's client for MCP servers, shared like `helpers::http`'s: one
-/// client keeps connections open across calls.
+/// client keeps connections open across calls. It never follows a redirect:
+/// the login header (a server's own API key, say) would go with it to
+/// wherever the server pointed, so a 3xx is an error instead ([`redirected`]).
 fn client() -> Result<&'static reqwest::Client, String> {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     if let Some(c) = CLIENT.get() {
@@ -56,6 +58,7 @@ fn client() -> Result<&'static reqwest::Client, String> {
     let built = reqwest::Client::builder()
         .user_agent("trace/0.1")
         .connect_timeout(CONNECT_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
     Ok(CLIENT.get_or_init(|| built))
@@ -123,6 +126,9 @@ pub async fn post(
             session_id,
         });
     }
+    if let Some(message) = redirected(&server.name, status) {
+        return Err(message);
+    }
     if status == 401 {
         return Err(format!(
             "{} refused trace's login. Connect it again in trace: Integrations → MCP servers.",
@@ -151,6 +157,17 @@ pub async fn post(
     Ok(Posted {
         reply: Reply::Message(message),
         session_id,
+    })
+}
+
+/// What to say when `server` answered with a redirect, which trace doesn't
+/// follow (see [`client`]); None for any other status.
+pub fn redirected(server: &str, status: u16) -> Option<String> {
+    (300..400).contains(&status).then(|| {
+        format!(
+            "{server} redirected trace to another address (HTTP {status}). trace doesn't follow \
+             an MCP server's redirects, so its login can't be sent elsewhere: check the server's URL."
+        )
     })
 }
 
@@ -203,4 +220,45 @@ async fn read_sse(
         }
     }
     Ok(answer(sse.finish()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_redirect_is_an_error_naming_the_server() {
+        let said = redirected("Pylon", 307).expect("refused");
+        assert!(said.starts_with("Pylon redirected trace to another address (HTTP 307)."));
+        assert_eq!(redirected("Pylon", 200), None);
+        assert_eq!(redirected("Pylon", 404), None);
+    }
+
+    #[test]
+    fn the_client_doesnt_follow_redirects() {
+        // A server that redirects must reach `redirected`, not be followed.
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            if let Ok((mut s, _)) = listener.accept() {
+                let mut buf = [0u8; 1024];
+                let _ = s.read(&mut buf);
+                let _ = s.write_all(
+                    b"HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:1/x\r\nContent-Length: 0\r\n\r\n",
+                );
+            }
+        });
+        let status = rt.block_on(async {
+            let res = client()
+                .expect("client")
+                .get(format!("http://127.0.0.1:{port}/mcp"))
+                .send()
+                .await
+                .expect("answer");
+            res.status().as_u16()
+        });
+        assert_eq!(status, 307);
+    }
 }

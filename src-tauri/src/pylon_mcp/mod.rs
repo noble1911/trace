@@ -15,8 +15,11 @@ pub mod board;
 pub mod issue;
 pub mod parse;
 pub mod region;
+mod thread;
 pub mod tools;
 
+#[cfg(test)]
+mod guard_tests;
 #[cfg(test)]
 mod issue_tests;
 #[cfg(test)]
@@ -81,8 +84,16 @@ pub async fn open<T: ToolCaller>(caller: T, server_url: &str) -> Result<PylonMcp
     Ok(PylonMcp::build(caller, server_url, OnceCell::from(tools)))
 }
 
-/// The saved connection, from its record: no network until first use.
+/// The saved connection, from its record: no network until first use. A
+/// record naming a server that isn't one of Pylon's two is refused: the record
+/// is a file on disk, and trace's Pylon login must only ever go to Pylon.
 pub fn from_link(link: &McpLink) -> Result<PylonMcpConnection, String> {
+    if region::of_url(&link.server_url).is_none() {
+        return Err(format!(
+            "The saved Pylon connection names {}, not Pylon's MCP server. Connect Pylon again.",
+            link.server_url
+        ));
+    }
     Ok(PylonMcp::new(
         http::for_url(&link.server_url)?,
         &link.server_url,
@@ -122,6 +133,7 @@ impl<T: ToolCaller> PylonMcp<T> {
         }
     }
 
+    /// The server's tools, read once (on connect, or on first use).
     pub(crate) async fn toolset(&self) -> Result<&Toolset, String> {
         let caller = &self.inner.caller;
         let list = || async { Toolset::from_list(caller.tools().await?) };
@@ -133,17 +145,30 @@ impl<T: ToolCaller> PylonMcp<T> {
         self.toolset().await.is_ok_and(|t| t.offers(op))
     }
 
-    /// Run `op` with `args`, shaped by its schema.
+    /// Run `op` with `args`, shaped by its schema. A read's answer must be
+    /// JSON trace can read (`parse::readable`): text in its place mustn't read
+    /// as an empty list.
     pub(crate) async fn call(&self, op: &Op, args: Vec<Arg>) -> Result<Value, String> {
         let tools = self.toolset().await?;
         let args = tools.args(op, args);
-        self.inner.caller.call(op.name, args).await
+        let value = self.inner.caller.call(op.name, args).await?;
+        match op.write {
+            true => Ok(value),
+            false => parse::readable(op.name, value),
+        }
     }
 
+    /// The issue argument for `key` on `op`'s tool (`Toolset::issue_arg`).
+    pub(crate) async fn issue_arg(&self, op: &Op, key: &str) -> Result<Arg, String> {
+        self.toolset().await?.issue_arg(op, key)
+    }
+
+    /// Assignees' names, kept between board loads.
     pub(crate) fn users_cache(&self) -> &TtlCache<parse::UserNames> {
         &self.inner.users
     }
 
+    /// The organisation's statuses, kept between board loads.
     pub(crate) fn statuses_cache(&self) -> &TtlCache<Vec<parse::Status>> {
         &self.inner.statuses
     }
@@ -151,7 +176,7 @@ impl<T: ToolCaller> PylonMcp<T> {
 
 impl<T: ToolCaller> IssueProvider for PylonMcp<T> {
     async fn current_user(&self) -> Result<IssueUser, String> {
-        Ok(parse::me(&self.call(&tools::ME, Vec::new()).await?))
+        parse::me(&self.call(&tools::ME, Vec::new()).await?)
     }
 
     async fn list_boards(&self) -> Result<Vec<BoardSummary>, String> {

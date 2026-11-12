@@ -18,12 +18,15 @@ use crate::custom_boards::CustomBoards;
 use crate::issues::models::{BoardData, BoardSummary, Issue};
 use crate::state::AppState;
 
-/// Every workspace with an agent live or starting, on either transport. Each
-/// lock is taken and dropped in turn, before the boards file's.
+/// Every workspace with an agent live or starting, on either transport, here or
+/// in another running trace (the running-agents ledger, whose live entries this
+/// process's state can't see). Each lock is taken and dropped in turn, before
+/// the boards file's.
 fn live_workspaces(state: &AppState) -> HashSet<String> {
     let mut ids: HashSet<String> = state.pty_sessions.lock().keys().cloned().collect();
     ids.extend(state.chat_agents.workspaces());
     ids.extend(state.starting.lock().iter().cloned());
+    ids.extend(crate::interrupted::live_anywhere());
     ids
 }
 
@@ -47,6 +50,7 @@ pub fn custom_board_config(board_id: String) -> Result<BoardConfig, String> {
     boards().config(&board_id)
 }
 
+/// Rename a board.
 #[tauri::command]
 pub fn custom_board_rename(board_id: String, name: String) -> Result<(), String> {
     boards().rename_board(&board_id, &name)
@@ -71,6 +75,7 @@ pub fn custom_column_add(
     boards().add_column(&board_id, &name, &category)
 }
 
+/// Rename a column and/or change its category; omitted ones stay as they are.
 #[tauri::command]
 pub fn custom_column_update(
     board_id: String,
@@ -81,6 +86,7 @@ pub fn custom_column_update(
     boards().update_column(&board_id, &column_id, name.as_deref(), category.as_deref())
 }
 
+/// Move a column to `to_index` among the board's columns.
 #[tauri::command]
 pub fn custom_column_move(
     board_id: String,
