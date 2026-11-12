@@ -64,6 +64,7 @@ pub fn start(app: &AppHandle, prompt_id: &str, trigger: Trigger) -> Result<Sched
         id: new_id(),
         prompt_id: prompt.id.clone(),
         trigger,
+        transport: prompt.transport,
         status: RunStatus::Running,
         started_at: now,
         ended_at: None,
@@ -193,7 +194,7 @@ fn spawn(
     };
     let rendered = template::render(&prompt.prompt, &vars);
     // `spawn_in` attaches the turn hooks (`claude::hooks`) that tell us when the
-    // run's work is done.
+    // run's work is done, on either transport.
     let args = prompt.extra_args.clone();
     let ws = run_workspace_id(&run.id);
     let state = app.state::<AppState>();
@@ -208,7 +209,7 @@ fn spawn(
         Some(rendered.clone()),
         None,
         prompt.provider.clone(),
-        Some(crate::agent_session::transport::Transport::Terminal),
+        Some(prompt.transport),
         COLS,
         ROWS,
     )?;

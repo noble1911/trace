@@ -26,6 +26,8 @@ interface ChatAgentPaneProps {
    * counts as always running.
    */
   onStart?: () => void;
+  /** A record, not an agent to talk to (a finished scheduled run): no composer. */
+  readOnly?: boolean;
 }
 
 // A chat agent's conversation, the same for every brand: the header's facts, the
@@ -33,7 +35,12 @@ interface ChatAgentPaneProps {
 // subagent) and the composer. Each subagent's own conversation is a pane tab after
 // this one (`subagentPanel.tsx`). This is the one seam the session and ticket views
 // mount; it needs only the workspace id.
-export function ChatAgentPane({ workspaceId, expandAll = false, onStart }: ChatAgentPaneProps) {
+export function ChatAgentPane({
+  workspaceId,
+  expandAll = false,
+  onStart,
+  readOnly = false,
+}: ChatAgentPaneProps) {
   useJournalFeed(workspaceId);
   const actions = useChatActions();
   const live = useBoardStore((s) => s.runningAgents.has(workspaceId));
@@ -43,7 +50,7 @@ export function ChatAgentPane({ workspaceId, expandAll = false, onStart }: ChatA
   const { turns, subagents } = useChat(workspaceId);
   const last = turns[turns.length - 1];
   const busy = info?.busy ?? isTurnLive(last);
-  const working = useAgentWorking(workspaceId) && !stopped;
+  const working = useAgentWorking(workspaceId) && !stopped && !readOnly;
   // A question or approval is open: the turn still runs (Stop cancels it), but the
   // screen says it's waiting on you, not working.
   const rows = useJournal(workspaceId).rows;
@@ -91,16 +98,18 @@ export function ChatAgentPane({ workspaceId, expandAll = false, onStart }: ChatA
             </div>
           </div>
         )}
-        <Composer
-          workspaceId={workspaceId}
-          busy={busy}
-          working={working}
-          waiting={waiting}
-          onInterrupt={interrupt}
-          slashCommands={info?.slashCommands ?? []}
-          running={!stopped}
-          onStart={stopped ? onStart : undefined}
-        />
+        {!readOnly && (
+          <Composer
+            workspaceId={workspaceId}
+            busy={busy}
+            working={working}
+            waiting={waiting}
+            onInterrupt={interrupt}
+            slashCommands={info?.slashCommands ?? []}
+            running={!stopped}
+            onStart={stopped ? onStart : undefined}
+          />
+        )}
       </div>
     </ChatViewContext.Provider>
   );

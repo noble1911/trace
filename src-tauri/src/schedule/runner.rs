@@ -110,7 +110,10 @@ fn reap(app: &AppHandle) {
         .collect();
     let now = now_secs();
     for (ws, live_run) in live {
-        let exited = live_run.spawned && !state.pty_sessions.lock().contains_key(&ws);
+        // A run is a terminal or a chat agent: it's gone when neither is up.
+        let exited = live_run.spawned
+            && !state.pty_sessions.lock().contains_key(&ws)
+            && !crate::agent_session::runtime::is_running(&state, &ws);
         if exited {
             let error = "The agent exited before finishing its turn.".to_string();
             run::finish(app, &ws, RunStatus::Failed, Some(error));

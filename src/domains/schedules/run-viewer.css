@@ -83,6 +83,14 @@
   flex-shrink: 0;
 }
 /* Summary tab: the run's closing message, full height and scrollable. */
+/* A chat run's chat: the agent chat's own pane, given the viewer's height. */
+.sched-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .sched-summary {
   flex: 1;
   min-height: 0;

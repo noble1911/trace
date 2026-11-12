@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "@/app/toast";
 import { Modal } from "@/components/Modal";
 import { Switch } from "@/components/Switch";
-import { agentArgsRaw, agentModelRaw, agentProvider } from "@/domains/agent/defaults";
+import {
+  agentArgsRaw,
+  agentModelRaw,
+  agentProvider,
+  agentTransport,
+} from "@/domains/agent/defaults";
+import type { Transport } from "@/domains/agentChat/types";
 import type { AgentProvider } from "@/ipc/agent";
 import { listRepos } from "@/ipc/repos";
 import { basename } from "@/platform/paths";
@@ -29,6 +35,7 @@ interface Draft {
   provider: AgentProvider;
   model: string;
   args: string;
+  transport: Transport;
   precheck: string;
   timeoutMins: number;
   notify: boolean;
@@ -44,6 +51,7 @@ function initialDraft(prompt?: ScheduledPrompt): Draft {
       provider: prompt.provider ?? "anthropic",
       model: prompt.model ?? "",
       args: prompt.extraArgs.join(" "),
+      transport: prompt.transport,
       precheck: prompt.precheck ?? "",
       timeoutMins: prompt.timeoutMins,
       notify: prompt.notify,
@@ -57,6 +65,7 @@ function initialDraft(prompt?: ScheduledPrompt): Draft {
     provider: agentProvider(),
     model: agentModelRaw(),
     args: agentArgsRaw(),
+    transport: agentTransport(),
     precheck: "",
     timeoutMins: 30,
     notify: true,
@@ -111,6 +120,7 @@ export function ScheduleModal({ prompt, onClose }: ScheduleModalProps) {
       provider: draft.provider,
       model: draft.model.trim() || null,
       extraArgs: draft.args.trim() ? draft.args.trim().split(/\s+/) : [],
+      transport: draft.transport,
       schedule: draft.schedule,
       precheck: draft.precheck.trim() || null,
       timeoutMins: draft.timeoutMins,
@@ -195,6 +205,19 @@ export function ScheduleModal({ prompt, onClose }: ScheduleModalProps) {
           </label>
         )}
         <label className="field">
+          <span className="field-label">Runs as</span>
+          <select
+            className="field-input"
+            value={draft.transport}
+            onChange={(e) => patch({ transport: e.target.value as Transport })}
+          >
+            <option value="chat">Chat</option>
+            <option value="terminal">Terminal</option>
+          </select>
+        </label>
+      </div>
+      <div className="sched-form-row">
+        <label className="field">
           <span className="field-label">Provider</span>
           <select
             className="field-input"
@@ -209,8 +232,6 @@ export function ScheduleModal({ prompt, onClose }: ScheduleModalProps) {
             <option value="deepseek-pro">DeepSeek Pro</option>
           </select>
         </label>
-      </div>
-      <div className="sched-form-row">
         <label className="field">
           <span className="field-label">Model</span>
           <input
@@ -221,6 +242,8 @@ export function ScheduleModal({ prompt, onClose }: ScheduleModalProps) {
             onChange={(e) => patch({ model: e.target.value })}
           />
         </label>
+      </div>
+      <div className="sched-form-row">
         <label className="field">
           <span className="field-label">Timeout (minutes, 0 = none)</span>
           <input

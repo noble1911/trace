@@ -60,5 +60,7 @@ pub fn continue_as_session(run_id: &str) -> Result<ScratchSession, String> {
     )?;
     crate::commands::repos::adopt_workspace_dir(&session.id, &dirname, &repo)?;
     crate::claude::conversations::upsert_session_id(&session.id, &claude_id)?;
+    // It carries on the way the run ran; a chat backfills the run's turns.
+    crate::agent_session::transport::remember(&session.id, run.transport);
     Ok(session)
 }

@@ -12,6 +12,7 @@ interface PromptViewProps {
 export function PromptView({ prompt, sent }: PromptViewProps) {
   const settings = [
     agentLabel("claude", prompt.provider),
+    prompt.transport,
     prompt.model,
     prompt.extraArgs.join(" "),
     prompt.timeoutMins > 0 ? `${prompt.timeoutMins}m timeout` : "no timeout",

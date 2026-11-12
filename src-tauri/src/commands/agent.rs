@@ -77,11 +77,15 @@ pub(crate) fn spawn_in(
     if cli == "claude" && local {
         crate::claude::folder_trust::trust_worktree(&cwd);
     }
+    // A scheduled run keeps its transport on the run record (one id per run).
+    let remembered = !workspace_id.starts_with(crate::schedule::RUN_PREFIX);
     if transport == Transport::Chat {
         if state.pty_sessions.lock().contains_key(&workspace_id) {
             return Err("This agent is running in a terminal. Stop it first.".to_string());
         }
-        transport::remember(&workspace_id, transport);
+        if remembered {
+            transport::remember(&workspace_id, transport);
+        }
         let req = StartRequest {
             workspace_id,
             cli,
@@ -102,8 +106,7 @@ pub(crate) fn spawn_in(
     if state.chat_agents.is_running(&workspace_id) {
         return Err("This agent is running as a chat. Stop it first.".to_string());
     }
-    // Scheduled runs are always terminals, and there's one id per run.
-    if !workspace_id.starts_with(crate::schedule::RUN_PREFIX) {
+    if remembered {
         transport::remember(&workspace_id, transport);
     }
     let (resume_id, new_id_arg) = match local {

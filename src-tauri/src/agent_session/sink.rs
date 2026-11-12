@@ -53,6 +53,11 @@ impl JournalSink for Sink {
         }
         // Plan mode and task lists become the Plan tab's documents (`plans`).
         crate::plans::on_row(&self.app, &self.workspace_id, &row);
+        // A chat asks for a human with a row, not the terminal's Notification
+        // hook: a scheduled run waiting on one needs you (`schedule::completion`).
+        if asks_for_human(&row) && self.workspace_id.starts_with(crate::schedule::RUN_PREFIX) {
+            crate::schedule::completion::needs_input(&self.app, &self.workspace_id);
+        }
         let event = JournalEvent {
             workspace_id: &self.workspace_id,
             rows: vec![row],
@@ -104,5 +109,14 @@ impl JournalSink for Sink {
             "session ended",
             serde_json::Value::Null,
         );
+    }
+}
+
+/// An approval or question still waiting on its answer.
+fn asks_for_human(row: &JournalRow) -> bool {
+    match &row.body {
+        JournalBody::Approval(a) => a.resolution.is_none(),
+        JournalBody::Question(q) => q.resolution.is_none(),
+        _ => false,
     }
 }

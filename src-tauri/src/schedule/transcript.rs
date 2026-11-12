@@ -60,8 +60,11 @@ pub fn load(run_id: &str) -> Option<Transcript> {
     serde_json::from_str(&raw).ok()
 }
 
+/// Delete what a run left on disk: its terminal recording and, for a chat run,
+/// its journal (and anything else kept under its workspace id).
 pub fn delete(run_id: &str) {
     if let Some(path) = path(run_id) {
         let _ = std::fs::remove_file(path);
     }
+    crate::agent_session::runtime::forget(&super::run_workspace_id(run_id));
 }

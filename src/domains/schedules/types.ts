@@ -1,3 +1,4 @@
+import type { Transport } from "@/domains/agentChat/types";
 import type { AgentProvider } from "@/ipc/agent";
 
 // Mirrors `schedule::model` / `schedule::timing` in Rust. Timestamps are epoch
@@ -28,6 +29,8 @@ export interface ScheduledPrompt {
   provider?: AgentProvider | null;
   model?: string | null;
   extraArgs: string[];
+  /** Runs are a chat agent or the TUI in a terminal. */
+  transport: Transport;
   schedule: Schedule;
   /** Shell line run before each scheduled run: exit 0 runs it, anything else skips it. */
   precheck?: string | null;
@@ -60,6 +63,8 @@ export interface ScheduleRun {
   id: string;
   promptId: string;
   trigger: "schedule" | "manual";
+  /** How this run's agent ran (the prompt's choice when it started). */
+  transport: Transport;
   status: RunStatus;
   startedAt: number;
   endedAt?: number | null;
@@ -99,6 +104,7 @@ export interface PromptInput {
   provider: AgentProvider;
   model: string | null;
   extraArgs: string[];
+  transport: Transport;
   schedule: Schedule;
   precheck?: string | null;
   timeoutMins: number;
@@ -119,6 +125,8 @@ export interface SharedPrompt {
   provider?: AgentProvider | null;
   model?: string | null;
   extraArgs: string[];
+  /** Files from before the choice read as "terminal". */
+  transport: Transport;
   precheck?: string | null;
   timeoutMins: number;
   notify: boolean;

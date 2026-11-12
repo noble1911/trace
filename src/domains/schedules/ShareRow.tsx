@@ -7,7 +7,7 @@ interface ShareRowProps {
   /** A saved prompt (export) or one read from a file (import) — both fit. */
   prompt: Pick<
     SharedPrompt,
-    "title" | "schedule" | "provider" | "model" | "extraArgs" | "precheck"
+    "title" | "schedule" | "provider" | "model" | "extraArgs" | "precheck" | "transport"
   >;
   checked: boolean;
   onToggle: (checked: boolean) => void;
@@ -25,6 +25,7 @@ export function ShareRow({ prompt, checked, onToggle, tag, children }: ShareRowP
     describeSchedule(prompt.schedule),
     agentLabel("claude", prompt.provider),
     prompt.model,
+    prompt.transport,
   ].filter(Boolean);
 
   return (

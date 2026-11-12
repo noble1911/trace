@@ -147,6 +147,7 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       is created. Per repo, in Settings → Repositories; suggested from lockfiles after a clone.
       ([#11](https://github.com/noble1911/trace/pull/11))
 - [x] **Scheduled run prechecks:** a shell command decides whether a scheduled run goes ahead.
+- [x] **Scheduled runs as a chat:** a scheduled prompt runs as a chat agent or in a terminal; a chat run's approvals are answered in place.
 - [x] **Quick Open:** fuzzy file search within a worktree (⌘P / Ctrl+Shift+P); results open in
       the Files tab or your editor.
 - [ ] **File previews:** images, PDFs and Markdown next to the agent. Images have started: the

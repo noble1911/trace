@@ -122,6 +122,20 @@ fn on_stop(app: &AppHandle, ws: &str, live: &run::LiveRun, input: HookInput) {
     });
 }
 
+/// A chat run's agent asked for a human (an approval or question row). The
+/// terminal's equivalent is the Notification hook, through `on_turn`.
+pub fn needs_input(app: &AppHandle, ws: &str) {
+    let run_id = {
+        let state = app.state::<AppState>();
+        let runs = state.live_runs.lock();
+        let Some(live) = runs.get(ws) else {
+            return;
+        };
+        live.run_id.clone()
+    };
+    mark_needs_input(app, &run_id);
+}
+
 fn mark_needs_input(app: &AppHandle, run_id: &str) {
     let already = store::runs()
         .iter()

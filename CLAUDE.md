@@ -146,7 +146,8 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   Sessions-page list keeps its sort and manual order in `session-order.json` (`commands/session_order.rs`).
 - **Scheduled prompt:** a prompt that fires on a schedule (interval / daily / weekly / monthly / cron) from
   a Rust runner thread (`schedule/runner.rs`, only while trace is open; one process leads via a file lock).
-  Each prompt owns a worktree; each run is a fresh conversation in a PTY keyed `sched:<runId>`. A run
+  Each prompt owns a worktree; each run is a fresh conversation keyed `sched:<runId>`, in a PTY
+  or as a chat agent (the prompt's `transport`; a chat run's journal is its record). A run
   finishes when a turn ends with no background tasks pending and no new turn follows
   (`schedule/completion.rs`). Finished runs' output is saved to disk and
   replayed through `pty_snapshot`; "Continue as session" adopts the prompt's worktree + conversation.

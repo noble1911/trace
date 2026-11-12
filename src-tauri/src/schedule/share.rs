@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use super::model::{PromptInput, ScheduledPrompt};
 use super::timing::Schedule;
 use super::{now_secs, store};
+use crate::agent_session::transport::Transport;
 
 /// Marks a trace export, so importing some other JSON fails with a clear message.
 const FORMAT: &str = "trace.scheduled-prompts";
@@ -49,6 +50,9 @@ pub struct SharedPrompt {
     pub model: Option<String>,
     #[serde(default)]
     pub extra_args: Vec<String>,
+    /// Chat or terminal; files from before the choice ran in the terminal.
+    #[serde(default)]
+    pub transport: Transport,
     /// A shell line — shown in the import preview, since it runs unattended.
     #[serde(default)]
     pub precheck: Option<String>,
@@ -180,6 +184,7 @@ fn to_shared(p: ScheduledPrompt) -> SharedPrompt {
         provider: p.provider,
         model: p.model,
         extra_args: p.extra_args,
+        transport: p.transport,
         precheck: p.precheck,
         timeout_mins: p.timeout_mins,
         notify: p.notify,
@@ -196,6 +201,7 @@ fn to_input(item: ImportItem) -> PromptInput {
         provider: s.provider,
         model: s.model,
         extra_args: s.extra_args,
+        transport: Some(s.transport),
         schedule: s.schedule,
         precheck: s.precheck,
         timeout_mins: s.timeout_mins,
@@ -218,7 +224,7 @@ fn folder_name(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{match_repo, parse, Bundle, SharedPrompt, FORMAT, VERSION};
+    use super::{match_repo, parse, Bundle, SharedPrompt, Transport, FORMAT, VERSION};
     use crate::schedule::timing::Schedule;
 
     fn sample() -> SharedPrompt {
@@ -232,6 +238,7 @@ mod tests {
             provider: Some("deepseek".to_string()),
             model: None,
             extra_args: vec!["--permission-mode".to_string(), "acceptEdits".to_string()],
+            transport: Transport::Chat,
             precheck: Some("gh run list --status failure --limit 1".to_string()),
             timeout_mins: 30,
             notify: true,
@@ -269,6 +276,16 @@ mod tests {
         );
         assert!(!old.contains("precheck"));
         assert_eq!(parse(&old).unwrap_or_default()[0].precheck, None);
+    }
+
+    #[test]
+    fn reads_files_from_before_the_transport_choice_as_terminal() {
+        let old = file(vec![sample()]).replace(r#""transport":"chat","#, "");
+        assert!(!old.contains("transport"));
+        assert_eq!(
+            parse(&old).unwrap_or_default()[0].transport,
+            Transport::Terminal
+        );
     }
 
     #[test]

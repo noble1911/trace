@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::precheck::PrecheckResult;
 use super::timing::Schedule;
+use crate::agent_session::transport::Transport;
 use crate::helpers::new_id;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -30,6 +31,10 @@ pub struct ScheduledPrompt {
     /// permission mode — nobody is there to approve a prompt mid-run.
     #[serde(default)]
     pub extra_args: Vec<String>,
+    /// Whether runs are a chat agent or the TUI in a terminal. Prompts saved
+    /// before the choice existed ran in the terminal, so that's the default.
+    #[serde(default)]
+    pub transport: Transport,
     pub schedule: Schedule,
     /// Shell line run in the worktree before each run: exit 0 runs it, anything
     /// else skips it (`precheck`). `None` = always run.
@@ -77,6 +82,10 @@ pub struct ScheduleRun {
     pub id: String,
     pub prompt_id: String,
     pub trigger: Trigger,
+    /// How this run's agent ran, so its history reads right after the prompt
+    /// switches transport. Runs from before the choice were terminals.
+    #[serde(default)]
+    pub transport: Transport,
     pub status: RunStatus,
     pub started_at: i64,
     #[serde(default)]
@@ -127,6 +136,9 @@ pub struct PromptInput {
     pub model: Option<String>,
     #[serde(default)]
     pub extra_args: Vec<String>,
+    /// `None` = the terminal, as before the choice existed.
+    #[serde(default)]
+    pub transport: Option<Transport>,
     pub schedule: Schedule,
     #[serde(default)]
     pub precheck: Option<String>,
@@ -189,6 +201,7 @@ impl PromptInput {
                 .map(|a| a.trim().to_string())
                 .filter(|a| !a.is_empty())
                 .collect(),
+            transport: self.transport.unwrap_or_default(),
             next_run_at: if enabled {
                 self.schedule.next_after(now, anchor_at)
             } else {
@@ -210,4 +223,25 @@ fn trimmed(value: Option<String>) -> Option<String> {
     value
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ScheduleRun, ScheduledPrompt};
+    use crate::agent_session::transport::Transport;
+
+    #[test]
+    fn prompts_and_runs_saved_before_the_choice_ran_in_the_terminal() {
+        let prompt: ScheduledPrompt = serde_json::from_str(
+            r#"{"id":"p","title":"t","prompt":"go","schedule":{"kind":"daily","time":"09:00"},
+                "enabled":true,"timeoutMins":0,"notify":false,"createdAt":0,"anchorAt":0}"#,
+        )
+        .expect("an old prompt reads");
+        assert_eq!(prompt.transport, Transport::Terminal);
+        let run: ScheduleRun = serde_json::from_str(
+            r#"{"id":"r","promptId":"p","trigger":"manual","status":"succeeded","startedAt":0}"#,
+        )
+        .expect("an old run reads");
+        assert_eq!(run.transport, Transport::Terminal);
+    }
 }

@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { agentProvider } from "@/domains/agent/defaults";
+import { agentProvider, agentTransport } from "@/domains/agent/defaults";
+import type { Transport } from "@/domains/agentChat/types";
 import { describeSchedule, formatDuration, formatWhen } from "@/domains/schedules/describe";
 import type { PromptInput, Schedule, ScheduledPrompt } from "@/domains/schedules/types";
 import {
@@ -43,6 +44,12 @@ const EDITABLE = {
     type: "array",
     items: { type: "string" },
     description: "Extra CLI arguments for the run's Claude session.",
+  },
+  transport: {
+    type: "string",
+    enum: ["chat", "terminal"],
+    description:
+      "How each run is shown: as a chat (a formatted conversation, approvals answered in place) or as Claude's TUI in a terminal.",
   },
 };
 
@@ -106,6 +113,8 @@ type Args = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
 const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
+const transport = (v: unknown): Transport | undefined =>
+  v === "chat" || v === "terminal" ? v : undefined;
 const strings = (v: unknown): string[] | undefined =>
   Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : undefined;
 
@@ -118,6 +127,7 @@ function asInput(p: ScheduledPrompt): PromptInput {
     provider: p.provider ?? "anthropic",
     model: p.model ?? null,
     extraArgs: p.extraArgs,
+    transport: p.transport,
     schedule: p.schedule,
     precheck: p.precheck ?? null,
     timeoutMins: p.timeoutMins,
@@ -136,6 +146,7 @@ function withEdits(base: PromptInput, a: Args): PromptInput {
     notify: bool(a.notify) ?? base.notify,
     model: str(a.model) ?? base.model,
     extraArgs: strings(a.extra_args) ?? base.extraArgs,
+    transport: transport(a.transport) ?? base.transport,
   };
 }
 
@@ -163,7 +174,7 @@ async function getPrompt(id: string): Promise<string> {
   const lines = [
     `${p.title} (${p.id}) — ${p.enabled ? "on" : "paused"}`,
     `Schedule: ${describeSchedule(p.schedule)} · timeout ${p.timeoutMins ? `${p.timeoutMins}m` : "none"} · notify ${p.notify ? "on" : "off"}`,
-    `Model: ${p.model ?? "default"} · provider ${p.provider ?? "anthropic"} · args ${p.extraArgs.join(" ") || "none"}`,
+    `Model: ${p.model ?? "default"} · provider ${p.provider ?? "anthropic"} · args ${p.extraArgs.join(" ") || "none"} · runs as ${p.transport}`,
     `Precheck: ${p.precheck ?? "none"}`,
     "",
     "PROMPT:",
@@ -201,6 +212,7 @@ async function createPrompt(a: Args): Promise<string> {
     provider: agentProvider(),
     model: null,
     extraArgs: [],
+    transport: agentTransport(),
     schedule: { kind: "daily", time: "09:00" },
     timeoutMins: 0,
     notify: true,

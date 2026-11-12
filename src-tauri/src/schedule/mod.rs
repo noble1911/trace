@@ -1,9 +1,10 @@
 //! Scheduled prompts — a prompt that runs itself on a schedule.
 //!
 //! Each prompt owns one worktree (like an exploratory session) and every firing
-//! is a *run*: a fresh interactive Claude conversation in a PTY keyed
-//! `sched:<runId>`, so the live terminal, scrollback replay and stop plumbing
-//! shared by board agents and sessions work on it unchanged. The engine lives in
+//! is a *run*: a fresh Claude conversation keyed `sched:<runId>`, in a PTY or
+//! as a chat agent (the prompt's `transport`), so the live terminal or chat,
+//! replay and stop plumbing shared by board agents and sessions work on it
+//! unchanged. The engine lives in
 //! Rust (`runner`) so it fires whatever the renderer is doing — but only while
 //! trace is open.
 //!
@@ -13,7 +14,8 @@
 //! - `run`: launching and finishing one run; `completion` decides when its work
 //!   (background tasks included) is done, from `claude::hooks` turn events;
 //!   `wakeup` spots a turn that ended by scheduling its own next check-in.
-//! - `transcript`: a finished run's PTY bytes on disk, replayable after restart.
+//! - `transcript`: a finished run's PTY bytes on disk, replayable after restart
+//!   (a chat run's journal is kept under its workspace id instead).
 //! - `template`: `{date}`-style variables substituted into the prompt.
 //! - `handoff`: continuing a finished run as an exploratory session.
 //! - `share`: exporting prompts to a portable file and importing them, paused.

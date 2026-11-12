@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
-import { Markdown } from "@/components/Markdown";
-import { Segmented } from "@/components/Segmented";
-import { PtyTerminal } from "@/domains/agent/PtyTerminal";
 import { disposeTerminal, fitTerminal } from "@/domains/agent/terminalRegistry";
 import { useBoardStore } from "@/domains/board/store";
 import { useNow } from "@/hooks/useNow";
@@ -11,22 +8,17 @@ import { resizeAgent } from "@/ipc/agent";
 import { formatDuration, formatWhen } from "./describe";
 import { runWorkspaceId } from "./ids";
 import { PrecheckNote, stoppedAtPrecheck } from "./PrecheckNote";
-import { PromptView } from "./PromptView";
 import { RunBadge, useRunNeedsYou } from "./RunBadge";
-import { RunConversation } from "./RunConversation";
+import { RunViews } from "./RunViews";
 import { useSchedulesStore } from "./store";
 import type { ScheduledPrompt, ScheduleRun } from "./types";
 
-type RunView = "summary" | "log" | "terminal" | "prompt";
-
-// One run, four ways, one tab at a time so each gets the full height: Claude's
-// closing summary (the default for a finished run — it's the answer), the whole
-// conversation as scrollable text (read from Claude's own log, since the PTY
-// recording can only replay the TUI's last screen), the terminal itself, which a
-// live run can be typed into (e.g. to answer a permission prompt), or the prompt.
+// One run: its facts and notes over its views (`RunViews`): Claude's closing
+// summary, the conversation, the terminal or the chat, and the prompt.
 export function RunViewer({ run, prompt }: { run: ScheduleRun; prompt: ScheduledPrompt }) {
   const ws = runWorkspaceId(run.id);
   const live = run.status === "running";
+  const chat = run.transport === "chat";
   const ptyUp = useBoardStore((s) => s.runningAgents.has(ws));
   const stopRun = useSchedulesStore((s) => s.stopRun);
   const continueAsSession = useSchedulesStore((s) => s.continueAsSession);
@@ -39,20 +31,20 @@ export function RunViewer({ run, prompt }: { run: ScheduleRun; prompt: Scheduled
   // sized by PtyTerminal, and a same-size resize makes the TUI repaint over itself.
   const wasUp = useRef(ptyUp);
   useEffect(() => {
-    if (ptyUp && !wasUp.current) {
+    if (ptyUp && !wasUp.current && !chat) {
       const size = fitTerminal(ws);
       if (size) void resizeAgent(ws, size.cols, size.rows);
     }
     wasUp.current = ptyUp;
-  }, [ptyUp, ws]);
+  }, [ptyUp, ws, chat]);
 
   // A finished run's terminal is just a replay — free it on the way out rather
   // than keeping an xterm per run ever viewed. (A live one stays, like any agent.)
   useEffect(
     () => () => {
-      if (!useBoardStore.getState().runningAgents.has(ws)) disposeTerminal(ws);
+      if (!chat && !useBoardStore.getState().runningAgents.has(ws)) disposeTerminal(ws);
     },
-    [ws]
+    [ws, chat]
   );
 
   const onContinue = () => {
@@ -100,7 +92,8 @@ export function RunViewer({ run, prompt }: { run: ScheduleRun; prompt: Scheduled
 
       {needsYou && (
         <div className="sched-viewer-note">
-          Claude is waiting on you — answer in the terminal below and the run carries on.
+          Claude is waiting on you — answer in the {chat ? "chat" : "terminal"} below and the run
+          carries on.
         </div>
       )}
       {live && run.wakesAt && background === 0 && !needsYou && (
@@ -131,107 +124,5 @@ export function RunViewer({ run, prompt }: { run: ScheduleRun; prompt: Scheduled
       {/* A run that stopped at its precheck never had an agent to show. */}
       {!stoppedAtPrecheck(run) && <RunViews run={run} prompt={prompt} live={live} />}
     </div>
-  );
-}
-
-interface RunViewsProps {
-  run: ScheduleRun;
-  prompt: ScheduledPrompt;
-  live: boolean;
-}
-
-// The tabs of a run that got as far as starting its agent.
-function RunViews({ run, prompt, live }: RunViewsProps) {
-  const ws = runWorkspaceId(run.id);
-  // A live run you may need to answer opens on the terminal; a finished one on
-  // its summary; otherwise the conversation.
-  const [picked, setView] = useState<RunView>(
-    live && !run.claudeSessionId ? "terminal" : run.summary ? "summary" : "log"
-  );
-  // The Summary tab only exists once there is one.
-  const view: RunView = picked === "summary" && !run.summary ? "log" : picked;
-
-  return (
-    <>
-      <div className="sched-views">
-        <Segmented<RunView>
-          label="Show"
-          value={view}
-          options={[
-            ...(run.summary
-              ? [
-                  {
-                    value: "summary" as const,
-                    label: (
-                      <>
-                        <I.Sparkles size={14} /> Summary
-                      </>
-                    ),
-                    title: "Claude's closing message for this run",
-                  },
-                ]
-              : []),
-            {
-              value: "log",
-              label: (
-                <>
-                  <I.Chat size={14} /> Conversation
-                </>
-              ),
-            },
-            {
-              value: "terminal",
-              label: (
-                <>
-                  <I.Terminal size={14} /> Terminal
-                </>
-              ),
-              title: live
-                ? "Type here to answer the agent"
-                : "The recorded terminal (last screen only)",
-            },
-            {
-              value: "prompt",
-              label: (
-                <>
-                  <I.File size={14} /> Prompt
-                </>
-              ),
-              title: "The prompt this run was sent, and how it runs",
-            },
-          ]}
-          onChange={setView}
-        />
-      </div>
-
-      {view === "summary" && run.summary && (
-        <div className="sched-summary">
-          <Markdown text={run.summary} />
-        </div>
-      )}
-      {view === "prompt" && <PromptView prompt={prompt} sent={run.prompt} />}
-      {view === "log" && run.claudeSessionId && <RunConversation run={run} />}
-      {view === "log" && !run.claudeSessionId && (
-        <div className="empty-state">
-          <div className="inner">
-            <div className="title">No conversation</div>
-            <div className="hint">This run never got as far as starting one.</div>
-          </div>
-        </div>
-      )}
-      {view === "terminal" &&
-        (live || run.hasTranscript ? (
-          <div className="pty-host-wrap">
-            <PtyTerminal issueKey={ws} />
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="inner">
-              <div className="title">No output recorded</div>
-              <div className="hint">This run ended before its agent printed anything.</div>
-            </div>
-          </div>
-        ))}
-    </>
   );
 }

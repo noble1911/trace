@@ -140,6 +140,7 @@ mod tests {
             id: id.to_string(),
             prompt_id: "p".to_string(),
             trigger: Trigger::Schedule,
+            transport: Default::default(),
             status,
             started_at: id as i64,
             ended_at: None,
