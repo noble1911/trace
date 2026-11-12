@@ -171,6 +171,14 @@ describe("the rail's buttons, one per kind of board", () => {
     assert.equal(isEntrySelected(shown[3], many[4]), false);
   });
 
+  it("keeps trace's boards in their own order whichever was opened last", () => {
+    const before = pickRailEntries(many, { "custom:a": 10, "custom:b": 20 }, "custom:b");
+    const after = pickRailEntries(many, { "custom:a": 30, "custom:b": 20 }, "custom:a");
+    const keys = (r: typeof before) => r.shown.map((e) => e.board.key);
+    assert.deepEqual(keys(before), keys(after));
+    assert.deepEqual(keys(after).slice(2), ["custom:a", "custom:b"]);
+  });
+
   it("has nothing more to list when every board has a button", () => {
     const few = [b("jira", "1"), b("custom", "a")];
     assert.equal(pickRailEntries(few, {}, null).hasMore, false);

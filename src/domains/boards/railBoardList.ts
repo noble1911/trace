@@ -72,8 +72,8 @@ export interface RailEntries {
 /**
  * The group's buttons: one per tracker that has boards (Jira, then Pylon), opening that
  * tracker's last-used board (the one on screen, when it's that tracker's), then trace's
- * own boards, most recently opened first, up to `limit` buttons in all. The board on
- * screen always has a button.
+ * own boards in the order they were made, up to `limit` buttons in all (the most
+ * recently opened ones, when there are more). The board on screen always has a button.
  */
 export function pickRailEntries(
   boards: readonly BoardOption[],
@@ -91,7 +91,10 @@ export function pickRailEntries(
     .filter((e): e is RailEntry => e !== null);
   const custom = sorted.filter((b) => b.provider === "custom");
   const room = Math.max(0, limit - trackers.length);
-  const { shown } = pickRailBoards(custom, lastOpened, selectedKey, room);
+  // Last use decides which of them fit, never their order: they stay in the order
+  // they're listed (made), so opening one doesn't shuffle the buttons under the pointer.
+  const fits = new Set(pickRailBoards(custom, lastOpened, selectedKey, room).shown);
+  const shown = boards.filter((b) => fits.has(b));
   const entries = [...trackers, ...shown.map((board) => ({ board, isTracker: false }))];
   return { shown: entries, hasMore: boards.length > entries.length };
 }
