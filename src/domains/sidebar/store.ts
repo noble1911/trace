@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import type { NavId } from "@/app/nav";
+import { loadGroupBoards, moveRow, nudgeRow, saveGroupBoards, setGroupVisible } from "./boardGroup";
 import { DEFAULT_SIDEBAR, type SidebarEntry, sidebarItem, type Visibility } from "./items";
-import { loadSidebar, moveEntry, nudgeEntry, saveSidebar } from "./prefs";
+import { loadSidebar, saveSidebar } from "./prefs";
 import { loadRecentsDelay, type RecentsDelay, saveRecentsDelay } from "./recentsDelay";
 import { loadRecentsFlyout, saveRecentsFlyout } from "./recentsFlyout";
 
@@ -15,6 +16,12 @@ interface SidebarStore {
   move: (id: NavId, before: NavId | null) => void;
   nudge: (id: NavId, delta: -1 | 1) => void;
   reset: () => void;
+  /** The board pages are one Boards button on the rail, and one row here (on by default).
+   * While on, `move` and `nudge` carry the board pages together. */
+  groupBoards: boolean;
+  setGroupBoards: (on: boolean) => void;
+  /** Show or hide the grouped board pages together. */
+  setGroupVisible: (on: boolean) => void;
   /** Resting on Sessions slides out its recent sessions (off by default). */
   recentsFlyout: boolean;
   setRecentsFlyout: (on: boolean) => void;
@@ -36,10 +43,18 @@ export const useSidebarStore = create<SidebarStore>((set, get) => {
       commit(get().entries.map((e) => (e.id === id ? { ...e, visibility } : e)));
     },
     move(id, before) {
-      commit(moveEntry(get().entries, id, before));
+      commit(moveRow(get().entries, id, before, get().groupBoards));
     },
     nudge(id, delta) {
-      commit(nudgeEntry(get().entries, id, delta));
+      commit(nudgeRow(get().entries, id, delta, get().groupBoards));
+    },
+    groupBoards: loadGroupBoards(),
+    setGroupBoards(groupBoards) {
+      saveGroupBoards(groupBoards);
+      set({ groupBoards });
+    },
+    setGroupVisible(on) {
+      commit(setGroupVisible(get().entries, on));
     },
     reset() {
       commit(DEFAULT_SIDEBAR);

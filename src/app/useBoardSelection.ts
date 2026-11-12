@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useBoardStore } from "@/domains/board/store";
+import { useBoardRecency } from "@/domains/boards/boardRecency";
 import { useIssuesStore } from "@/domains/issues/store";
 import { type NavId, navBoardProvider } from "./nav";
 
@@ -29,4 +30,12 @@ export function useBoardSelection(nav: NavId): void {
     if (selectedBoardKey != null) void loadBoard(selectedBoardKey);
     else clearBoard();
   }, [selectedBoardKey, loadBoard, clearBoard]);
+
+  // A board counts as opened when its own page shows it: not one loaded behind a ticket
+  // from elsewhere. The rail's Boards group lists boards by this (`boardRecency`).
+  const shownProvider = boards.find((b) => b.key === selectedBoardKey)?.provider;
+  const opened = tracker && !detailOpen && shownProvider === tracker ? selectedBoardKey : null;
+  useEffect(() => {
+    if (opened) useBoardRecency.getState().touch(opened);
+  }, [opened]);
 }

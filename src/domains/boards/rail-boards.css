@@ -1,0 +1,142 @@
+/* The rail's Boards group (RailBoards): while a board is on screen, a box beneath the
+   Boards button lists your boards, one small button each. Left = navigation: it's the
+   board page's own navigation, in the rail like the recent sessions (`.rail-group`). */
+
+.rb-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+
+/* One board: its glyph, with its initials in the bottom corner. */
+.rb-btn {
+  position: relative;
+  width: var(--control-h);
+  height: var(--control-h);
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  color: var(--fg-3);
+}
+.rb-btn > svg {
+  /* Up and left, so the corner initials don't sit on the glyph. */
+  transform: translate(-3px, -3px);
+}
+.rb-btn.rb-add > svg,
+.rb-btn.rb-more > svg {
+  transform: none;
+}
+.rb-btn:hover {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+.rb-btn:focus-visible {
+  outline: 1px solid var(--c-accent);
+  outline-offset: 1px;
+}
+/* The board on screen: the accent, as a selection. */
+.rb-btn.active {
+  color: var(--c-accent);
+  background: color-mix(in oklch, var(--c-accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--c-accent) 45%, transparent);
+}
+.rb-btn[aria-expanded="true"] {
+  background: var(--bg-3);
+  color: var(--fg-1);
+}
+.rb-initials {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-1);
+  font-size: var(--text-label);
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--fg-2);
+}
+.rb-btn:hover .rb-initials {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+.rb-btn.active .rb-initials {
+  background: transparent;
+  color: var(--c-accent);
+}
+/* An agent on this board needs you: the rail's attention dot. */
+.rb-btn .badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--state-needs);
+  box-shadow: 0 0 8px var(--state-needs);
+}
+
+/* "All boards": opens beside the rail, not under the button and over it. */
+.rb-box .pop-menu-pop {
+  top: 0;
+  left: calc(100% + 10px);
+  max-height: 420px;
+  overflow-y: auto;
+}
+.rb-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.rb-menu-label > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+.rb-menu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+/* Board settings → Icon: one toggle per glyph, the chosen one lit (`aria-pressed`). */
+.bd-icon-grid {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* A board's glyph beside its name: the topbar's switcher (and its menu), the header. */
+.btn.board-switcher > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+.board-switcher-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.board-switcher-item > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+.board-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.board-glyph {
+  display: inline-flex;
+  color: var(--fg-3);
+}

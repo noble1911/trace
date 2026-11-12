@@ -1,13 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
 import { AppLogo } from "@/components/AppLogo";
 import { I } from "@/components/Icon";
+import { RailBoards } from "@/domains/boards/RailBoards";
 import { Buddy } from "@/domains/buddy/Buddy";
 import { useBuddyStore } from "@/domains/buddy/store";
 import { useCheatSheet } from "@/domains/cheatSheet/store";
 import { useIssuesStore } from "@/domains/issues/store";
 import { useScheduledNeedsYou } from "@/domains/schedules/hooks/useScheduledNeedsYou";
 import { RailRecents } from "@/domains/sessions/RailRecents";
-import { railItems } from "@/domains/sidebar/items";
+import { BOARD_GROUP, groupedRailItems, type RailItem } from "@/domains/sidebar/boardGroup";
 import { useSidebarStore } from "@/domains/sidebar/store";
 import { useAriaKeys, useTitleWithHint } from "@/platform/shortcuts";
 import type { NavId } from "./nav";
@@ -71,13 +72,16 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
   const entries = useSidebarStore((s) => s.entries);
   const recentsFlyout = useSidebarStore((s) => s.recentsFlyout);
   const recentsDelay = useSidebarStore((s) => s.recentsDelay);
+  const groupBoards = useSidebarStore((s) => s.groupBoards);
   const scheduledNeedsYou = useScheduledNeedsYou();
   const buddyOn = useBuddyStore((s) => s.enabled);
   const showCheatSheet = useCheatSheet((s) => s.show);
   const cheatTitle = useTitleWithHint("Keyboard shortcuts", "cheatSheet");
   const cheatKeys = useAriaKeys("cheatSheet");
 
-  const button = (id: NavId) => {
+  const button = (id: RailItem) => {
+    // The board pages as one button (Settings → Sidebar), with your boards beneath it.
+    if (id === BOARD_GROUP) return <RailBoards key={id} nav={nav} onNav={onNav} />;
     const active = nav === id;
     if (id === "inbox") {
       const n = waitingCount;
@@ -116,7 +120,7 @@ export function Rail({ nav, onNav, waitingCount }: RailProps) {
       <div className="logo">
         <AppLogo size={32} />
       </div>
-      <nav className="nav">{railItems(entries, trackers).map(button)}</nav>
+      <nav className="nav">{groupedRailItems(entries, trackers, groupBoards).map(button)}</nav>
       {buddyOn && <Buddy />}
       {/* The help: every shortcut (also ? and the palette's "Keyboard shortcuts"). */}
       <button

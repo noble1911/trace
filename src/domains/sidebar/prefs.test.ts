@@ -114,17 +114,19 @@ describe("moveEntry / nudgeEntry", () => {
 
 describe("railItems", () => {
   it("shows tracker pages only while their tracker is connected, by default", () => {
-    assert.ok(!railItems(DEFAULT_SIDEBAR, {}).includes("pr"));
+    assert.ok(!railItems(DEFAULT_SIDEBAR, {}).includes("pylon"));
     assert.ok(!railItems(DEFAULT_SIDEBAR, {}).includes("board"));
+    // Pull requests lists sessions' PRs too, so it needs no tracker.
+    assert.ok(railItems(DEFAULT_SIDEBAR, {}).includes("pr"));
     assert.ok(railItems(DEFAULT_SIDEBAR, {}).includes("activity"));
-    assert.ok(railItems(DEFAULT_SIDEBAR, jira).includes("pr"));
+    assert.ok(railItems(DEFAULT_SIDEBAR, jira).includes("board"));
     assert.ok(!railItems(DEFAULT_SIDEBAR, {}).includes("settings"), "Settings is drawn apart");
   });
 
   it("follows the user's order and overrides", () => {
     let entries = moveEntry(DEFAULT_SIDEBAR, "activity", "inbox");
     entries = entries.map((e) =>
-      e.id === "pr"
+      e.id === "pylon"
         ? { ...e, visibility: "shown" }
         : e.id === "fleet"
           ? { ...e, visibility: "hidden" }
@@ -132,8 +134,8 @@ describe("railItems", () => {
     );
     const rail = railItems(entries, {});
     assert.equal(rail[0], "activity");
-    assert.ok(rail.includes("pr"));
+    assert.ok(rail.includes("pylon"));
     assert.ok(!rail.includes("fleet"));
-    assert.deepEqual(pinnedPages(entries), ["pr"]);
+    assert.deepEqual(pinnedPages(entries), ["pylon"]);
   });
 });

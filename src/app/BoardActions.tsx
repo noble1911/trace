@@ -4,6 +4,7 @@ import { IconButton } from "@/components/IconButton";
 import { MenuCaret } from "@/components/MenuCaret";
 import { PopMenu } from "@/components/PopMenu";
 import { useBoardStore } from "@/domains/board/store";
+import { BoardGlyph } from "@/domains/boards/BoardGlyph";
 import { useBoardsUi } from "@/domains/boards/uiStore";
 import { useIssuesStore } from "@/domains/issues/store";
 
@@ -53,6 +54,7 @@ export function BoardActions() {
               aria-expanded={open}
               onClick={toggle}
             >
+              <BoardGlyph board={current} size={14} />
               <span className="board-switcher-name">{current.name}</span>
               <MenuCaret />
             </button>
@@ -61,7 +63,12 @@ export function BoardActions() {
             {
               items: boards.map((b) => ({
                 id: b.key,
-                label: b.name,
+                label: (
+                  <span className="board-switcher-item">
+                    <BoardGlyph board={b} size={14} />
+                    {b.name}
+                  </span>
+                ),
                 checked: b.key === current.key,
                 onSelect: () => selectBoard(b.key),
               })),

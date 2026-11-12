@@ -29,12 +29,11 @@ export const NAV_LABELS: Record<NavId, string> = {
 
 type TrackerSessions = Partial<Record<ProviderKind, ProviderSession>>;
 
-/** Pages that show a tracker's data, and so only exist while it's connected. Only Jira
- * reports linked pull requests. */
+/** Pages that show a tracker's data, and so only exist while it's connected. Pull requests
+ * isn't one: it lists sessions' and ticket workspaces' PRs too, so it's always there. */
 const NAV_TRACKER: Partial<Record<NavId, ProviderKind>> = {
   board: "jira",
   pylon: "pylon",
-  pr: "jira",
 };
 
 /** The tracker a page's data comes from, if any. */
@@ -53,6 +52,19 @@ const NAV_BOARDS: Partial<Record<NavId, ProviderKind>> = {
 /** The tracker whose boards a board page shows, or undefined for a page without one. */
 export function navBoardProvider(nav: NavId): ProviderKind | undefined {
   return NAV_BOARDS[nav];
+}
+
+/** The board pages, in their built-in order: the ones Settings → Sidebar can group. */
+export const BOARD_NAVS: readonly NavId[] = ["board", "pylon", "boards"];
+
+/** Whether a page shows a board. */
+export function isBoardNav(nav: NavId): boolean {
+  return BOARD_NAVS.includes(nav);
+}
+
+/** The page that shows a tracker's boards. */
+export function boardNav(provider: ProviderKind): NavId {
+  return provider === "jira" ? "board" : provider === "pylon" ? "pylon" : "boards";
 }
 
 /** Whether a page can be shown: its tracker is connected, or the user keeps it on the
