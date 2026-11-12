@@ -5,7 +5,7 @@
 use tauri::State;
 
 use crate::issues::models::{BoardData, BoardSummary, IssueComment, IssueUser, PullRequest};
-use crate::issues::{IssueProvider, Provider, ProviderKind, ProviderSession};
+use crate::issues::{mcp_link, IssueProvider, Provider, ProviderKind, ProviderSession};
 use crate::jira::JiraConnection;
 use crate::pylon::PylonConnection;
 use crate::state::AppState;
@@ -24,11 +24,21 @@ fn get_provider(state: &AppState, kind: ProviderKind) -> Result<Provider, String
         })
 }
 
-/// Insert/update a provider connection and persist its credentials.
+/// Insert/update a provider connection and persist its credentials. An API
+/// connection replaces an MCP one: its "use the MCP login" record goes (the
+/// login itself stays, for agents).
 fn set_provider(state: &AppState, provider: Provider) -> Result<(), String> {
     match &provider {
-        Provider::Jira(conn) => crate::jira::auth::save(conn)?,
-        Provider::Pylon(conn) => crate::pylon::auth::save(conn)?,
+        Provider::Jira(conn) => {
+            crate::jira::auth::save(conn)?;
+            mcp_link::clear(ProviderKind::Jira);
+        }
+        Provider::Pylon(conn) => {
+            crate::pylon::auth::save(conn)?;
+            mcp_link::clear(ProviderKind::Pylon);
+        }
+        // Saved by `issues_mcp::connect_jira_mcp`, which builds it.
+        Provider::JiraMcp(_) => {}
         // Nothing to save: custom boards have no credentials.
         Provider::Custom(_) => {}
     }
@@ -91,8 +101,9 @@ pub async fn provider_current_user(
     get_provider(&state, kind)?.current_user().await
 }
 
-/// Disconnect a tracker and forget its credentials. Custom boards are always
-/// connected (they're a file, not a login), so they're refused.
+/// Disconnect a tracker and forget its credentials, and its "use the MCP
+/// login" record (not the MCP login itself: agents use it). Custom boards are
+/// always connected (they're a file, not a login), so they're refused.
 #[tauri::command]
 pub fn disconnect_provider(state: State<'_, AppState>, provider: String) -> Result<(), String> {
     let kind = ProviderKind::parse(&provider)?;
@@ -103,6 +114,7 @@ pub fn disconnect_provider(state: State<'_, AppState>, provider: String) -> Resu
         );
     }
     state.providers.write().remove(&kind);
+    mcp_link::clear(kind);
     match kind {
         ProviderKind::Jira => crate::jira::auth::clear(),
         ProviderKind::Pylon => crate::pylon::auth::clear(),

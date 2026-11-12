@@ -1,0 +1,27 @@
+{
+  "_note": "Trimmed from the live Atlassian MCP v1 server's tools/list (2026-11-12): the tools v1 shares with v2, input schemas only, descriptions dropped. v2's own schemas weren't available; see tools.rs.",
+  "tools": [
+    { "name": "getAccessibleAtlassianResources", "inputSchema": { "type": "object", "properties": {} } },
+    { "name": "atlassianUserInfo", "inputSchema": { "type": "object", "properties": {} } },
+    { "name": "searchJiraIssuesUsingJql", "inputSchema": { "type": "object", "additionalProperties": false, "required": ["cloudId", "jql"], "properties": {
+      "cloudId": { "type": "string" }, "jql": { "type": "string" },
+      "fields": { "type": "array", "items": { "type": "string" } },
+      "maxResults": { "type": "number", "maximum": 100 }, "nextPageToken": { "type": "string" },
+      "responseContentFormat": { "type": "string", "enum": ["markdown", "adf"] },
+      "searchResultMode": { "type": "string", "enum": ["issues", "count", "all"] } } } },
+    { "name": "getJiraIssue", "inputSchema": { "type": "object", "additionalProperties": false, "required": ["cloudId", "issueIdOrKey"], "properties": {
+      "cloudId": { "type": "string" }, "issueIdOrKey": { "type": "string" },
+      "fields": { "type": "array", "items": { "type": "string" } },
+      "responseContentFormat": { "type": "string", "enum": ["markdown", "adf"] } } } },
+    { "name": "getTransitionsForJiraIssue", "inputSchema": { "type": "object", "additionalProperties": false, "required": ["cloudId", "issueIdOrKey"], "properties": {
+      "cloudId": { "type": "string" }, "issueIdOrKey": { "type": "string" }, "expand": { "type": "string" } } } },
+    { "name": "transitionJiraIssue", "inputSchema": { "type": "object", "additionalProperties": false, "required": ["cloudId", "issueIdOrKey", "transition"], "properties": {
+      "cloudId": { "type": "string" }, "issueIdOrKey": { "type": "string" },
+      "transition": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } },
+      "fields": { "type": "object" }, "update": { "type": "object" } } } },
+    { "name": "addCommentToJiraIssue", "inputSchema": { "type": "object", "additionalProperties": false, "required": ["cloudId", "issueIdOrKey", "commentBody"], "properties": {
+      "cloudId": { "type": "string" }, "issueIdOrKey": { "type": "string" }, "commentBody": { "type": "string" },
+      "commentId": { "type": "string" }, "contentFormat": { "type": "string", "enum": ["markdown", "adf"] },
+      "responseContentFormat": { "type": "string", "enum": ["markdown", "adf"] } } } }
+  ]
+}

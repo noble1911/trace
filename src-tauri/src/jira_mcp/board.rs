@@ -1,0 +1,215 @@
+//! The board over MCP: the list of boards, and one board's columns and cards,
+//! the way the REST adapter (`jira::board`) does it.
+//!
+//! What a board shows is built as JQL by `jira::scope` and searched with
+//! `searchJiraIssuesUsingJql`, following `nextPageToken`, rather than taken
+//! from `getJiraBoardIssueData`: that tool's scope ("board", "backlog") is
+//! the Agile endpoint's, which hides epics and ignores the done cutoff. The
+//! saved filter is referenced as `filter = <id>` when the config doesn't carry
+//! its JQL. Two settings come from a screen MCP doesn't reach (the done cutoff
+//! and the Kanban backlog column), so Jira's defaults per board type apply, as
+//! they do on REST without board-admin rights; a column the config itself
+//! flags as the backlog is still dropped.
+
+use serde_json::{json, Value};
+
+use super::parse::{self, BoardConfig, StatusMeta};
+use super::tools::{self, Arg, CARD_FIELDS};
+use super::JiraMcp;
+use crate::issues::models::{BoardData, BoardSummary, Issue};
+use crate::jira::scope::{self, BoardSettings};
+use crate::mcp_client::ToolCaller;
+
+/// Runaway guards, as on REST.
+const MAX_BOARDS: usize = 2000;
+const MAX_ISSUES: usize = 5000;
+
+/// Everything about a board but its issues and sprint (cached).
+#[derive(Clone)]
+pub struct BoardScope {
+    pub name: String,
+    pub board_type: String,
+    pub config: BoardConfig,
+}
+
+/// Every board the user can see, following the pages (`startAt`/`isLast`,
+/// or a `nextPageToken`). A page that adds nothing new ends it, so a server
+/// that ignores `startAt` can't loop.
+pub async fn list_boards<T: ToolCaller>(c: &JiraMcp<T>) -> Result<Vec<BoardSummary>, String> {
+    if let Some(boards) = c.inner.boards.get("all") {
+        return Ok(boards);
+    }
+    let mut out: Vec<BoardSummary> = Vec::new();
+    let mut token: Option<String> = None;
+    loop {
+        let mut args = vec![
+            c.cloud(),
+            Arg::opt(vec![("maxResults", json!(50))]),
+            Arg::opt(vec![("startAt", json!(out.len()))]),
+        ];
+        if let Some(t) = &token {
+            args.push(Arg::must(vec![
+                ("nextPageToken", json!(t)),
+                ("cursor", json!(t)),
+            ]));
+        }
+        let v = c.call(&tools::BOARDS, args).await?;
+        let before = out.len();
+        for b in parse::boards(&v) {
+            if !out.iter().any(|o| o.id == b.id) {
+                out.push(b);
+            }
+        }
+        token = parse::text(&v, &["nextPageToken", "cursor"]).map(str::to_string);
+        let more = token.is_some() || v.get("isLast").and_then(Value::as_bool) == Some(false);
+        if !more || out.len() == before || out.len() >= MAX_BOARDS {
+            break;
+        }
+    }
+    c.inner.boards.put("all".into(), out.clone());
+    Ok(out)
+}
+
+/// The board's name, type and configuration (cached).
+async fn board_scope<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<BoardScope, String> {
+    if let Some(scope) = c.inner.scopes.get(board_id) {
+        return Ok(scope);
+    }
+    let board = Arg::must(vec![
+        ("boardId", json!(board_id)),
+        ("board_id", json!(board_id)),
+        ("id", json!(board_id)),
+    ]);
+    let (config, boards) = tokio::join!(
+        c.call(&tools::BOARD_CONFIG, vec![c.cloud(), board]),
+        list_boards(c)
+    );
+    let config = parse::board_config(&config?);
+    let listed = boards
+        .ok()
+        .and_then(|bs| bs.into_iter().find(|b| b.id == board_id));
+    let scope = BoardScope {
+        name: listed
+            .as_ref()
+            .map(|b| b.name.clone())
+            .or_else(|| config.name.clone())
+            .unwrap_or_else(|| format!("Board {board_id}")),
+        board_type: listed
+            .map(|b| b.board_type)
+            .or_else(|| config.board_type.clone())
+            .unwrap_or_else(|| "kanban".to_string()),
+        config,
+    };
+    c.inner.scopes.put(board_id.to_string(), scope.clone());
+    Ok(scope)
+}
+
+/// The running sprint's name, if the board has one. Best effort: no sprint
+/// tool, or a failed call, shows the board's filter (as between sprints).
+async fn open_sprint<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Option<String> {
+    if !c.offers(&tools::SPRINTS).await {
+        return None;
+    }
+    let args = vec![
+        c.cloud(),
+        Arg::must(vec![
+            ("boardId", json!(board_id)),
+            ("board_id", json!(board_id)),
+        ]),
+        Arg::opt(vec![("state", json!("active"))]),
+    ];
+    let v = c.call(&tools::SPRINTS, args).await.ok()?;
+    parse::active_sprint(&v)
+}
+
+/// The site's statuses (cached; empty when the server has no status tool).
+async fn status_meta<T: ToolCaller>(c: &JiraMcp<T>) -> StatusMeta {
+    if let Some(meta) = c.inner.statuses.get("all") {
+        return meta;
+    }
+    if !c.offers(&tools::STATUSES).await {
+        return StatusMeta::new();
+    }
+    let args = vec![c.cloud(), Arg::opt(vec![("maxResults", json!(200))])];
+    let meta = match c.call(&tools::STATUSES, args).await {
+        Ok(v) => parse::statuses(&v),
+        Err(_) => StatusMeta::new(),
+    };
+    if !meta.is_empty() {
+        c.inner.statuses.put("all".into(), meta.clone());
+    }
+    meta
+}
+
+/// Every issue `jql` finds, all pages.
+pub async fn search<T: ToolCaller>(c: &JiraMcp<T>, jql: &str) -> Result<Vec<Issue>, String> {
+    let jql = format!("{jql} ORDER BY Rank ASC");
+    let mut out = Vec::new();
+    let mut token: Option<String> = None;
+    loop {
+        let mut args = vec![
+            c.cloud(),
+            Arg::need("jql", json!(jql)),
+            Arg::opt(vec![("fields", json!(CARD_FIELDS))]),
+            Arg::opt(vec![("maxResults", json!(100))]),
+            // ADF: descriptions render as the REST adapter's do.
+            Arg::opt(vec![("responseContentFormat", json!("adf"))]),
+        ];
+        if let Some(t) = &token {
+            args.push(Arg::need("nextPageToken", json!(t)));
+        }
+        let v = c.call(&tools::SEARCH, args).await?;
+        let (issues, next) = parse::issue_page(&v);
+        out.extend(issues);
+        token = next;
+        if token.is_none() || out.len() >= MAX_ISSUES {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+/// Columns + cards for one board.
+pub async fn get_board<T: ToolCaller>(c: &JiraMcp<T>, board_id: &str) -> Result<BoardData, String> {
+    let scope = board_scope(c, board_id).await?;
+    let mut settings = BoardSettings::defaults(&scope.board_type);
+    settings.backlog_statuses = scope.config.backlog_statuses.clone();
+    let sprint = match settings.sprint_support {
+        true => open_sprint(c, board_id).await,
+        false => None,
+    };
+    let filter = scope.config.filter_jql.clone().or_else(|| {
+        let id = scope.config.filter_id.as_ref()?;
+        Some(format!("filter = {id}"))
+    });
+    let jql = scope::board_jql(
+        filter.as_deref(),
+        scope.config.sub_query.as_deref(),
+        &settings,
+        sprint.is_some(),
+    );
+    let (issues, meta) = tokio::join!(search(c, &jql), status_meta(c));
+    let issues = issues?;
+    let mut columns = scope::visible_columns(scope.config.columns, &settings.backlog_statuses);
+    // Label each column's statuses: the site's list first, then the cards'
+    // own, then whatever the config carried.
+    for col in &mut columns {
+        for status in &mut col.statuses {
+            let from_card = issues.iter().find(|i| i.status_id == status.id);
+            if let Some((name, category)) = meta.get(&status.id) {
+                status.name = name.clone();
+                status.category = category.clone();
+            } else if let Some(card) = from_card {
+                status.name = card.status_name.clone();
+                status.category = card.status_category.clone();
+            }
+        }
+    }
+    Ok(BoardData {
+        board_id: board_id.to_string(),
+        board_name: scope.name,
+        sprint_name: sprint.filter(|n| !n.is_empty()),
+        columns,
+        issues,
+    })
+}

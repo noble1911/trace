@@ -28,13 +28,20 @@ fn map_priority(name: &str) -> String {
     .to_string()
 }
 
+/// A rich-text field (a description, a comment's body) as Markdown: ADF, as
+/// the REST API and the MCP server's `adf` format send it, or text that is
+/// already Markdown (the MCP server's `markdown` format), taken as it is.
+pub fn body_text(v: &Value) -> String {
+    match v.as_str() {
+        Some(text) => text.trim().to_string(),
+        None => adf::to_markdown(v),
+    }
+}
+
 /// Convert one raw comment Value (`GET /issue/{id}/comment`) into the shared
 /// shape. Bodies are ADF, as Markdown like descriptions (`adf`).
 pub fn parse_comment(v: &Value) -> Option<IssueComment> {
-    let body = v
-        .get("body")
-        .filter(|b| !b.is_null())
-        .map(adf::to_markdown)?;
+    let body = v.get("body").filter(|b| !b.is_null()).map(body_text)?;
     if body.is_empty() {
         return None;
     }
@@ -94,7 +101,7 @@ pub fn parse_issue(v: &Value) -> Option<Issue> {
     let description = fields
         .get("description")
         .filter(|d| !d.is_null())
-        .map(adf::to_markdown)
+        .map(body_text)
         .filter(|s| !s.is_empty());
 
     let priority_name = str_at(fields, &["priority", "name"]).unwrap_or("Medium");

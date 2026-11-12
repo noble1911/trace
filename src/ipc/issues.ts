@@ -18,6 +18,26 @@ export function connectJira(site: string, email: string, token: string): Promise
   return invoke("connect_jira", { site, email, token });
 }
 
+/** A tracker site an MCP login reaches (Jira: one per Atlassian site). */
+export interface TrackerSite {
+  /** Jira's cloudId. */
+  id: string;
+  name: string;
+  url: string;
+}
+
+/** How connecting over a tracker's MCP server ended: connected, or (when the
+ * login reaches several sites) a choice to connect again with. */
+export type McpConnectResult =
+  | { status: "connected"; user: IssueUser; session: ProviderSession }
+  | { status: "chooseSite"; sites: TrackerSite[] };
+
+/** Connect Jira's board through trace's Atlassian login (Integrations → MCP servers),
+ * logging in through the browser first if need be. `cloudId` picks the site. */
+export function connectJiraMcp(cloudId?: string): Promise<McpConnectResult> {
+  return invoke("connect_jira_mcp", { cloudId: cloudId ?? null });
+}
+
 export function connectPylon(token: string): Promise<IssueUser> {
   return invoke("connect_pylon", { token });
 }

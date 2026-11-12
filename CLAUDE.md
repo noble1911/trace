@@ -84,6 +84,7 @@ src-tauri/src/
 ├── activity/               # persisted activity log (JSONL) + `activity-event`; every producer records here
 ├── issues/                 # IssueProvider trait, Provider enum, shared models, active-provider session
 ├── jira/                   # Jira provider: auth, client, parse, board, dev  (Jira Cloud REST)
+├── jira_mcp/               # Jira provider over Atlassian's MCP server (trace's login); issues/mcp_link picks REST or MCP
 ├── pylon/                  # Pylon provider: auth, client, models, board  (Pylon REST)
 ├── schedule/               # scheduled prompts: cron/timing, runner loop, run lifecycle, hooks, transcripts
 ├── agent_tools/            # trace's own tools served to its agents over loopback MCP (renderer runs them)

@@ -1,0 +1,4 @@
+{ "expand": "transitions", "transitions": [
+  { "id": "2", "name": "Up Next", "to": { "id": "10248", "name": "Up Next", "statusCategory": { "key": "new" } }, "isAvailable": true },
+  { "id": "21", "name": "In Progress", "to": { "id": "3", "name": "In Progress", "statusCategory": { "key": "indeterminate" } }, "isAvailable": true },
+  { "id": "31", "name": "Done", "to": { "id": "10040", "name": "Done", "statusCategory": { "key": "done" } }, "isAvailable": true } ] }

@@ -22,6 +22,7 @@ pub mod helpers;
 pub mod interrupted;
 pub mod issues;
 pub mod jira;
+pub mod jira_mcp;
 pub mod keep_awake;
 mod mcp_auth;
 pub mod mcp_client;
@@ -98,6 +99,7 @@ pub fn run() {
             commands::activity::import_activity,
             commands::issues::connect_jira,
             commands::issues::connect_pylon,
+            commands::issues_mcp::connect_jira_mcp,
             commands::issues::provider_sessions,
             commands::issues::provider_current_user,
             commands::issues::disconnect_provider,

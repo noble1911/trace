@@ -72,6 +72,13 @@ impl FakeCaller {
         self
     }
 
+    /// What `tools()` lists, schemas and all: for an adapter that builds its
+    /// arguments from the server's advertised input schemas.
+    pub(crate) fn listing_tools(mut self, tools: Vec<ToolInfo>) -> Self {
+        self.tools = Some(tools);
+        self
+    }
+
     /// Every call made, in order: the tool's name and its arguments.
     pub(crate) fn calls(&self) -> Vec<(String, Value)> {
         self.calls.lock().map(|c| c.clone()).unwrap_or_default()

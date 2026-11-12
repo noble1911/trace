@@ -24,6 +24,23 @@ target provider as an argument. Each provider implements `issues::IssueProvider`
   independently. A tracker's pages are only in the rail while it's connected (`app/nav.ts`), and the
   app lands on Sessions with none.
 
+## REST or MCP: choosing the adapter
+
+A tracker can have two adapters: its REST API (a saved key) and its MCP server (trace's own
+`mcp_auth` login). Both are the same `ProviderKind`, so `AppState.providers` still holds one
+connection per tracker. `issues/mcp_link.rs` holds the rule and the record:
+
+- **Saved API credentials win.** Else a `<tracker>-mcp.json` record (`McpLink`: server URL, and for
+  Jira the site's cloudId, URL and name; no token) **plus** a login to that server → the MCP
+  adapter. A record without a login is not connected (logging in again brings it back).
+- `connect_<tracker>_mcp` (`commands/issues_mcp.rs`) logs in through `mcp_auth::flow` if needed,
+  validates with `current_user`, saves the record, and only then deletes the API credentials.
+  Connecting by API key clears the record. Disconnecting clears both, never the MCP login
+  (agents use it).
+- A new MCP adapter plugs in with a `from_link(&McpLink)`, one `mcp_link::restore` arm in
+  `session::restore_all`, a connect command, and a `login` way in `domains/integrations/registry.ts`
+  (the dialog's `TwoWayConnect` offers it beside the token form).
+
 ## Pylon specifics
 
 - Bearer-token auth; validate with `GET /me`. API base `https://api.usepylon.com`.

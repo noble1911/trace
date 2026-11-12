@@ -20,6 +20,7 @@ pub mod groups;
 pub mod interrupted;
 pub mod issue_host;
 pub mod issues;
+pub mod issues_mcp;
 pub mod keep_awake;
 pub mod mcp;
 pub mod orchestrator;
