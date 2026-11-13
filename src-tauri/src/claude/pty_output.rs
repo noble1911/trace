@@ -77,6 +77,7 @@ pub fn record(app: &AppHandle, workspace_id: &str, bytes: &[u8]) -> bool {
         }
         None => 0,
     };
+    crate::execution::peer::publish::output(app, workspace_id, seq, &encoded);
     let _ = app.emit(
         "pty-output",
         PtyOutput {
@@ -98,6 +99,7 @@ pub fn end_run(app: &AppHandle, workspace_id: &str, run: Option<u64>) {
     // Only this run's session: a quick restart may already have put a new one there.
     let exited = pty_exit::take_session(app, workspace_id, run).is_some()
         | pty_exit::take_natural_exit(workspace_id);
+    crate::execution::peer::publish::run_state(app, workspace_id, false, exited);
     let _ = app.emit(
         "agent-run-state",
         RunState {

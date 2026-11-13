@@ -284,6 +284,7 @@ fn relay(app: &AppHandle, ws: &str, name: &str, payload: &str, input: HookInput)
         },
         HookEvent::NeedsInput => return,
     };
+    crate::execution::peer::publish::turn(app, &turn);
     let _ = app.emit("agent-turn", turn);
     log_turn(app, ws, event, &input);
     if ws.starts_with(crate::schedule::RUN_PREFIX) {
