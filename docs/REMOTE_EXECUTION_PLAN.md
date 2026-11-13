@@ -318,7 +318,9 @@ The roadmap's iPhone and Android apps aren't planned yet, but this work shouldn'
       peers in `peers.json`, constant-time check.
 - [x] Server mode (`execution/peer/server/`, `supervisor.rs`): a WebSocket listener on the Tailscale IP, sending `pty-output`,
       `agent-run-state` and `agent-turn` to attached clients.
-- [ ] Client: a `PeerHost` and a remote `AgentSession`.
+- [x] Client (`execution/peer/client/`): a `PeerHost` and a remote `AgentSession`, terminal only (the
+      protocol has no chat yet). `SessionHost::Peer`, host id `peer:<id>`, Start rejoins the peer's
+      session by its id; `start_session` takes `host: "peer:<name>"`.
 - [x] Peers in Settings (discovery, pairing, server switch: Integrations → Tailscale).
 - [ ] A "Run on" choice when starting a session or agent.
 - [ ] A host badge on Sessions and Fleet. Rejoin remote sessions on launch.

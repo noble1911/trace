@@ -68,6 +68,11 @@ export const SESSION_TOOLS: Anthropic.Tool[] = [
           description:
             "Enable Remote Control (claude.ai/code and the Claude app). Claude on Anthropic only.",
         },
+        host: {
+          type: "string",
+          description:
+            "Where to run it: omit for this computer, or \"peer:<name>\" for another trace paired over Tailscale (its repo name goes in repo, as that computer lists it). Refused with the reason if that computer isn't paired, can't be reached, lacks the repo or agent, or has its trace window closed. No Remote Control there.",
+        },
         cli: {
           type: "string",
           enum: ["claude", "codex"],
@@ -189,9 +194,24 @@ async function start(input: unknown, caller: string): Promise<string> {
   const title = str(input, "title") || "Exploration";
   const remote = flag(input, "remote_control");
   const cli: AgentCli = remote ? "claude" : str(input, "cli") === "codex" ? "codex" : agentCli();
-  const repo = await resolveRepo(str(input, "repo"));
+  // On another computer the repo is that computer's, named as it lists it.
+  const hostArg = str(input, "host");
+  if (hostArg.startsWith("peer:") && remote) {
+    return "Error: Remote Control isn't available on another computer.";
+  }
+  const host = hostArg.startsWith("peer:") ? (hostArg as `peer:${string}`) : null;
+  const repo = host ? str(input, "repo") || null : await resolveRepo(str(input, "repo"));
   const createdBy = await creatorFromCaller(caller);
-  const session = await createSession(title, cli, repo, agentProvider(), remote, null, createdBy);
+  const session = await createSession(
+    title,
+    cli,
+    repo,
+    agentProvider(),
+    remote,
+    null,
+    createdBy,
+    host
+  );
   useSessionsStore.getState().adopt(session);
   activity.log({
     kind: "session-created",
@@ -201,7 +221,12 @@ async function start(input: unknown, caller: string): Promise<string> {
     title: `created session “${session.title}”`,
   });
   await launch(session, str(input, "prompt"));
-  const head = `Started session "${session.title}" (id ${session.id}) in ${repo ? basename(repo) : "a scratch folder"}.`;
+  const where = host
+    ? `${repo} on ${hostArg.slice(5)}`
+    : repo
+      ? basename(repo)
+      : "a scratch folder";
+  const head = `Started session "${session.title}" (id ${session.id}) in ${where}.`;
   if (!remote) return head;
   const link = await waitForLink(session.id);
   return link
