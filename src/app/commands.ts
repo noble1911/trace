@@ -62,9 +62,10 @@ export function buildCommands(query: string, setNav: (nav: NavId) => void): Comm
 
   for (const id of order) {
     const live = info[id];
-    if (live.light !== "attention") continue;
+    // "attention" is only ever an agent with a pending ask (`lightOf`).
+    if (live.light !== "attention" || !live.ask) continue;
     const title = titleOf(id);
-    const ask = live.ask?.label ?? "Turn finished";
+    const ask = live.ask.label;
     if (!matches(`${title} ${ask}`)) continue;
     out.push({
       id: `open:${id}`,
@@ -73,7 +74,7 @@ export function buildCommands(query: string, setNav: (nav: NavId) => void): Comm
       sub: ask,
       run: () => openWorkspace(id, setNav),
     });
-    const allowOnce = live.ask?.kind === "permission" ? choicesFor(live.ask)[0] : undefined;
+    const allowOnce = live.ask.kind === "permission" ? choicesFor(live.ask)[0] : undefined;
     if (allowOnce) {
       out.push({
         id: `allow:${id}`,
