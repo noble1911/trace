@@ -79,6 +79,18 @@ pub fn summarize(path: &str, remote: Option<(&str, &str)>) -> RepoSummary {
     }
 }
 
+/// Leave out repos whose name another repo shares: a client names one in
+/// `Spawn`, and a name that could mean two folders must not pick one silently.
+pub fn drop_ambiguous<T>(repos: Vec<(RepoSummary, T)>) -> Vec<(RepoSummary, T)> {
+    let count = |name: &str| repos.iter().filter(|(r, _)| r.name == name).count();
+    let keep: Vec<bool> = repos.iter().map(|(r, _)| count(&r.name) == 1).collect();
+    repos
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(repo, keep)| keep.then_some(repo))
+        .collect()
+}
+
 #[cfg(test)]
 #[path = "capabilities_tests.rs"]
 mod tests;
