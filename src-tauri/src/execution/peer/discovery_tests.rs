@@ -15,9 +15,9 @@ impl Prober for Fake {
         assert_eq!(v["type"], "hello");
         if v["token"] == *want {
             Ok(
-                r#"{"type":"welcome","protocol":1,"hostName":"Mac mini","os":"macOS",
-                "capabilities":{"turnHooks":true,"terminal":true},
-                "agentKinds":["claude","codex"],"repos":["acme/widgets"]}"#
+                r#"{"type":"welcome","capabilities":{"protocol":1,"name":"Mac mini","os":"macos",
+                "agents":["claude","codex"],"repos":[{"name":"acme/widgets","remote":"github.com/acme/widgets"}],
+                "features":{"turnHooks":true,"terminal":true}}}"#
                     .to_string(),
             )
         } else {
@@ -48,8 +48,8 @@ fn paired(address: &str, token: &str) -> PairedPeer {
 #[test]
 fn welcome_carries_capabilities_kinds_and_repos() {
     let Probe::Welcome(info) = classify(
-        r#"{"type":"welcome","protocol":1,"hostName":"Mac mini","os":"macOS",
-            "capabilities":{"terminal":true},"agentKinds":["claude"],"repos":["acme/widgets"]}"#,
+        r#"{"type":"welcome","capabilities":{"protocol":1,"name":"Mac mini","os":"macos",
+            "agents":["claude"],"repos":[{"name":"acme/widgets"}],"features":{"terminal":true}}}"#,
     ) else {
         panic!("not a welcome");
     };
@@ -61,9 +61,7 @@ fn welcome_carries_capabilities_kinds_and_repos() {
 
 #[test]
 fn an_older_welcome_without_the_extras_still_reads() {
-    let Probe::Welcome(info) =
-        classify(r#"{"type":"welcome","protocol":1,"hostName":"x","capabilities":{}}"#)
-    else {
+    let Probe::Welcome(info) = classify(r#"{"type":"welcome","capabilities":{"name":"x"}}"#) else {
         panic!("not a welcome");
     };
     assert!(info.agent_kinds.is_empty() && info.repos.is_empty() && info.os.is_none());

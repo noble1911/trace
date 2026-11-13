@@ -9,15 +9,12 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 use serde::Serialize;
-use serde_json::Value;
 use tungstenite::Message;
 
+use super::capabilities::ServerCapabilities;
+pub use super::protocol::PEER_PORT;
 use super::protocol::{Envelope, Event, Request, PROTOCOL_VERSION};
 use crate::execution::Capabilities;
-
-/// The port a peer server listens on, on its tailnet address. Moves to
-/// `protocol.rs` with the server.
-pub const PEER_PORT: u16 = 47821;
 
 /// How long to wait for a connection, and then for the reply. A tailnet answers
 /// in milliseconds; a sleeping or filtered device mustn't stall the list.
@@ -99,35 +96,24 @@ pub fn hello_frame(token: &str, client_name: &str) -> String {
     serde_json::to_string(&hello).unwrap_or_default()
 }
 
-/// Read a server's reply to a `Hello`.
+/// Read a server's reply to a `Hello`. A `Welcome` carries the server's
+/// `ServerCapabilities`: its name, OS, agent kinds and repos (names, never paths).
 pub fn classify(frame: &str) -> Probe {
     match serde_json::from_str::<Event>(frame) {
-        Ok(Event::Welcome {
-            protocol,
-            host_name,
-            capabilities,
-        }) => {
-            // The fields the UI wants beyond capabilities; absent from an older server.
-            let v: Value = serde_json::from_str(frame).unwrap_or(Value::Null);
-            let strings = |key: &str| -> Vec<String> {
-                v[key]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|s| s.as_str().map(str::to_string))
-                    .collect()
-            };
-            Probe::Welcome(PeerInfo {
-                host_name,
-                protocol,
-                capabilities,
-                os: v["os"].as_str().map(str::to_string),
-                agent_kinds: strings("agentKinds"),
-                repos: strings("repos"),
-            })
-        }
+        Ok(Event::Welcome { capabilities: c }) => Probe::Welcome(info_from(c)),
         Ok(Event::Refused { .. }) => Probe::Refused,
         _ => Probe::Silent,
+    }
+}
+
+fn info_from(c: ServerCapabilities) -> PeerInfo {
+    PeerInfo {
+        host_name: c.name,
+        protocol: c.protocol,
+        capabilities: c.features,
+        os: Some(c.os).filter(|o| !o.is_empty()),
+        agent_kinds: c.agents,
+        repos: c.repos.into_iter().map(|r| r.name).collect(),
     }
 }
 

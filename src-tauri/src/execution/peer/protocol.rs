@@ -14,11 +14,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::execution::Capabilities;
+use super::capabilities::ServerCapabilities;
 
 /// Bumped when a message changes meaning. Adding a message type doesn't bump
 /// it: an older side answers an unknown one with an error.
 pub const PROTOCOL_VERSION: u32 = 1;
+
+/// The port every trace serves on and probes, so peers find each other by address alone.
+pub const PEER_PORT: u16 = 47821;
 
 /// A request from a client, with an id the server echoes on what answers it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -45,6 +48,21 @@ pub enum Request {
     },
     /// The agents running on the server.
     List,
+    /// Start a new session on the server, in one of the repos its `Welcome`
+    /// listed. Answered with [`Event::Spawned`], then attach to follow it.
+    #[serde(rename_all = "camelCase")]
+    Spawn {
+        /// A name from `capabilities.repos`, never a path.
+        repo: String,
+        /// "claude" | "codex", one of `capabilities.agents`.
+        cli: String,
+        #[serde(default)]
+        prompt: Option<String>,
+        #[serde(default)]
+        title: Option<String>,
+        cols: u16,
+        rows: u16,
+    },
     /// Start receiving a workspace's output, replaying what came after
     /// `from_seq` (0 for everything the server still has).
     #[serde(rename_all = "camelCase")]
@@ -84,13 +102,14 @@ pub struct RemoteSession {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Event {
-    /// The answer to a good `Hello`.
+    /// The answer to a good `Hello`: what this server is and can do.
+    Welcome { capabilities: ServerCapabilities },
+    /// A `Spawn` worked; `workspace_id` is what to attach to.
     #[serde(rename_all = "camelCase")]
-    Welcome {
-        protocol: u32,
-        /// The server machine's name.
-        host_name: String,
-        capabilities: Capabilities,
+    Spawned {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<u64>,
+        workspace_id: String,
     },
     /// The connection is closing: a bad token or an unsupported protocol.
     Refused { reason: String },

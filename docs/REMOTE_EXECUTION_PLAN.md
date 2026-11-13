@@ -154,7 +154,8 @@ trait SandboxProvider {
   Tailscale's `whois` which tailnet user is connecting.
 - **Finding peers:** `tailscale status --json` lists the machines, and trace probes each for its
   port. Paired ones show as hosts.
-- **Protocol** (versioned, `peer/protocol.rs`): requests `hello{version}`, `list`, `spawn`,
+- **Protocol** (versioned, `peer/protocol.rs`): requests `hello{version}` (answered with the server's
+  capabilities: protocol, name, OS, agent kinds, repo names and remotes, never paths), `list`, `spawn{repo,cli,prompt}`,
   `attach{id, fromSeq}`, `input`, `resize`, `stop`, `detach`. The server streams back `output{seq,
   data}`, `runState` and `turn`.
 - **Why it's the full feature set:** worktrees, hooks, agent tools, transcripts and setup all run on
@@ -315,7 +316,7 @@ The roadmap's iPhone and Android apps aren't planned yet, but this work shouldn'
       an error.
 - [x] Pairing (`execution/peer/pairing.rs`): the server's token, `trace-pair:` codes, paired
       peers in `peers.json`, constant-time check.
-- [ ] Server mode: a WebSocket listener on the Tailscale IP, sending `pty-output`,
+- [x] Server mode (`execution/peer/server/`, `supervisor.rs`): a WebSocket listener on the Tailscale IP, sending `pty-output`,
       `agent-run-state` and `agent-turn` to attached clients.
 - [ ] Client: a `PeerHost` and a remote `AgentSession`.
 - [x] Peers in Settings (discovery, pairing, server switch: Integrations → Tailscale).

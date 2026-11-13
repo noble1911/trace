@@ -23,6 +23,14 @@ fn requests_round_trip() {
             client_name: "laptop".into(),
         },
         Request::List,
+        Request::Spawn {
+            repo: "acme/widgets".into(),
+            cli: "claude".into(),
+            prompt: Some("fix it".into()),
+            title: None,
+            cols: 100,
+            rows: 30,
+        },
         Request::Detach {
             workspace_id: "w".into(),
         },
@@ -87,4 +95,34 @@ fn a_turn_reads_from_the_agent_turn_payload() {
     value["type"] = "turn".into();
     let event: Event = serde_json::from_value(value).expect("a turn");
     assert!(matches!(event, Event::Turn { ref event, .. } if event == "needsInput"));
+}
+
+#[test]
+fn a_welcome_carries_the_servers_capabilities() {
+    use crate::execution::peer::capabilities::{RepoSummary, ServerCapabilities};
+    let event = Event::Welcome {
+        capabilities: ServerCapabilities::new(
+            "box",
+            vec!["claude".into()],
+            vec![RepoSummary {
+                name: "acme/widgets".into(),
+                remote: Some("github.com/acme/widgets".into()),
+            }],
+        ),
+    };
+    let json = serde_json::to_value(&event).expect("serializes");
+    assert_eq!(json["type"], "welcome");
+    assert_eq!(json["capabilities"]["protocol"], PROTOCOL_VERSION);
+    assert_eq!(json["capabilities"]["repos"][0]["name"], "acme/widgets");
+    let back: Event = serde_json::from_value(json).expect("reads back");
+    assert_eq!(back, event);
+}
+
+#[test]
+fn a_spawn_needs_a_repo_and_agent_but_not_a_prompt() {
+    let env =
+        parse_request(r#"{"id":4,"type":"spawn","repo":"r","cli":"codex","cols":80,"rows":24}"#)
+            .expect("a spawn without a prompt");
+    assert!(matches!(env.request, Request::Spawn { prompt: None, .. }));
+    assert!(parse_request(r#"{"type":"spawn","cli":"claude","cols":80,"rows":24}"#).is_err());
 }
