@@ -9,6 +9,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+use super::endpoints::require_https;
+
 /// Where the browser comes back to. Fixed, so a server that can't register
 /// clients itself can have trace registered with it once, with this URI.
 pub const REDIRECT_PORT: u16 = 47321;
@@ -132,11 +134,18 @@ pub fn discover(server: &str) -> Result<Discovered, String> {
     Ok(Discovered {
         resource,
         issuer: field("issuer").unwrap_or(issuer),
-        authorization_endpoint: field("authorization_endpoint")
-            .ok_or("The server's metadata has no authorization endpoint.")?,
-        token_endpoint: field("token_endpoint")
-            .ok_or("The server's metadata has no token endpoint.")?,
-        registration_endpoint: field("registration_endpoint"),
+        authorization_endpoint: require_https(
+            "authorization endpoint",
+            &field("authorization_endpoint")
+                .ok_or("The server's metadata has no authorization endpoint.")?,
+        )?,
+        token_endpoint: require_https(
+            "token endpoint",
+            &field("token_endpoint").ok_or("The server's metadata has no token endpoint.")?,
+        )?,
+        registration_endpoint: field("registration_endpoint")
+            .map(|u| require_https("registration endpoint", &u))
+            .transpose()?,
         scopes,
     })
 }

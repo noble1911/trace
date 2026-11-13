@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -197,17 +198,48 @@ pub fn due(grant: &Grant, now: u64) -> bool {
         .is_some_and(|at| at.saturating_sub(REFRESH_WITHIN_MS) <= now)
 }
 
+/// One refresh at a time, process-wide: held across read, refresh and save so
+/// concurrent calls near expiry make one refresh (a rotating refresh token
+/// can only be used once). No other lock is taken while it is held beyond the
+/// logins file's own, which `read`/`save` take and release themselves.
+static REFRESH: Mutex<()> = Mutex::new(());
+
 /// `grant` with a token good for a while yet: refreshed (and saved) when it's
 /// close to expiring and can be. Err when it has expired and can't be.
 pub fn fresh(grant: Grant) -> Result<Grant, String> {
     if !due(&grant, now_ms()) {
         return Ok(grant);
     }
-    let (Some(refresh), Some(client)) = (grant.refresh_token.clone(), client_for(&grant.issuer))
-    else {
+    fresh_with(
+        grant,
+        |url| read().grants.get(url).cloned(),
+        |g, refresh| {
+            let client = client_for(&g.issuer).ok_or("trace isn't registered there.")?;
+            oauth::refresh(&g.token_endpoint, &client, &g.resource, refresh)
+        },
+        save,
+    )
+}
+
+/// [`fresh`] over how to reload a grant, renew it and save it.
+fn fresh_with(
+    grant: Grant,
+    current: impl Fn(&str) -> Option<Grant>,
+    renew: impl Fn(&Grant, &str) -> Result<Tokens, String>,
+    store: impl Fn(&Grant) -> Result<(), String>,
+) -> Result<Grant, String> {
+    let _one_at_a_time = REFRESH.lock().unwrap_or_else(|e| e.into_inner());
+    // Another call may have refreshed while this one waited.
+    let Some(grant) = current(&grant.url) else {
+        return Err(format!("Your {} login was removed.", grant.name));
+    };
+    if !due(&grant, now_ms()) {
+        return Ok(grant);
+    }
+    let Some(refresh) = grant.refresh_token.clone() else {
         return expired_or(grant);
     };
-    match oauth::refresh(&grant.token_endpoint, &client, &grant.resource, &refresh) {
+    match renew(&grant, &refresh) {
         Ok(t) => {
             let renewed = Grant {
                 access_token: t.access_token,
@@ -216,7 +248,7 @@ pub fn fresh(grant: Grant) -> Result<Grant, String> {
                 expires_at: t.expires_in.map(|s| now_ms() + s * 1000),
                 ..grant
             };
-            save(&renewed)?;
+            store(&renewed)?;
             Ok(renewed)
         }
         Err(_) => expired_or(grant),
@@ -263,5 +295,39 @@ mod tests {
     fn a_grant_never_shows_its_tokens() {
         let shown = format!("{:?}", grant(None));
         assert!(!shown.contains("secret"));
+    }
+
+    #[test]
+    fn concurrent_calls_near_expiry_refresh_once() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let stale = grant(Some(now_ms() + 1000));
+        let saved = Mutex::new(stale.clone());
+        let renewals = AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            for _ in 0..2 {
+                s.spawn(|| {
+                    let got = fresh_with(
+                        stale.clone(),
+                        |_| Some(saved.lock().unwrap().clone()),
+                        |_, _| {
+                            renewals.fetch_add(1, Ordering::SeqCst);
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            Ok(Tokens {
+                                access_token: "new".into(),
+                                refresh_token: None,
+                                expires_in: Some(3600),
+                            })
+                        },
+                        |g| {
+                            *saved.lock().unwrap() = g.clone();
+                            Ok(())
+                        },
+                    )
+                    .expect("fresh");
+                    assert_eq!(got.access_token, "new");
+                });
+            }
+        });
+        assert_eq!(renewals.load(Ordering::SeqCst), 1);
     }
 }
