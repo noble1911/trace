@@ -83,6 +83,8 @@ pub fn run() {
             cleanup::runner::start(app.handle().clone());
             // The computer stays awake while agents run, unless switched off in Settings.
             keep_awake::start(app.handle().clone());
+            // The peer server: listens on the Tailscale IP while Settings has it on.
+            execution::peer::supervisor::start(app.handle().clone());
             // Worktree setup hooks report progress to the renderer.
             repo_catalog::setup::init(app.handle().clone());
             Ok(())
@@ -160,6 +162,7 @@ pub fn run() {
             commands::issue_host::issue_host,
             commands::terminal::start_terminal,
             commands::tailscale::tailscale_status,
+            commands::peer_server::peer_server_status,
             commands::preflight::preflight_checks,
             commands::preflight::preflight_install,
             commands::preflight::preflight_sign_in,

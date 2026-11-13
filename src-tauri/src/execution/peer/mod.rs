@@ -2,6 +2,14 @@
 //! worktrees, hooks, agent tools and transcripts all run there as they do
 //! locally, and only the screen and keystrokes travel (`protocol`).
 
+pub mod app_backend;
+pub mod backend;
+pub mod capabilities;
+pub mod hub;
 pub mod pairing;
 pub mod protocol;
+pub mod publish;
+pub mod server;
+pub mod settings;
+pub mod supervisor;
 pub mod tailscale;
