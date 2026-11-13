@@ -26,7 +26,7 @@ export type CreatedBy =
   | { kind: "schedule"; promptId: string; runId?: string | null; label: string };
 
 /** Where a session can run other than this computer. */
-export type SessionHostKind = "vercel";
+export type SessionHostKind = "vercel" | "peer";
 
 /**
  * A session that runs somewhere else: today a Vercel Sandbox (`sandbox` is its
@@ -38,6 +38,8 @@ export interface SessionHost {
   kind: SessionHostKind;
   sandbox: string;
   remote: string | null;
+  /** kind "peer": the paired peer's id (its name comes from the peer list). */
+  peer?: string;
 }
 
 /** An exploratory session — an interactive agent not tied to a Jira issue. */

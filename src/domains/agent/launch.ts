@@ -140,8 +140,13 @@ export async function launchIssueAgent(
   // Settings' default only reaches a start nobody chose a host for, and only when it
   // can work: Vercel connected and Claude. If it can't (say the repo isn't on GitHub),
   // the ticket starts here instead, with a note.
+  const defaultHost = agentHost();
   const byDefault =
-    !host && agentHost() === "vercel" && chosen === "claude" && useVercelStore.getState().status;
+    !host &&
+    chosen === "claude" &&
+    (defaultHost === "vercel" ? useVercelStore.getState().status : defaultHost !== "local")
+      ? defaultHost
+      : null;
   const begin = (runsOn: RunsOn | undefined) =>
     startAgent(
       issueKey,
@@ -158,10 +163,12 @@ export async function launchIssueAgent(
       issueBoard ?? undefined
     );
   if (byDefault) {
-    await begin("vercel").catch((err) => {
+    await begin(byDefault).catch((err) => {
       // No repo yet is the same answer here: the board's repo picker handles it.
       if (!String(err).includes("No repository assigned")) {
-        toast.error(`Couldn't start in the cloud, starting here instead: ${String(err)}`);
+        toast.error(
+          `Couldn't start on ${byDefault === "vercel" ? "the sandbox" : "the other computer"}, starting here instead: ${String(err)}`
+        );
       }
       return begin("local");
     });

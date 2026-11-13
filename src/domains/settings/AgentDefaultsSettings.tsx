@@ -17,6 +17,7 @@ import {
   setAutoStartOnMove,
 } from "@/domains/agent/defaults";
 import { useHasChat } from "@/domains/agentChat/transport";
+import { usePeerChoices } from "@/domains/peers/usePeerChoices";
 import { useVercelStatus } from "@/domains/vercel/store";
 import type { AgentCli, AgentProvider, RunsOn, Transport } from "@/ipc/agent";
 import { KeepAwakeSettings } from "./KeepAwakeSettings";
@@ -40,6 +41,7 @@ export function AgentDefaultsSettings() {
   const [host, setHost] = useState<RunsOn>(agentHost);
   const codexChat = useHasChat("codex");
   const vercel = useVercelStatus();
+  const { choices: peers } = usePeerChoices();
 
   const chooseCli = (next: AgentCli) => {
     setCli(next);
@@ -119,7 +121,7 @@ export function AgentDefaultsSettings() {
             <option value="terminal">Terminal</option>
           </select>
         </SettingRow>
-        {vercel && (
+        {(vercel || peers.length > 0) && (
           <SettingRow
             label="Runs on"
             hint="Where ticket agents start, auto-start and the orchestrator's start_agent included. A Vercel sandbox clones the ticket's repo from GitHub and only runs Claude; a start it can't serve falls back to this machine. A ticket can pick the other from its Start menu."
@@ -130,7 +132,12 @@ export function AgentDefaultsSettings() {
               onChange={(e) => chooseHost(e.target.value as RunsOn)}
             >
               <option value="local">This machine</option>
-              <option value="vercel">Vercel sandbox</option>
+              {vercel && <option value="vercel">Vercel sandbox</option>}
+              {peers.map((p) => (
+                <option key={p.host} value={p.host} disabled={Boolean(p.reason)}>
+                  {p.reason ? `${p.name} (${p.reason})` : p.name}
+                </option>
+              ))}
             </select>
           </SettingRow>
         )}

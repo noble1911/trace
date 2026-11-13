@@ -1,6 +1,7 @@
 // Agent launch defaults configured in Settings, read from localStorage so the
 // start flows and the Settings UI share one source of truth.
 
+import { peerIdOf } from "@/domains/peers/hostChoices";
 import type { AgentCli, AgentProvider, RunsOn, Transport } from "@/ipc/agent";
 
 const CLI_KEY = "trace.agentCli";
@@ -68,11 +69,12 @@ const HOST_KEY = "trace.agentHost";
 /** Where ticket agents run when nothing says otherwise. This machine unless set;
  * only Claude runs in a sandbox, and the repo needs a GitHub origin. */
 export function agentHost(): RunsOn {
-  return read(HOST_KEY) === "vercel" ? "vercel" : "local";
+  const saved = read(HOST_KEY);
+  return saved === "vercel" || peerIdOf(saved) ? (saved as RunsOn) : "local";
 }
 
 export function setAgentHost(next: RunsOn) {
-  write(HOST_KEY, next === "vercel" ? "vercel" : "");
+  write(HOST_KEY, next === "local" ? "" : next);
 }
 
 /** The default model, or undefined to use the CLI's own default. */

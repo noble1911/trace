@@ -262,6 +262,9 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
       prUrls,
       remote: runsOn.remote,
       filesInSandbox: caps?.files === true,
+      peer: runsOn.onPeer
+        ? { terminal: caps?.terminal === true, tests: caps?.tests === true }
+        : undefined,
     })
   );
   const panes = usePanes(`ticket:${issue.key}`, panels, { [issue.key]: TICKET_CHAT_TAB });

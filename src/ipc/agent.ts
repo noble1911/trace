@@ -31,13 +31,16 @@ export type AgentProvider =
   | "deepseek"
   | "deepseek-pro";
 
-/** Where a ticket's agent runs: this machine (a worktree) or a Vercel sandbox. */
-export type RunsOn = "local" | "vercel";
+/** Where a ticket's agent runs: this machine (a worktree), a Vercel sandbox, or a paired
+ * peer, `peer:<id>` (the id from `peer_list`). */
+export type RunsOn = "local" | "vercel" | `peer:${string}`;
 
-/** Where `issueKey`'s agent runs, as last started. */
+/** Where `issueKey`'s agent runs, as last started. A recorded host is a sandbox unless
+ * it says `kind: "peer"`. */
 export async function issueHost(issueKey: string): Promise<RunsOn> {
-  const host = await invoke<unknown | null>("issue_host", { issueKey });
-  return host ? "vercel" : "local";
+  const host = await invoke<{ kind?: string; peer?: string } | null>("issue_host", { issueKey });
+  if (!host) return "local";
+  return host.kind === "peer" && host.peer ? `peer:${host.peer}` : "vercel";
 }
 
 export function startAgent(
