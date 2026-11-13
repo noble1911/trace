@@ -33,7 +33,7 @@ export function switchBlocker(workspaceId: string, to: Transport): string | null
   const running = useBoardStore.getState().runningAgents.has(workspaceId);
   if (!running) return null;
   const live = useLiveStore.getState().info[workspaceId];
-  if (live?.ask && live.ask.kind !== "turn") return "it's waiting for an answer";
+  if (live?.ask) return "it's waiting for an answer";
   if (to === "terminal") {
     const info = useAgentChatStore.getState().info[workspaceId];
     if (isWorkingInfo(info)) return "it's working";

@@ -1,4 +1,3 @@
-import { TURN_FINISHED } from "./ask";
 import type { AgentLight, Ask, LiveInfo } from "./types";
 
 export const LIGHT_LABEL: Record<AgentLight, string> = {
@@ -12,31 +11,26 @@ interface LightInputs {
   running: boolean;
   /** The board store's turn signal; absent = just started, so working. */
   activity: "working" | "waiting" | undefined;
-  /** The user has looked at this agent since its turn ended. */
-  acked: boolean;
   /** A pending hook-reported ask (permission, question, plan). */
   ask: Ask | null;
-  /** Scheduled runs: their quiet pauses are the runner's business, not news. */
-  scheduled: boolean;
 }
 
 /**
- * One agent's light. A pending ask needs you even after you've looked — seeing
- * a permission prompt isn't answering it — while a plain finished turn settles
- * to `ready` once seen. Activity can flicker on a repaint, so an ask outranks it.
+ * One agent's light. Only a pending ask needs you, even after you've looked —
+ * seeing a permission prompt isn't answering it. A plain finished turn is
+ * `ready`, seen or not: "new since you looked" is weight (`unread.ts`), never
+ * amber. Activity can flicker on a repaint, so an ask outranks it.
  */
-export function lightOf({ running, activity, acked, ask, scheduled }: LightInputs): AgentLight {
+export function lightOf({ running, activity, ask }: LightInputs): AgentLight {
   if (!running) return "stopped";
   if (ask) return "attention";
   if ((activity ?? "working") === "working") return "working";
-  if (scheduled) return "ready";
-  return acked ? "ready" : "attention";
+  return "ready";
 }
 
-/** What a light says the agent wants, for its pill: the hook's ask, or "Turn finished". */
+/** What a light says the agent wants, for its pill: the hook's ask. */
 export function shownAsk(info: Pick<LiveInfo, "light" | "ask"> | undefined): Ask | null {
-  if (info?.light !== "attention") return null;
-  return info.ask ?? TURN_FINISHED;
+  return info?.light === "attention" ? info.ask : null;
 }
 
 // Which light a group of agents shows: the one most worth your attention.

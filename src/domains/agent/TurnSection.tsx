@@ -14,8 +14,7 @@ function nextStep(
   hasPr: boolean,
   said: boolean
 ): string | null {
-  if (light === "attention")
-    return askLabel === "Turn finished" ? "Read its reply" : `Answer: ${askLabel}`;
+  if (light === "attention") return `Answer: ${askLabel}`;
   if (light === "working") return "Nothing — the agent is working";
   if (light === "ready" && !hasPr && said) return "Review the changes, then raise a PR";
   if (hasPr) return "Review the pull request";

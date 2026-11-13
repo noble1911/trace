@@ -108,7 +108,7 @@ export function InboxDetail({ entry, now, onOpen, onDismiss, onSentNext }: Inbox
         </button>
       </div>
 
-      {ask && (!isChat || ask.kind === "turn") && (
+      {ask && !isChat && (
         <AskCard workspaceId={entry.id} ask={ask} age={ageLabel(info.since, now)} />
       )}
       {isChat && <ChatPrompts workspaceId={entry.id} />}

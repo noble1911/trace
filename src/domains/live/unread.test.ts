@@ -22,35 +22,45 @@ const ask = (kind: Ask["kind"]): Ask => ({
   canAlways: null,
 });
 
+const unseen = () => true;
+const seen = () => false;
+
 describe("finishedTurns", () => {
-  it("counts working → attention with no ask as a finished turn", () => {
-    assert.deepEqual(finishedTurns({ a: info("working", 10) }, { a: info("attention", 20) }), [
+  it("counts working → ready with the turn unseen as a finished turn", () => {
+    assert.deepEqual(finishedTurns({ a: info("working", 10) }, { a: info("ready", 20) }, unseen), [
       "a",
     ]);
   });
 
-  it("counts the 'waiting for your input' nudge, not a permission or a question", () => {
+  it("ignores a seen agent settling to ready (an idle repaint)", () => {
+    assert.deepEqual(finishedTurns({ a: info("working", 10) }, { a: info("ready", 20) }, seen), []);
+  });
+
+  it("counts the 'needs input' nudge, not a permission or a question", () => {
     const prev = { a: info("working", 10), b: info("working", 10), c: info("working", 10) };
     const next = {
       a: info("attention", 20, ask("input")),
       b: info("attention", 20, ask("permission")),
       c: info("attention", 20, ask("question")),
     };
-    assert.deepEqual(finishedTurns(prev, next), ["a"]);
+    assert.deepEqual(finishedTurns(prev, next, seen), ["a"]);
   });
 
-  it("ignores a seen agent settling to ready, and agents that were not working", () => {
-    const prev = { a: info("working", 10), b: info("ready", 10), c: info("attention", 10) };
-    const next = { a: info("ready", 20), b: info("attention", 20), c: info("attention", 10) };
-    assert.deepEqual(finishedTurns(prev, next), []);
+  it("ignores agents that were not working", () => {
+    const prev = { a: info("ready", 10), b: info("attention", 10) };
+    const next = { a: info("ready", 20), b: info("attention", 20) };
+    assert.deepEqual(finishedTurns(prev, next, unseen), []);
   });
 
   it("ignores a repaint flicker, which hands the light back its older since", () => {
-    assert.deepEqual(finishedTurns({ a: info("working", 50) }, { a: info("attention", 20) }), []);
+    assert.deepEqual(
+      finishedTurns({ a: info("working", 50) }, { a: info("ready", 20) }, unseen),
+      []
+    );
   });
 
   it("ignores an agent that just appeared (a reload re-adopting it)", () => {
-    assert.deepEqual(finishedTurns({}, { a: info("attention", 20) }), []);
+    assert.deepEqual(finishedTurns({}, { a: info("ready", 20) }, unseen), []);
   });
 });
 

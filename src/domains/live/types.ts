@@ -2,16 +2,17 @@
  * What a status light says about an agent — the one vocabulary every surface
  * uses (board cards, session rows, agent tabs, the inbox, the fleet, the rail):
  *
- * - `attention` — needs you: blocked on a question or permission, or finished a
- *   turn you haven't looked at yet.
+ * - `attention` — needs you: blocked on a hook-reported permission, question,
+ *   plan or elicitation. A finished turn is not this, seen or not (it's `ready`).
  * - `working` — mid-turn, or busy with background agents.
- * - `ready` — alive at its prompt and already seen.
+ * - `ready` — alive at its prompt, its turn over; "new since you looked" is a
+ *   bold title (`unread.ts`), not a light.
  * - `stopped` — no agent process.
  */
 export type AgentLight = "working" | "attention" | "ready" | "stopped";
 
 /** What kind of answer the agent is waiting for. */
-export type AskKind = "permission" | "plan" | "question" | "input" | "turn";
+export type AskKind = "permission" | "plan" | "question" | "input";
 
 /** What a waiting agent is asking for — "Permission · Bash", "Plan approval", … */
 export interface Ask {

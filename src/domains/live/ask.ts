@@ -71,6 +71,3 @@ export function askFrom(type: string | null | undefined, message: string | null 
   if (tool) return { ...BLANK, kind: "permission", label: `Permission · ${toolLabel(tool)}`, tool };
   return { ...BLANK, kind: "input", label: "Needs you" };
 }
-
-/** A finished turn nobody has looked at yet — the quiet-timer kind of "needs you". */
-export const TURN_FINISHED: Ask = { ...BLANK, kind: "turn", label: "Turn finished" };

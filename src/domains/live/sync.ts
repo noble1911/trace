@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useBoardStore } from "@/domains/board/store";
-import { isScheduledRun } from "@/domains/schedules/ids";
 import type { AgentAsk, AgentTurn } from "@/ipc/events";
 import { askFrom, askFromTool } from "./ask";
 import { lightOf } from "./light";
@@ -54,9 +53,7 @@ function recompute(board: BoardSignals) {
     const light = lightOf({
       running: true,
       activity: board.agentActivity[id],
-      acked: board.ackedWaiting.has(id),
       ask,
-      scheduled: isScheduledRun(id),
     });
     if (prev && prev.light === light) {
       next[id] = prev;
