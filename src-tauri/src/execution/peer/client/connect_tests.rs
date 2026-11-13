@@ -51,3 +51,22 @@ fn a_session_needs_the_agent_the_repo_and_an_open_window() {
     let closed = check(&caps(false), "box", "claude", "acme/widgets").expect_err("closed");
     assert!(closed.contains("window is closed"), "{closed}");
 }
+
+#[test]
+fn a_saved_peer_outside_the_tailnet_gets_no_hello() {
+    let server = FakeServer::new();
+    for address in [
+        "192.168.1.5:47821",
+        "example.com:47821",
+        "100.64.0.1.evil.com:1",
+    ] {
+        let mut p = peer();
+        p.address = address.into();
+        let err = open(&server, &p).err().expect("refused");
+        assert!(err.contains("outside your tailnet"), "{err}");
+    }
+    assert!(
+        server.sent().is_empty(),
+        "nothing, token included, was sent"
+    );
+}

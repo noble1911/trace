@@ -4,6 +4,7 @@
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
+use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
 
 use super::link::{Connector, Link, LinkError};
@@ -11,6 +12,9 @@ use crate::execution::peer::protocol::{Envelope, Event, Request};
 
 /// How long to wait for a machine to answer at all.
 const CONNECT_WITHIN: Duration = Duration::from_secs(4);
+
+/// The largest frame either way, as on the server.
+const MAX_FRAME: usize = 1024 * 1024;
 
 pub struct WsConnector;
 
@@ -35,8 +39,18 @@ impl Connector for WsConnector {
         stream
             .set_read_timeout(Some(CONNECT_WITHIN))
             .map_err(|e| unreachable(e.to_string()))?;
-        let (ws, _) = tungstenite::client(format!("ws://{address}/"), stream)
-            .map_err(|e| unreachable(format!("Not a trace server: {e}")))?;
+        // The server's limit, so a hostile one can't make us buffer more.
+        let config = WebSocketConfig {
+            max_message_size: Some(MAX_FRAME),
+            max_frame_size: Some(MAX_FRAME),
+            ..WebSocketConfig::default()
+        };
+        let (ws, _) = tungstenite::client::client_with_config(
+            format!("ws://{address}/"),
+            stream,
+            Some(config),
+        )
+        .map_err(|e| unreachable(format!("Not a trace server: {e}")))?;
         Ok(Box::new(WsLink { ws }))
     }
 }

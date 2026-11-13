@@ -158,41 +158,6 @@ pub fn discover(
     entries
 }
 
-/// A host a pairing code may point at: a Tailscale address, so a pasted code can't
-/// send a token to a server somewhere else. Any `*.ts.net` name passes, another
-/// tailnet's included: the check is "points at Tailscale", not "is my tailnet".
-pub fn is_tailnet_host(host: &str) -> bool {
-    let host = host
-        .trim_matches(|c| c == '[' || c == ']')
-        .to_ascii_lowercase();
-    if host.ends_with(".ts.net") {
-        return host
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
-    }
-    if host.starts_with("fd7a:115c:a1e0:") {
-        return host.bytes().all(|b| b.is_ascii_hexdigit() || b == b':');
-    }
-    // 100.64.0.0/10
-    let mut parts = host.split('.').map(str::parse::<u8>);
-    matches!(
-        (
-            parts.next(),
-            parts.next(),
-            parts.next(),
-            parts.next(),
-            parts.next()
-        ),
-        (
-            Some(Ok(100)),
-            Some(Ok(64..=127)),
-            Some(Ok(_)),
-            Some(Ok(_)),
-            None
-        )
-    )
-}
-
 /// Pair from a pasted code: check where it points, let the server vouch for the
 /// token, then keep it (`save`). The server's own name is what gets saved.
 pub fn pair(
@@ -201,10 +166,8 @@ pub fn pair(
     client_name: &str,
     save: impl FnOnce(&PairingCode, &str) -> Result<PeerSummary, String>,
 ) -> Result<PeerSummary, String> {
+    // `parse` refuses a host outside the tailnet.
     let code = PairingCode::parse(code)?;
-    if !is_tailnet_host(host_of(&code.address)) {
-        return Err("That code points outside your tailnet, so trace won't use it.".into());
-    }
     match probe(prober, &code.address, &code.token, client_name) {
         Probe::Welcome(info) => save(&code, &info.host_name),
         Probe::Refused => Err("That computer refused the code. Copy a fresh one from it.".into()),

@@ -152,33 +152,6 @@ fn entries_never_carry_a_token() {
     assert!(!json.contains(TOKEN));
 }
 
-#[test]
-fn tailnet_hosts_are_the_only_ones_a_code_may_name() {
-    for ok in [
-        "100.64.0.1",
-        "100.127.255.254",
-        "fd7a:115c:a1e0::1",
-        "[fd7a:115c:a1e0::1]",
-        "box.tail1.ts.net",
-    ] {
-        assert!(is_tailnet_host(ok), "{ok}");
-    }
-    for bad in [
-        "100.63.0.1",
-        "100.128.0.1",
-        "192.168.1.5",
-        "example.com",
-        "100.64.0.1.evil.com",
-        "evil.com#.ts.net",
-        "a/b.ts.net",
-        "x.ts.net@evil.com",
-        "fd7a:115c:a1e0::1/evil",
-        "127.0.0.1",
-    ] {
-        assert!(!is_tailnet_host(bad), "{bad}");
-    }
-}
-
 fn saved(_: &PairingCode, name: &str) -> Result<PeerSummary, String> {
     Ok(PeerSummary {
         id: "new".into(),
