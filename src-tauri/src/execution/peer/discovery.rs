@@ -159,7 +159,8 @@ pub fn discover(
 }
 
 /// A host a pairing code may point at: a Tailscale address, so a pasted code can't
-/// send a token to a server somewhere else.
+/// send a token to a server somewhere else. Any `*.ts.net` name passes, another
+/// tailnet's included: the check is "points at Tailscale", not "is my tailnet".
 pub fn is_tailnet_host(host: &str) -> bool {
     let host = host
         .trim_matches(|c| c == '[' || c == ']')
