@@ -17,7 +17,7 @@ import {
   setSessionGroup,
   unarchiveSession,
 } from "@/ipc/session";
-import type { ScratchSession, SessionGroups, SessionHostKind } from "./types";
+import type { ScratchSession, SessionGroups, SessionHostId } from "./types";
 
 // Metadata + selection only. Live runtime state (running set, output buffers) is
 // keyed by workspace id in the board store, which the app-level pty listeners
@@ -44,7 +44,7 @@ interface SessionsStore {
     repo?: string | null,
     provider?: AgentProvider,
     folder?: string | null,
-    host?: SessionHostKind | null
+    host?: SessionHostId | null
   ) => Promise<ScratchSession>;
   /** List a session created elsewhere (an agent's tool call) without opening it. */
   adopt: (session: ScratchSession) => void;

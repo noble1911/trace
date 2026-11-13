@@ -6,6 +6,7 @@ import { I, ICON_SIZE } from "@/components/Icon";
 import { Modal } from "@/components/Modal";
 import { modelLockReason } from "@/domains/agentChat/agentOptionsFormat";
 import { defaultTransport, useHasChat } from "@/domains/agentChat/transport";
+import { usePeerChoices } from "@/domains/peers/usePeerChoices";
 import { useVercelStatus } from "@/domains/vercel/store";
 import type { AgentCli, AgentProvider, Transport } from "@/ipc/agent";
 import { listRepos } from "@/ipc/repos";
@@ -16,7 +17,7 @@ import { NewSessionWhere } from "./NewSessionWhere";
 import { lastSessionStart, rememberSessionStart } from "./sessionDefaults";
 import { sandboxRepoNote } from "./sessionHost";
 import { titleFromPrompt } from "./titleFromPrompt";
-import type { SessionHostKind } from "./types";
+import type { SessionHostId } from "./types";
 
 /** What the dialog asks for, as one object: it has outgrown a positional list. */
 export interface NewSessionRequest {
@@ -28,7 +29,7 @@ export interface NewSessionRequest {
   provider: AgentProvider;
   folder: string | null;
   transport: Transport;
-  host: SessionHostKind | null;
+  host: SessionHostId | null;
   /** Unset leaves the model to Settings and the CLI's own default. */
   model: string | null;
   mode: string | null;
@@ -65,17 +66,26 @@ export function NewSessionModal({
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(false);
   const vercel = useVercelStatus();
-  const [hostPick, setHostPick] = useState<SessionHostKind | "local">(last.host ?? "local");
-  // Disconnected meanwhile: back to this computer.
-  const host = vercel && hostPick === "vercel" ? "vercel" : null;
+  const { choices: peers } = usePeerChoices();
+  const [hostPick, setHostPick] = useState<SessionHostId | "local">(last.host ?? "local");
+  // A peer that's gone away or unpaired meanwhile, or Vercel disconnected: back to this computer.
+  const peer = peers.find((p) => p.host === hostPick && !p.reason);
+  const host: SessionHostId | null =
+    hostPick === "vercel" && vercel ? "vercel" : peer ? peer.host : null;
   const [pickedCli, setCli] = useState<AgentCli>(defaultCli);
-  // A sandbox's image has Claude Code, not Codex.
-  const cli: AgentCli = host ? "claude" : pickedCli;
+  // A sandbox's image has Claude Code, not Codex; a peer runs what it lists.
+  const cli: AgentCli =
+    host === "vercel"
+      ? "claude"
+      : peer && !peer.agentKinds.includes(pickedCli)
+        ? "claude"
+        : pickedCli;
   const [provider, setProvider] = useState<AgentProvider>(defaultProvider);
   const [transport, setTransport] = useState<Transport>(
     () => last.transport ?? defaultTransport(defaultCli)
   );
-  const canChat = useHasChat(cli);
+  // A peer's server shows a terminal only, for now.
+  const canChat = useHasChat(cli) && !peer;
   // A Vercel sandbox runs Claude as a chat too (`execution::sandbox::chat`), but
   // headless: with no Claude login saved for sandboxes, only a terminal has
   // somewhere to type /login, so that's what it gets.
@@ -88,7 +98,7 @@ export function NewSessionModal({
   const [mode, setMode] = useState(last.mode ?? "");
   // A sandbox clones the repo's GitHub origin, so only those repos are offered for one.
   const sandbox = useSandboxRepos(host === "vercel");
-  const choices = host ? (sandbox?.usable ?? []) : repos;
+  const choices = peer ? peer.repos : host ? (sandbox?.usable ?? []) : repos;
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const modelLocked = modelLockReason(cli, provider);
 
@@ -128,11 +138,19 @@ export function NewSessionModal({
     setPlace(FOLDER);
   };
 
-  // A sandbox needs a GitHub repo: move off a folder, or a repo it can't clone, onto one.
-  const firstUsable = sandbox?.usable[0];
+  // A sandbox needs a GitHub repo and a peer one of its own: move off a folder, or a repo
+  // it can't use, onto one it can.
+  const firstUsable = choices[0];
   useEffect(() => {
-    if (host && firstUsable && !sandbox?.usable.includes(place)) setPlace(firstUsable);
-  }, [host, firstUsable, sandbox, place]);
+    if (host && firstUsable && !choices.includes(place)) setPlace(firstUsable);
+  }, [host, firstUsable, choices, place]);
+  // Back to this computer: a peer's or sandbox's repo isn't one of ours, so drop it.
+  const wasHost = useRef(host);
+  useEffect(() => {
+    const left = wasHost.current && !host;
+    wasHost.current = host;
+    if (left && isRepoPlace(place) && !repos.includes(place)) setPlace(repos[0] ?? SCRATCH);
+  }, [host, place, repos]);
   const canCreate = host ? choices.includes(place) : true;
 
   const submit = async () => {
@@ -164,15 +182,17 @@ export function NewSessionModal({
     });
   };
 
-  const note = host
-    ? sandboxRepoNote(
-        sandbox && { usable: sandbox.usable, skipped: sandbox.skipped.map((r) => basename(r)) }
-      )
-    : place === SCRATCH
-      ? "Runs in a new empty folder, which is deleted along with the session."
-      : place === FOLDER
-        ? "Runs directly in this folder. Without a worktree, there's no isolation or Files tab."
-        : "Runs in an isolated worktree of the selected repository.";
+  const note = peer
+    ? `Runs in an isolated worktree of this repository on ${peer.name}, as a terminal.`
+    : host
+      ? sandboxRepoNote(
+          sandbox && { usable: sandbox.usable, skipped: sandbox.skipped.map((r) => basename(r)) }
+        )
+      : place === SCRATCH
+        ? "Runs in a new empty folder, which is deleted along with the session."
+        : place === FOLDER
+          ? "Runs directly in this folder. Without a worktree, there's no isolation or Files tab."
+          : "Runs in an isolated worktree of the selected repository.";
 
   return (
     <Modal
@@ -222,7 +242,9 @@ export function NewSessionModal({
       <NewSessionWhere
         host={host}
         choices={choices}
-        sandboxKnown={Boolean(sandbox)}
+        sandboxKnown={Boolean(peer || sandbox)}
+        peerName={peer?.name ?? null}
+        agentKinds={peer?.agentKinds ?? null}
         place={place}
         onPlace={(next) => void choosePlace(next)}
         folder={folder}
@@ -248,11 +270,13 @@ export function NewSessionModal({
       </button>
       {more && (
         <NewSessionMore
-          showHost={Boolean(vercel)}
+          peers={peers}
+          showVercel={Boolean(vercel)}
           hostPick={hostPick}
           onHost={setHostPick}
           cli={cli}
           host={host}
+          peerName={peer?.name ?? null}
           provider={provider}
           onProvider={setProvider}
           shownAs={shownAs}

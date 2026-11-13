@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import {
   addAgentBlocker,
   hostHint,
+  hostId,
   hostPlace,
+  PEER_NO_AGENTS,
   SANDBOX_NO_AGENTS,
   SANDBOX_POLL_FAST_MS,
   SANDBOX_POLL_MS,
@@ -62,6 +64,18 @@ describe("hostPlace", () => {
   });
   it("falls back to the sandbox's name", () => {
     assert.equal(hostPlace(vercel(null)), "Vercel Sandbox · trace-s1");
+  });
+});
+
+describe("a session on a peer", () => {
+  const peer = { kind: "peer" as const, peer: "p1", repo: "widgets", remoteId: "s9" };
+  it("says it's another computer, and which repo", () => {
+    assert.equal(hostPlace(peer), "Another computer · widgets");
+    assert.equal(hostPlace({ ...peer, repo: null }), "Another computer");
+    assert.equal(hostId(peer), "s9");
+  });
+  it("can't take extra agents yet", () => {
+    assert.equal(addAgentBlocker(session({ host: peer }), 4), PEER_NO_AGENTS);
   });
 });
 

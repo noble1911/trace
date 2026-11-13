@@ -3,7 +3,7 @@ import type {
   CreatedBy,
   ScratchSession,
   SessionGroups,
-  SessionHostKind,
+  SessionHostId,
 } from "@/domains/sessions/types";
 import type { AgentCli, AgentProvider, Transport } from "./agent";
 
@@ -18,7 +18,8 @@ export function listSessions(): Promise<ScratchSession[]> {
  * `remoteControl` starts it with Claude Code's Remote Control (Claude on Anthropic
  * only). `createdBy` unset = the user. `host` unset = this computer; `"vercel"` runs
  * it in a Vercel Sandbox and needs a `repo` with a GitHub remote (the error says so);
- * `"peer:<id or name>"` runs it on a paired trace (`repo` is then that computer's repo name).
+ * `"peer:<id or name>"` runs it on a paired trace (`repo` is then that computer's repo name,
+ * one it offers).
  */
 export function createSession(
   title: string,
@@ -28,7 +29,7 @@ export function createSession(
   remoteControl?: boolean,
   folder?: string | null,
   createdBy?: CreatedBy,
-  host?: SessionHostKind | `peer:${string}` | null
+  host?: SessionHostId | null
 ): Promise<ScratchSession> {
   return invoke("create_session", {
     title,

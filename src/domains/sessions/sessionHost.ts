@@ -8,12 +8,17 @@ import type { ScratchSession, SessionHost } from "./types.ts";
 /** Mirrors the backend's refusal in `commands/session_host.rs`. */
 export const SANDBOX_NO_AGENTS = "A Vercel Sandbox session can't have extra agents yet";
 
+/** The same, for a session on another computer running trace. */
+export const PEER_NO_AGENTS = "A session on another computer can't have extra agents yet";
+
 /**
  * Why "+ agent" is off for this session, or null when it can take another. A
  * sandbox session can't have any (the backend refuses); a local one stops at `max`.
  */
 export function addAgentBlocker(session: ScratchSession, max: number): string | null {
-  if (session.host) return SANDBOX_NO_AGENTS;
+  if (session.host) {
+    return session.host.kind === "peer" ? PEER_NO_AGENTS : SANDBOX_NO_AGENTS;
+  }
   if ((session.agents?.length ?? 0) >= max) {
     return "This session already has the maximum number of agents";
   }
@@ -22,6 +27,7 @@ export function addAgentBlocker(session: ScratchSession, max: number): string | 
 
 /** Where a sandbox session's agent works, for its start overlay. */
 export function hostHint(host: SessionHost): string {
+  if (host.kind === "peer") return "Runs on another computer running trace, not on this one.";
   return host.remote
     ? `Runs in a Vercel Sandbox cloned from ${host.remote}, not on this computer.`
     : "Runs in a Vercel Sandbox, not on this computer.";
@@ -29,7 +35,14 @@ export function hostHint(host: SessionHost): string {
 
 /** Where a sandbox session lives, for a header or a list row: "Vercel Sandbox · owner/name". */
 export function hostPlace(host: SessionHost): string {
+  if (host.kind === "peer")
+    return host.repo ? `Another computer · ${host.repo}` : "Another computer";
   return `Vercel Sandbox · ${host.remote ?? host.sandbox}`;
+}
+
+/** The tooltip on a remote session's id: its sandbox's name, or its id on the peer. */
+export function hostId(host: SessionHost): string {
+  return host.kind === "peer" ? host.remoteId : host.sandbox;
 }
 
 /** Vercel's lowercase word for a sandbox, said as the sandbox's: "Sandbox running". */

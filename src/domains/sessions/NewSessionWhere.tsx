@@ -8,14 +8,18 @@ import {
 import { useClaudeModels } from "@/domains/agentChat/claudeCatalog";
 import type { AgentCli } from "@/ipc/agent";
 import { basename } from "@/platform/paths";
-import type { SessionHostKind } from "./types";
+import type { SessionHostId } from "./types";
 
 interface NewSessionWhereProps {
-  host: SessionHostKind | null;
+  host: SessionHostId | null;
   /** The repos on offer: all of them, or only those a sandbox can clone. */
   choices: string[];
   /** True once the sandbox's repo list has arrived, so an empty list means empty. */
   sandboxKnown: boolean;
+  /** The peer it runs on, when it does: repos and agents are its own. */
+  peerName: string | null;
+  /** The agents a peer runs; null when not on one. */
+  agentKinds: string[] | null;
   place: string;
   onPlace: (next: string) => void;
   folder: string | null;
@@ -38,6 +42,8 @@ export function NewSessionWhere({
   host,
   choices,
   sandboxKnown,
+  peerName,
+  agentKinds,
   place,
   onPlace,
   folder,
@@ -67,7 +73,13 @@ export function NewSessionWhere({
           {!host && <option value={scratchValue}>New empty folder</option>}
           {!host && <option value={chooseValue}>Choose a folder…</option>}
           {host && choices.length === 0 && (
-            <option value={place}>{sandboxKnown ? "No GitHub repositories" : "Checking…"}</option>
+            <option value={place}>
+              {!sandboxKnown
+                ? "Checking…"
+                : peerName
+                  ? `No repositories on ${peerName}`
+                  : "No GitHub repositories"}
+            </option>
           )}
         </select>
       </label>
@@ -76,11 +88,13 @@ export function NewSessionWhere({
         <select
           className="field-input"
           value={cli}
-          disabled={Boolean(host)}
+          disabled={host === "vercel"}
           onChange={(e) => onCli(e.target.value as AgentCli)}
         >
           <option value="claude">Claude</option>
-          <option value="codex">Codex</option>
+          <option value="codex" disabled={agentKinds !== null && !agentKinds.includes("codex")}>
+            Codex
+          </option>
         </select>
       </label>
       <label className="field">

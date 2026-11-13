@@ -21,6 +21,8 @@ interface FleetRowProps {
   entry: LiveEntry;
   now: number;
   where: string | null;
+  /** The peer it runs on, when it isn't this computer. */
+  hostName?: string | null;
   diff: { add: number; del: number } | undefined;
   pr: FleetPr | null;
   dropAbove: boolean;
@@ -52,7 +54,7 @@ const clock = (t: number) =>
 // the grip drags them, the row opens the agent. Its ⋯ (on hover or focus) and its
 // right-click list what can be done with it (`useAgentRowActions`).
 export function FleetRow(props: FleetRowProps) {
-  const { entry, now, where, diff, pr, dropAbove, isDragging, dragProps } = props;
+  const { entry, now, where, hostName, diff, pr, dropAbove, isDragging, dragProps } = props;
   const { info } = entry;
   const quiet = useAgentQuiet(entry.id);
   const ask = shownAsk(info);
@@ -83,7 +85,10 @@ export function FleetRow(props: FleetRowProps) {
           <span className="fl-title">{entry.title}</span>
           <span className="fl-sub">{entry.subtitle}</span>
         </span>
-        <span className="fl-src">{sourceLabel(entry)}</span>
+        <span className="fl-src">
+          {sourceLabel(entry)}
+          {hostName && <span className="session-host">{hostName}</span>}
+        </span>
         <span className="mono">{clock(info.openedAt)}</span>
         <span className={`mono${info.light === "attention" ? " hot" : ""}`}>
           {ageLabel(info.since, now)}

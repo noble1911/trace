@@ -6,8 +6,11 @@ import { type LiveEntry, useLiveEntries } from "@/domains/live/entries";
 import { ResetOrderButton } from "@/domains/live/ResetOrderButton";
 import type { AgentLight } from "@/domains/live/types";
 import { useRowDrag } from "@/domains/live/useRowDrag";
+import { peerName } from "@/domains/peers/hostChoices";
+import { usePeersStore } from "@/domains/peers/store";
 import { useSessionDiffs } from "@/domains/sessions/hooks/useSessionDiffs";
 import { useSessionsOverview } from "@/domains/sessions/hooks/useSessionsOverview";
+import { useSessionsStore } from "@/domains/sessions/store";
 import { useNow } from "@/hooks/useNow";
 import { basename } from "@/platform/paths";
 import { type FleetPr, FleetRow } from "./FleetRow";
@@ -29,6 +32,8 @@ interface FleetViewProps {
 // so rows never jump when an agent changes state. Drag the grip to reorder.
 export function FleetView({ onOpen }: FleetViewProps) {
   const entries = useLiveEntries();
+  const sessions = useSessionsStore((s) => s.sessions);
+  const peers = usePeersStore((s) => s.peers);
   const [filter, setFilter] = useState<Filter>("all");
   const ticketPrs = useBoardStore((s) => s.pullRequests);
   const now = useNow(30_000) * 1000;
@@ -56,6 +61,10 @@ export function FleetView({ onOpen }: FleetViewProps) {
     const o = e.worktreeId ? overview[e.worktreeId] : undefined;
     if (!o) return null;
     return [basename(o.repo), o.branch].filter(Boolean).join(" · ");
+  };
+  const hostNameOf = (e: LiveEntry): string | null => {
+    const host = sessions.find((s) => s.id === e.worktreeId)?.host;
+    return host?.kind === "peer" ? peerName(peers, host.peer) : null;
   };
   const count = (f: Filter) =>
     f === "all" ? entries.length : entries.filter((e) => e.info.light === f).length;
@@ -112,6 +121,7 @@ export function FleetView({ onOpen }: FleetViewProps) {
               entry={e}
               now={now}
               where={whereOf(e)}
+              hostName={hostNameOf(e)}
               diff={e.worktreeId ? diffs[e.worktreeId] : undefined}
               pr={prOf(e)}
               dropAbove={drag.dropAbove(e.id)}
