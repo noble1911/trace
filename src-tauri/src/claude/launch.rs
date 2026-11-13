@@ -57,7 +57,7 @@ pub fn claude_wiring(
     mut extra_args: Vec<String>,
     chat: bool,
 ) -> Result<Wiring, String> {
-    let env = bridge_env(app, state, workspace_id);
+    let mut env = bridge_env(app, state, workspace_id);
     let bridge_up = !env.is_empty();
     // Turn hooks (`claude::hooks`) report through the bridge, so they need it.
     // Appended last: `--settings <json>` also ends any variadic user flag
@@ -72,6 +72,8 @@ pub fn claude_wiring(
     if has_tools {
         extra_args.push("--mcp-config".to_string());
         extra_args.push(crate::agent_tools::mcp_config_arg(tools, workspace_id));
+        // The config names the token; it travels in the env, not on argv.
+        env.extend(crate::agent_tools::token_env(tools));
     }
     // The permission rules ride in the same `--settings`, and unlike the hooks they
     // don't need the bridge: an agent trace decides for is held by its ask rule.
