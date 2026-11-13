@@ -52,6 +52,7 @@ pub mod session_host;
 pub mod session_link;
 pub mod session_order;
 pub mod session_origin;
+pub mod session_peer;
 pub mod snapshot;
 pub mod sound;
 pub mod tailscale;

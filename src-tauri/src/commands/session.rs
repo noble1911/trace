@@ -18,6 +18,7 @@ use crate::commands::agent::spawn_in;
 use crate::commands::session_agents::{discard_agents, stop_agents, SessionAgent};
 use crate::commands::session_folder;
 use crate::commands::session_origin::{self, CreatedBy};
+use crate::commands::session_peer;
 use crate::helpers::new_id;
 use crate::helpers::persist::{self, Style};
 use crate::state::{AppState, StartGuard};
@@ -116,7 +117,7 @@ pub(crate) fn update<R>(f: impl FnOnce(&mut Vec<ScratchSession>) -> R) -> Result
     persist::update(&sessions_file(), Style::Compact, f)
 }
 
-fn now_secs() -> u64 {
+pub(crate) fn now_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -187,6 +188,10 @@ pub fn create_session(
     // and on Anthropic — a third-party endpoint can't serve it.
     let remote_control = remote_control.unwrap_or(false) && cli == "claude";
     let provider = if remote_control { None } else { provider };
+    // A session on another computer has no folder or repo here (`session_peer`).
+    if host.as_deref().and_then(session_peer::peer_id).is_some() {
+        return session_peer::create(title, cli, repo.as_deref(), host.as_deref(), created_by);
+    }
     let repo = repo.map(|r| r.trim().to_string()).filter(|r| !r.is_empty());
     if repo
         .as_ref()

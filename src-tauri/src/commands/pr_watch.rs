@@ -17,9 +17,7 @@ pub async fn workspace_prs(workspace_id: String) -> Result<Vec<String>, String> 
         let remote = crate::commands::issue_host::of_issue(&workspace_id)
             .and_then(|_| crate::commands::session_host::remote_prs(&workspace_id));
         remote
-            .or_else(|| {
-                locate(&workspace_id).map(|(cwd, ids)| links::discover(&cwd, &ids))
-            })
+            .or_else(|| locate(&workspace_id).map(|(cwd, ids)| links::discover(&cwd, &ids)))
             .or_else(|| crate::commands::session_host::remote_prs(&workspace_id))
             .unwrap_or_default()
     })

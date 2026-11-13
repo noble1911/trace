@@ -38,6 +38,11 @@ fn sandbox_host(
     host: &SessionHost,
 ) -> Result<Host, String> {
     match host {
+        SessionHost::Peer {
+            peer,
+            repo,
+            remote_id,
+        } => crate::commands::session_peer::host(title, peer, repo, remote_id.as_deref()),
         SessionHost::Vercel { sandbox, remote } => {
             let conn = auth::load().ok_or("Connect Vercel in Integrations first.")?;
             let remote = remote
@@ -139,6 +144,8 @@ pub(crate) fn sandbox_cwd(host: &SessionHost) -> String {
                 .unwrap_or_default();
             format!("/vercel/{name}")
         }
+        // Its folder is on the peer, which chooses it.
+        SessionHost::Peer { .. } => String::new(),
     }
 }
 
@@ -148,7 +155,9 @@ pub(crate) fn remote_prs(workspace_id: &str) -> Option<Vec<String>> {
     let id = crate::commands::session::owning_session(workspace_id)
         .map_or_else(|| workspace_id.to_string(), |s| s.id);
     let host = crate::commands::issue_host::host_of(&id)?;
-    let SessionHost::Vercel { remote, .. } = &host;
+    let SessionHost::Vercel { remote, .. } = &host else {
+        return None;
+    };
     let remote = remote.as_deref().and_then(github_remote)?;
     let branch = crate::execution::sandbox::host::session_branch(&id);
     // The ones its `gh` reported opening, then its branch's on GitHub.

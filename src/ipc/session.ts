@@ -18,7 +18,8 @@ export function listSessions(): Promise<ScratchSession[]> {
  * `remoteControl` starts it with Claude Code's Remote Control (Claude on Anthropic
  * only). `createdBy` unset = the user. `host` unset = this computer; `"vercel"` runs
  * it in a Vercel Sandbox and needs a `repo` with a GitHub remote (the error says so);
- * `"peer:<id>"` runs it on that paired peer, in one of the repos it offers.
+ * `"peer:<id or name>"` runs it on a paired trace (`repo` is then that computer's repo name,
+ * one it offers).
  */
 export function createSession(
   title: string,
