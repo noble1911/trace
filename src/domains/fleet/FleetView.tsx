@@ -64,7 +64,7 @@ export function FleetView({ onOpen }: FleetViewProps) {
   };
   const hostNameOf = (e: LiveEntry): string | null => {
     const host = sessions.find((s) => s.id === e.worktreeId)?.host;
-    return host?.kind === "peer" ? peerName(peers, host.peer ?? "") : null;
+    return host?.kind === "peer" ? peerName(peers, host.peer) : null;
   };
   const count = (f: Filter) =>
     f === "all" ? entries.length : entries.filter((e) => e.info.light === f).length;

@@ -27,6 +27,8 @@ export interface PeerChoice {
   canChat: boolean;
   /** The agents it runs: "claude", "codex". */
   agentKinds: string[];
+  /** The repos it offers, by display name. */
+  repos: string[];
   reason?: string;
 }
 
@@ -58,6 +60,7 @@ export function peerChoices(peers: PeerEntry[] | null): PeerChoice[] {
         detail: reason ?? "Ready",
         canChat: p.info?.capabilities.chat === true,
         agentKinds: p.info?.agentKinds ?? [],
+        repos: p.info?.repos ?? [],
         ...(reason ? { reason } : {}),
       },
     ];

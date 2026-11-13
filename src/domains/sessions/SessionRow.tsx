@@ -16,7 +16,7 @@ import { sessionsDrag, setRowDragging } from "./dragState";
 import { HostChip } from "./HostChip";
 import type { SessionDiffStat } from "./hooks/useSessionDiffs";
 import type { RowOrdering } from "./SessionList";
-import { hostPlace } from "./sessionHost";
+import { hostId, hostPlace } from "./sessionHost";
 import { sessionRowMenu } from "./sessionRowMenu";
 import { TitleEditor } from "./TitleEditor";
 import { relTime } from "./time";
@@ -157,7 +157,7 @@ export function SessionRow(props: SessionRowProps) {
         </div>
         <span
           className="sr-where"
-          title={session.host ? session.host.sandbox : (overview?.branch ?? undefined)}
+          title={session.host ? hostId(session.host) : (overview?.branch ?? undefined)}
         >
           {where}
         </span>

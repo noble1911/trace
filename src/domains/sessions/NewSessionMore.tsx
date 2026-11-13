@@ -1,14 +1,19 @@
 import { Segmented } from "@/components/Segmented";
 import type { AgentCli, AgentProvider, Transport } from "@/ipc/agent";
-import type { SessionHostKind } from "./types";
+import type { PeerChoice } from "@/domains/peers/hostChoices";
+import type { SessionHostId } from "./types";
 
 interface NewSessionMoreProps {
-  /** Only offered while Vercel is connected. */
-  showHost: boolean;
-  hostPick: SessionHostKind | "local";
-  onHost: (next: SessionHostKind | "local") => void;
+  /** Vercel is connected, so it's a choice. */
+  showVercel: boolean;
+  /** Paired peers: a choice each, when ready. */
+  peers: PeerChoice[];
+  hostPick: SessionHostId | "local";
+  onHost: (next: SessionHostId | "local") => void;
   cli: AgentCli;
-  host: SessionHostKind | null;
+  host: SessionHostId | null;
+  /** The peer it runs on, if it does. */
+  peerName: string | null;
   provider: AgentProvider;
   onProvider: (next: AgentProvider) => void;
   shownAs: Transport;
@@ -17,20 +22,26 @@ interface NewSessionMoreProps {
   needsLogin: boolean;
 }
 
-/** "Run on": this computer (null) or a Vercel Sandbox. */
-const HOSTS: { value: SessionHostKind | "local"; label: string }[] = [
-  { value: "local", label: "This computer" },
-  { value: "vercel", label: "Vercel" },
-];
+/** "Run on": this computer, a Vercel Sandbox, or a ready paired peer. */
+function hostOptions(showVercel: boolean, peers: PeerChoice[]) {
+  const ready = peers.filter((p) => !p.reason).map((p) => ({ value: p.host, label: p.name }));
+  return [
+    { value: "local" as const, label: "This computer" },
+    ...(showVercel ? [{ value: "vercel" as const, label: "Vercel" }] : []),
+    ...ready,
+  ];
+}
 
 // The New session dialog's second tier: what you rarely change. Where it runs,
 // which endpoint is behind Claude, and whether it opens as a chat or a terminal.
 export function NewSessionMore({
-  showHost,
+  showVercel,
+  peers,
   hostPick,
   onHost,
   cli,
   host,
+  peerName,
   provider,
   onProvider,
   shownAs,
@@ -40,10 +51,15 @@ export function NewSessionMore({
 }: NewSessionMoreProps) {
   return (
     <div className="ns-more-fields">
-      {showHost && (
+      {(showVercel || peers.some((p) => !p.reason)) && (
         <div className="field">
           <span className="field-label">Run on</span>
-          <Segmented label="Run on" value={hostPick} options={HOSTS} onChange={onHost} />
+          <Segmented
+            label="Run on"
+            value={hostPick}
+            options={hostOptions(showVercel, peers)}
+            onChange={onHost}
+          />
         </div>
       )}
       {cli === "claude" && (
@@ -79,6 +95,11 @@ export function NewSessionMore({
         <div className="field-note">
           No Claude login is saved for sandboxes, so it runs in a terminal where you can log in with
           /login. To use chat, save one in Integrations → Vercel.
+        </div>
+      )}
+      {peerName && (
+        <div className="field-note">
+          {peerName} shows a session as a terminal for now, so it runs in one here.
         </div>
       )}
       {!canChat && !host && (

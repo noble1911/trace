@@ -10,7 +10,7 @@ import type { SessionHost } from "./types";
 export function HostChip({ host }: { host: SessionHost }) {
   const peers = usePeersStore((s) => s.peers);
   if (host.kind === "peer") {
-    const name = peerName(peers, host.peer ?? "");
+    const name = peerName(peers, host.peer);
     return (
       <span className="session-host" title={`Runs on ${name}, another computer running trace.`}>
         {name}

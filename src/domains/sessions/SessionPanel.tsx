@@ -48,7 +48,9 @@ export function SessionPanel({
       count: started,
       content: (
         <div className="detail-right">
-          {host && <SandboxSection sessionId={sessionId} host={host} attached={running} />}
+          {host?.kind === "vercel" && (
+            <SandboxSection sessionId={sessionId} host={host} attached={running} />
+          )}
           <StartedSessionsSection workspaceId={sessionId} />
           <TurnSection workspaceId={activeWorkspaceId} hasPr={hasPr} />
           {/* A sandbox's checkout isn't on this computer; its Sandbox section says where. */}

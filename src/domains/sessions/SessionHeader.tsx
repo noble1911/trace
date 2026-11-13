@@ -17,7 +17,7 @@ import { creatorOf } from "./createdBy";
 import { HostChip } from "./HostChip";
 import type { AgentRun } from "./hooks/useAgentRun";
 import { SessionRunButton } from "./SessionRunButton";
-import { hostPlace } from "./sessionHost";
+import { hostId, hostPlace } from "./sessionHost";
 import { useSessionsStore } from "./store";
 import { TitleEditor } from "./TitleEditor";
 import type { ScratchSession } from "./types";
@@ -84,7 +84,7 @@ export function SessionHeader({
         <I.Sparkles size={16} />
       </span>
       <div>
-        <span className="id" title={info?.cwd ?? session.host?.sandbox}>
+        <span className="id" title={info?.cwd ?? (session.host ? hostId(session.host) : undefined)}>
           {where(info, session)}
         </span>
         <CreatorChip createdBy={creatorOf(session)} variant="detail" />

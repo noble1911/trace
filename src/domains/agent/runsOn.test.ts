@@ -10,16 +10,3 @@ test("a ticket in a sandbox has no terminal or tests, and Files only if it can r
   assert.deepEqual(ticketTabsFor(true, false), { files: false, terminal: false, tests: false });
   assert.deepEqual(ticketTabsFor(true, true), { files: true, terminal: false, tests: false });
 });
-
-test("a ticket on a peer has the tabs its Capabilities offer", () => {
-  assert.deepEqual(ticketTabsFor(true, true, { terminal: false, tests: false }), {
-    files: true,
-    terminal: false,
-    tests: false,
-  });
-  assert.deepEqual(ticketTabsFor(true, false, { terminal: true, tests: false }), {
-    files: false,
-    terminal: true,
-    tests: false,
-  });
-});

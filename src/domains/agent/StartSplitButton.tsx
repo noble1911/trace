@@ -31,10 +31,6 @@ export function StartSplitButton({
   runsOn,
 }: StartSplitButtonProps) {
   const inSandbox = runsOn.host === "vercel";
-  const peer = runsOn.peers.find((p) => p.host === runsOn.host);
-  // A peer runs the agents it lists; a sandbox only Claude.
-  const unavailable = (c: AgentCli) =>
-    inSandbox ? c !== "claude" : peer ? !peer.agentKinds.includes(c) : false;
   // A sandbox with no saved Claude login can only show a terminal, to sign in from.
   const chatBlocked = !useHasChat(cli) || Boolean(runsOn.chatBlock);
   const canChat = !chatBlocked;
@@ -52,30 +48,19 @@ export function StartSplitButton({
                 items: [
                   {
                     label: "This machine",
-                    checked: runsOn.host === "local",
+                    checked: !inSandbox,
                     onSelect: () => runsOn.choose("local"),
                   },
-                  ...(runsOn.sandboxOffered
-                    ? [
-                        {
-                          label: "Vercel sandbox",
-                          detail: "Clones the repo from GitHub",
-                          checked: inSandbox,
-                          onSelect: () => {
-                            runsOn.choose("vercel");
-                            // Only Claude runs in a sandbox.
-                            if (cli !== "claude") onChoose("claude", provider);
-                          },
-                        },
-                      ]
-                    : []),
-                  ...runsOn.peers.map((p) => ({
-                    label: p.name,
-                    detail: p.reason ?? "Another computer running trace",
-                    checked: runsOn.host === p.host,
-                    disabled: Boolean(p.reason),
-                    onSelect: () => runsOn.choose(p.host),
-                  })),
+                  {
+                    label: "Vercel sandbox",
+                    detail: "Clones the repo from GitHub",
+                    checked: inSandbox,
+                    onSelect: () => {
+                      runsOn.choose("vercel");
+                      // Only Claude runs in a sandbox.
+                      if (cli !== "claude") onChoose("claude", provider);
+                    },
+                  },
                 ],
               },
             ]
@@ -84,12 +69,8 @@ export function StartSplitButton({
           title: "Agent",
           items: AGENT_OPTIONS.map((o) => ({
             label: o.label,
-            detail: unavailable(o.cli)
-              ? inSandbox
-                ? "Not available in a sandbox"
-                : "Not available on this computer"
-              : undefined,
-            disabled: unavailable(o.cli),
+            detail: inSandbox && o.cli !== "claude" ? "Not available in a sandbox" : undefined,
+            disabled: inSandbox && o.cli !== "claude",
             checked: isChosen(o, cli, provider),
             onSelect: () => onChoose(o.cli, o.provider),
           })),

@@ -1,5 +1,6 @@
+import { peerIdOf } from "@/domains/peers/hostChoices";
 import type { Transport } from "@/ipc/agent";
-import type { SessionHostKind } from "./types";
+import type { SessionHostId } from "./types";
 
 // What the New session dialog opens with: the choices it was last started with, so
 // starting another session in the same repo is one keystroke. Settings-level defaults
@@ -39,10 +40,15 @@ export interface SessionStart {
   /** A repo's path, or the dialog's own "scratch" / "folder" value. */
   place: string | null;
   folder: string | null;
-  host: SessionHostKind | null;
+  host: SessionHostId | null;
   transport: Transport | null;
   model: string | null;
   mode: string | null;
+}
+
+/** Vercel or a peer id; anything else reads as this computer. */
+function savedHost(saved: string): SessionHostId | null {
+  return saved === "vercel" || peerIdOf(saved) ? (saved as SessionHostId) : null;
 }
 
 export function lastSessionStart(): SessionStart {
@@ -50,8 +56,7 @@ export function lastSessionStart(): SessionStart {
   return {
     place: read(PLACE_KEY) || null,
     folder: read(FOLDER_KEY) || null,
-    // Only one remote host today; anything else reads as this computer.
-    host: read(HOST_KEY) === "vercel" ? "vercel" : null,
+    host: savedHost(read(HOST_KEY)),
     transport: transport === "chat" || transport === "terminal" ? transport : null,
     model: read(MODEL_KEY) || null,
     mode: read(MODE_KEY) || null,

@@ -36,8 +36,6 @@ interface TicketPanelsArgs {
   remote: boolean;
   /** The sandbox can read its checkout, so Files stays. */
   filesInSandbox: boolean;
-  /** Started on a peer: its Capabilities decide Terminal and Tests. */
-  peer?: { terminal: boolean; tests: boolean };
 }
 
 /**
@@ -46,7 +44,7 @@ interface TicketPanelsArgs {
  */
 export function ticketPanels(a: TicketPanelsArgs) {
   const { issue, site, cli, chat, plan, viewers, workspace, tests, pr, prUrls } = a;
-  const has = ticketTabsFor(a.remote, a.filesInSandbox, a.peer);
+  const has = ticketTabsFor(a.remote, a.filesInSandbox);
   const panels: PanelDescriptor[] = [
     {
       id: TICKET_CHAT_TAB,

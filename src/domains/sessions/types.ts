@@ -25,22 +25,20 @@ export type CreatedBy =
   | { kind: "orchestrator" }
   | { kind: "schedule"; promptId: string; runId?: string | null; label: string };
 
-/** Where a session can run other than this computer. */
-export type SessionHostKind = "vercel" | "peer";
+/** Where a new session can be asked to run other than here: `vercel`, or `peer:<id>` (the
+ * host id of a paired peer, `peers/hostChoices`). What `create_session` takes as `host`. */
+export type SessionHostId = "vercel" | `peer:${string}`;
 
 /**
- * A session that runs somewhere else: today a Vercel Sandbox (`sandbox` is its
- * name; `remote` is the repo's GitHub remote it cloned). It has no local folder,
- * so nothing that reads the worktree (Files, Terminal, Tests) applies; its PRs are
- * found on GitHub from its branch.
+ * A session that runs somewhere else. A Vercel Sandbox (`sandbox` is its name; `remote`
+ * is the repo's GitHub remote it cloned), or a paired peer (`peer` is its id, its name
+ * comes from the peer list; `repo` the repo it works in there; `remoteId` the session's
+ * id on that computer). It has no local folder, so nothing that reads the worktree
+ * (Files, Terminal, Tests) applies.
  */
-export interface SessionHost {
-  kind: SessionHostKind;
-  sandbox: string;
-  remote: string | null;
-  /** kind "peer": the paired peer's id (its name comes from the peer list). */
-  peer?: string;
-}
+export type SessionHost =
+  | { kind: "vercel"; sandbox: string; remote: string | null }
+  | { kind: "peer"; peer: string; repo: string | null; remoteId: string };
 
 /** An exploratory session — an interactive agent not tied to a Jira issue. */
 export interface ScratchSession {
