@@ -75,7 +75,10 @@ pub(crate) fn settle(
 }
 
 fn same_repo(a: &SessionHost, b: &SessionHost) -> bool {
-    let (SessionHost::Vercel { remote: x, .. }, SessionHost::Vercel { remote: y, .. }) = (a, b);
+    let (SessionHost::Vercel { remote: x, .. }, SessionHost::Vercel { remote: y, .. }) = (a, b)
+    else {
+        return false;
+    };
     x == y
 }
 

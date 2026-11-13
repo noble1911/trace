@@ -5,7 +5,11 @@
 pub mod app_backend;
 pub mod backend;
 pub mod capabilities;
+<<<<<<< HEAD
 pub mod discovery;
+=======
+pub mod client;
+>>>>>>> 79168c5 (Peer client: PeerHost, a remote terminal session, rejoin, and start_session on a peer)
 pub mod hub;
 pub mod pairing;
 pub mod probe;

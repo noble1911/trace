@@ -152,6 +152,18 @@ pub enum SessionHost {
         #[serde(default)]
         remote: Option<String>,
     },
+    /// Another trace over Tailscale (`peer`).
+    #[serde(rename_all = "camelCase")]
+    Peer {
+        /// The paired peer's id (`peers.json`).
+        peer: String,
+        /// The repo on that peer, by the name in its capabilities.
+        repo: String,
+        /// The peer's own id for the session, once it has started it: what
+        /// Start rejoins.
+        #[serde(default)]
+        remote_id: Option<String>,
+    },
 }
 
 impl SessionHost {
@@ -162,6 +174,7 @@ impl SessionHost {
         match self {
             // The screen, the chat, hooks (its event log) and Files (read remotely).
             SessionHost::Vercel { .. } => sandbox::host::CAPABILITIES,
+            SessionHost::Peer { .. } => peer::capabilities::SERVED_FEATURES,
         }
     }
 }
@@ -170,6 +183,7 @@ impl SessionHost {
 pub enum Host {
     Local(local::LocalHost),
     Vercel(Box<sandbox::host::SandboxHost<vercel::Vercel>>),
+    Peer(Box<peer::client::host::PeerHost>),
 }
 
 impl Host {
@@ -183,6 +197,7 @@ impl Host {
         match self {
             Host::Local(host) => host,
             Host::Vercel(host) => host.as_ref(),
+            Host::Peer(host) => host.as_ref(),
         }
     }
 

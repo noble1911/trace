@@ -21,6 +21,12 @@ impl AppBackend {
         AppBackend { app, name }
     }
 
+    /// Whether the window that runs agent tools is there and has registered them.
+    fn window_open(&self) -> bool {
+        self.app.get_webview_window("main").is_some()
+            && !crate::agent_tools::defs(&self.app).is_empty()
+    }
+
     fn state(&self) -> tauri::State<'_, AppState> {
         self.app.state::<AppState>()
     }
@@ -61,7 +67,11 @@ impl Backend for AppBackend {
 
     fn capabilities(&self) -> ServerCapabilities {
         let repos = repos().into_iter().map(|(summary, _)| summary).collect();
-        ServerCapabilities::new(&self.name, agents(), repos)
+        let mut caps = ServerCapabilities::new(&self.name, agents(), repos);
+        // Agent tools run in this trace's window: with it closed, no agent started
+        // here could use them, and a client should know before it asks.
+        caps.features.agent_tools = self.window_open();
+        caps
     }
 
     fn sessions(&self) -> Vec<RemoteSession> {
@@ -85,6 +95,9 @@ impl Backend for AppBackend {
     }
 
     fn spawn(&self, request: SpawnRequest) -> Result<String, String> {
+        if !self.window_open() {
+            return Err("This trace's window is closed: its agents need it open.".to_string());
+        }
         if !agents().contains(&request.cli) {
             return Err(format!("This trace can't run {}.", request.cli));
         }

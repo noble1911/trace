@@ -14,7 +14,11 @@ pub(crate) fn with_remote<T>(
     read: impl FnOnce(&RemoteDir) -> Result<T, String>,
 ) -> Option<Result<T, String>> {
     let host = crate::commands::issue_host::host_of(workspace_id)?;
-    let SessionHost::Vercel { sandbox, .. } = &host;
+    let SessionHost::Vercel { sandbox, .. } = &host else {
+        return Some(Err(
+            "Files aren't available on another computer yet.".to_string()
+        ));
+    };
     Some((|| {
         let conn = auth::load().ok_or("Connect Vercel in Integrations first.")?;
         let vercel = Vercel::new(conn);
