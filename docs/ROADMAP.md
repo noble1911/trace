@@ -23,7 +23,7 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       which has no desktop dependencies.
       *Started:* Vercel sessions, terminal or chat, that survive a quit and resume after a stop
       ([remote execution](REMOTE_EXECUTION_PLAN.md)), with a readiness checklist, sandbox state and a
-      PR tab ([#71](https://github.com/noble1911/trace/pull/71)); another trace over Tailscale is next.
+      PR tab ([#71](https://github.com/noble1911/trace/pull/71)); another trace over Tailscale is next: finding peers, pairing and Settings → Integrations → Tailscale are in (#106); the server and "Run on" follow.
       *Then:* on a par with Conductor's cloud workspaces (Phase 3 of the plan): no token in the
       sandbox (firewall-injected), the repo's setup, Files, real turns and PR links from an
       event log, trace's tools and the team's own MCP servers (Integrations → MCP servers),
