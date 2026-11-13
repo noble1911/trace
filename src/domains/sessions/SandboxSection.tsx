@@ -4,9 +4,12 @@ import { SandboxPreviews } from "./SandboxPreviews";
 import { sandboxFacts } from "./sessionHost";
 import type { SessionHost } from "./types";
 
+/** The Vercel variant: the only host this section describes. */
+type VercelHost = Extract<SessionHost, { kind: "vercel" }>;
+
 interface SandboxSectionProps {
   sessionId: string;
-  host: SessionHost;
+  host: VercelHost;
   /** This trace has the agent open (its terminal or chat is attached). */
   attached: boolean;
 }

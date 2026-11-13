@@ -1,6 +1,6 @@
 import { Segmented } from "@/components/Segmented";
-import type { AgentCli, AgentProvider, Transport } from "@/ipc/agent";
 import type { PeerChoice } from "@/domains/peers/hostChoices";
+import type { AgentCli, AgentProvider, Transport } from "@/ipc/agent";
 import type { SessionHostId } from "./types";
 
 interface NewSessionMoreProps {
