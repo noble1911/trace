@@ -17,6 +17,7 @@ use tungstenite::{Message, WebSocket};
 
 use super::deadline::Deadline;
 use super::handler::Handler;
+use super::slots::{Paired, Pending};
 use crate::execution::peer::backend::Backend;
 use crate::execution::peer::hub::Hub;
 use crate::execution::peer::pairing;
@@ -67,7 +68,7 @@ fn is_idle(e: &tungstenite::Error) -> bool {
 }
 
 /// Serve one accepted connection until it ends. Blocking: runs on its own thread.
-pub fn serve(stream: TcpStream, shared: Shared) {
+pub fn serve(stream: TcpStream, shared: Shared, pending: Pending) {
     let who = stream
         .peer_addr()
         .map_or_else(|_| "unknown".to_string(), |a| a.ip().to_string());
@@ -95,7 +96,7 @@ pub fn serve(stream: TcpStream, shared: Shared) {
             return;
         }
     };
-    let Some((name, token)) = greet(&mut ws, &shared, &who) else {
+    let Some((name, token, _place)) = greet(&mut ws, &shared, &who, pending) else {
         return;
     };
     eprintln!("trace: peer server: {name} paired from {who}");
@@ -105,7 +106,12 @@ pub fn serve(stream: TcpStream, shared: Shared) {
 }
 
 /// Wait for `hello` and check it. The client's name when it is let in.
-fn greet(ws: &mut Socket, shared: &Shared, who: &str) -> Option<(String, String)> {
+fn greet(
+    ws: &mut Socket,
+    shared: &Shared,
+    who: &str,
+    pending: Pending,
+) -> Option<(String, String, Paired)> {
     let deadline = Instant::now() + HELLO_WITHIN;
     let frame = loop {
         match ws.read() {
@@ -161,11 +167,19 @@ fn greet(ws: &mut Socket, shared: &Shared, who: &str) -> Option<(String, String)
         );
         return None;
     }
+    let Some(place) = pending.promote() else {
+        refuse(
+            ws,
+            "too many paired clients",
+            "Too many computers are connected.",
+        );
+        return None;
+    };
     let welcome = Event::Welcome {
         capabilities: shared.backend.capabilities(),
     };
     send(ws, &welcome).ok()?;
-    Some((tidy(&client_name), token))
+    Some((tidy(&client_name), token, place))
 }
 
 /// The paired loop. Returns why it ended, for the log.

@@ -85,12 +85,54 @@ impl PairingCode {
         if host.is_empty() || port.parse::<u16>().is_err() || !well_formed(token) {
             return Err(bad());
         }
+        if !is_tailnet_host(host) {
+            return Err(OUTSIDE_TAILNET.to_string());
+        }
         Ok(PairingCode {
             address: address.to_string(),
             token: token.to_string(),
         })
     }
 }
+
+/// A host a peer's token may be sent to: a Tailscale address, so neither a pasted
+/// code nor a saved peer can send it to a server somewhere else. Any `*.ts.net` name passes, another
+/// tailnet's included: the check is "points at Tailscale", not "is my tailnet".
+pub fn is_tailnet_host(host: &str) -> bool {
+    let host = host
+        .trim_matches(|c| c == '[' || c == ']')
+        .to_ascii_lowercase();
+    if host.ends_with(".ts.net") && host.len() > ".ts.net".len() {
+        return host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    }
+    if host.starts_with("fd7a:115c:a1e0:") {
+        return host.bytes().all(|b| b.is_ascii_hexdigit() || b == b':');
+    }
+    // 100.64.0.0/10
+    let mut parts = host.split('.').map(str::parse::<u8>);
+    matches!(
+        (
+            parts.next(),
+            parts.next(),
+            parts.next(),
+            parts.next(),
+            parts.next()
+        ),
+        (
+            Some(Ok(100)),
+            Some(Ok(64..=127)),
+            Some(Ok(_)),
+            Some(Ok(_)),
+            None
+        )
+    )
+}
+
+/// What to tell the user when a host fails [`is_tailnet_host`].
+pub const OUTSIDE_TAILNET: &str =
+    "That address is outside your tailnet, so trace won't send it a pairing token.";
 
 // ---- client side ------------------------------------------------------------
 

@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use super::link::{Connector, Link, LinkError};
 use crate::execution::peer::capabilities::ServerCapabilities;
+use crate::execution::peer::pairing::{is_tailnet_host, OUTSIDE_TAILNET};
 use crate::execution::peer::protocol::{Event, Request, PROTOCOL_VERSION};
 
 const HELLO_WITHIN: Duration = Duration::from_secs(6);
@@ -31,6 +32,15 @@ pub fn open(
     connector: &dyn Connector,
     peer: &Peer,
 ) -> Result<(Box<dyn Link>, ServerCapabilities), String> {
+    // Saved peers were never checked: a hand-edited `peers.json` must not send
+    // the token to a host outside the tailnet.
+    let host = peer
+        .address
+        .rsplit_once(':')
+        .map_or(&*peer.address, |(h, _)| h);
+    if !is_tailnet_host(host) {
+        return Err(format!("{}: {OUTSIDE_TAILNET}", peer.name));
+    }
     let mut link = connector
         .connect(&peer.address)
         .map_err(|e| format!("Can't reach {}: {e}", peer.name))?;

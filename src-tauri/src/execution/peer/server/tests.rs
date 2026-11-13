@@ -255,3 +255,38 @@ fn the_old_token_no_longer_gets_in_after_a_rotation() {
     assert!(matches!(hear(&mut ws), Some(Event::Welcome { .. })));
     rig.listener.stop();
 }
+
+#[test]
+fn silent_sockets_do_not_keep_a_paired_client_out() {
+    let rig = rig();
+    // Under the per-address cap, so they are all admitted and none says hello.
+    let _idle: Vec<_> = (0..slots::MAX_PENDING_PER_IP - 1)
+        .map(|_| connect(&rig))
+        .collect();
+    let mut ws = paired(&rig);
+    say(&mut ws, 2, Request::List);
+    assert!(hear(&mut ws).is_some());
+    assert_eq!(rig.listener.clients(), 1, "only the paired one counts");
+    rig.listener.stop();
+}
+
+#[test]
+fn one_address_cannot_hold_more_than_its_share_of_silent_sockets() {
+    let rig = rig();
+    let addr = rig.listener.addr();
+    let flood: Vec<_> = (0..16)
+        .map(|_| TcpStream::connect(addr).expect("tcp"))
+        .collect();
+    // The server closes the ones over the cap; a read on them ends at once.
+    let mut closed = 0;
+    for mut s in flood {
+        s.set_read_timeout(Some(Duration::from_millis(400)))
+            .expect("timeout");
+        let mut b = [0u8; 1];
+        if matches!(std::io::Read::read(&mut s, &mut b), Ok(0)) {
+            closed += 1;
+        }
+    }
+    assert_eq!(closed, 16 - slots::MAX_PENDING_PER_IP);
+    rig.listener.stop();
+}

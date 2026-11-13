@@ -9,19 +9,19 @@
 mod connection;
 mod deadline;
 mod handler;
+mod slots;
 #[cfg(test)]
 pub(crate) mod testing;
 
 use std::net::{IpAddr, SocketAddr, TcpListener};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub use connection::Shared;
+use slots::Slots;
 
-/// Clients at once. A few phones and laptops, not a crowd.
-const MAX_CLIENTS: usize = 16;
 /// How often the accept loop looks at the stop flag.
 const POLL: Duration = Duration::from_millis(50);
 
@@ -44,7 +44,7 @@ pub fn tailnet_ip(ip: &str) -> Result<IpAddr, String> {
 pub struct Listener {
     addr: SocketAddr,
     stop: Arc<AtomicBool>,
-    clients: Arc<AtomicUsize>,
+    slots: Slots,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -56,15 +56,15 @@ impl Listener {
         tcp.set_nonblocking(true)?;
         let addr = tcp.local_addr()?;
         let stop = shared.stop.clone();
-        let clients = Arc::new(AtomicUsize::new(0));
-        let count = clients.clone();
+        let slots = Slots::default();
+        let held = slots.clone();
         let thread = std::thread::Builder::new()
             .name("peer-server".into())
-            .spawn(move || accept_loop(tcp, shared, count))?;
+            .spawn(move || accept_loop(tcp, shared, held))?;
         Ok(Listener {
             addr,
             stop,
-            clients,
+            slots,
             thread: Some(thread),
         })
     }
@@ -73,9 +73,9 @@ impl Listener {
         self.addr
     }
 
-    /// Clients connected now.
+    /// Paired clients connected now.
     pub fn clients(&self) -> usize {
-        self.clients.load(Ordering::Relaxed)
+        self.slots.paired()
     }
 
     /// Stop accepting and tell every client's thread to hang up. Returns once
@@ -88,30 +88,23 @@ impl Listener {
     }
 }
 
-fn accept_loop(tcp: TcpListener, shared: Shared, clients: Arc<AtomicUsize>) {
+fn accept_loop(tcp: TcpListener, shared: Shared, slots: Slots) {
     while !shared.stop.load(Ordering::Relaxed) {
         match tcp.accept() {
             Ok((stream, from)) => {
-                if clients.load(Ordering::Relaxed) >= MAX_CLIENTS {
+                let Some(pending) = slots.admit(from.ip()) else {
                     eprintln!(
-                        "trace: peer server: refused {}: too many clients",
+                        "trace: peer server: refused {}: too many unauthenticated connections",
                         from.ip()
                     );
                     continue;
-                }
-                clients.fetch_add(1, Ordering::Relaxed);
-                let (shared, clients) = (shared.clone(), clients.clone());
+                };
+                let shared = shared.clone();
                 let spawned = std::thread::Builder::new()
                     .name("peer-client".into())
-                    .spawn({
-                        let clients = clients.clone();
-                        move || {
-                            connection::serve(stream, shared);
-                            clients.fetch_sub(1, Ordering::Relaxed);
-                        }
-                    });
-                if spawned.is_err() {
-                    clients.fetch_sub(1, Ordering::Relaxed);
+                    .spawn(move || connection::serve(stream, shared, pending));
+                if let Err(e) = spawned {
+                    eprintln!("trace: peer server: couldn't start a connection thread: {e}");
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => std::thread::sleep(POLL),
