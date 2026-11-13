@@ -20,6 +20,9 @@ use super::capabilities::ServerCapabilities;
 /// it: an older side answers an unknown one with an error.
 pub const PROTOCOL_VERSION: u32 = 1;
 
+/// The port every trace serves on and probes, so peers find each other by address alone.
+pub const PEER_PORT: u16 = 47821;
+
 /// A request from a client, with an id the server echoes on what answers it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

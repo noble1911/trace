@@ -17,8 +17,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::app_backend::AppBackend;
+use super::protocol::PEER_PORT;
 use super::server::{tailnet_ip, Listener, Shared};
-use super::settings::{self, ServerSettings};
+use super::settings;
 use super::tailscale::{self, TailnetState, TailscaleStatus};
 use crate::state::AppState;
 
@@ -67,11 +68,8 @@ pub fn decide(current: Option<SocketAddr>, want: &Want) -> Step {
 }
 
 /// Where the server should be, from the setting and Tailscale's answer.
-pub fn want(
-    settings: &ServerSettings,
-    tailscale: impl FnOnce() -> TailscaleStatus,
-) -> (Want, String) {
-    if !settings.enabled {
+pub fn want(enabled: bool, tailscale: impl FnOnce() -> TailscaleStatus) -> (Want, String) {
+    if !enabled {
         return (Want::Not("switched off".into()), String::new());
     }
     let status = tailscale();
@@ -83,7 +81,7 @@ pub fn want(
     let want = match status.state {
         TailnetState::Running => match status.device.and_then(|d| d.ip) {
             Some(ip) => match tailnet_ip(&ip) {
-                Ok(ip) => Want::Listen(SocketAddr::new(ip, settings.port)),
+                Ok(ip) => Want::Listen(SocketAddr::new(ip, PEER_PORT)),
                 Err(e) => Want::Not(e),
             },
             None => Want::Not("Tailscale has no address for this computer".into()),
@@ -117,7 +115,7 @@ pub fn start(app: AppHandle) {
     let (wake, woken) = channel::<()>();
     let status = Arc::new(Mutex::new(ServerStatus {
         enabled: false,
-        port: settings::DEFAULT_PORT,
+        port: PEER_PORT,
         listening: None,
         waiting_for: None,
         clients: 0,
@@ -138,8 +136,8 @@ fn watch(app: AppHandle, woken: std::sync::mpsc::Receiver<()>, status: Arc<Mutex
     let mut listener: Option<Listener> = None;
     let mut last_said = String::new();
     loop {
-        let settings = settings::load();
-        let (wanted, name) = want(&settings, tailscale::status);
+        let enabled = settings::server_enabled();
+        let (wanted, name) = want(enabled, tailscale::status);
         let mut say = |line: String| {
             if line != last_said {
                 eprintln!("trace: peer server: {line}");
@@ -164,16 +162,16 @@ fn watch(app: AppHandle, woken: std::sync::mpsc::Receiver<()>, status: Arc<Mutex
             }
         }
         if let (None, Want::Not(why)) = (&listener, &wanted) {
-            if settings.enabled {
+            if enabled {
                 say(format!("not listening: {why}; will try again"));
             }
         }
         *status.lock() = ServerStatus {
-            enabled: settings.enabled,
-            port: settings.port,
+            enabled,
+            port: PEER_PORT,
             listening: listener.as_ref().map(|l| l.addr().to_string()),
             waiting_for: match (&listener, &wanted) {
-                (None, Want::Not(why)) if settings.enabled => Some(why.clone()),
+                (None, Want::Not(why)) if enabled => Some(why.clone()),
                 _ => None,
             },
             clients: listener.as_ref().map_or(0, Listener::clients),

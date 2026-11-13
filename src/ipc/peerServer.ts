@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
-// The peer server (`commands/peer_server.rs`): this trace listening on its Tailscale
-// address so other traces on the tailnet can start and watch sessions here.
+// What the peer server is doing (`commands/peer_server.rs`): this trace listening on its
+// Tailscale address so other traces on the tailnet can start and watch sessions here.
+// The on/off switch is `setPeerServer` in `ipc/peers.ts`.
 
 export interface PeerServerStatus {
   enabled: boolean;
@@ -15,11 +16,4 @@ export interface PeerServerStatus {
 
 export function peerServerStatus(): Promise<PeerServerStatus> {
   return invoke("peer_server_status");
-}
-
-export function setPeerServer(args: {
-  enabled?: boolean;
-  port?: number;
-}): Promise<PeerServerStatus> {
-  return invoke("set_peer_server", args);
 }

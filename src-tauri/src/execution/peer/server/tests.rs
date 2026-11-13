@@ -214,3 +214,44 @@ fn only_tailscale_addresses_can_be_listened_on() {
         assert!(tailnet_ip(bad).is_err(), "{bad} must be refused");
     }
 }
+
+#[test]
+fn rotating_the_token_hangs_up_a_connection_paired_with_the_old_one() {
+    let rig = rig();
+    let mut ws = paired(&rig);
+    say(&mut ws, 2, Request::List);
+    assert!(matches!(hear(&mut ws), Some(Event::Sessions { .. })));
+    rig.backend.rotate();
+    // The very next request is refused, not served, and the connection ends.
+    say(&mut ws, 3, Request::List);
+    assert!(matches!(hear(&mut ws), Some(Event::Refused { .. })));
+    assert!(hear(&mut ws).is_none());
+    assert_eq!(
+        rig.backend.calls(),
+        ["list"],
+        "the second list must not have run"
+    );
+    rig.listener.stop();
+}
+
+#[test]
+fn an_idle_connection_is_dropped_soon_after_the_token_is_rotated() {
+    let rig = rig();
+    let mut ws = paired(&rig);
+    rig.backend.rotate();
+    assert!(matches!(hear(&mut ws), Some(Event::Refused { .. })));
+    rig.listener.stop();
+}
+
+#[test]
+fn the_old_token_no_longer_gets_in_after_a_rotation() {
+    let rig = rig();
+    rig.backend.rotate();
+    let mut ws = connect(&rig);
+    say(&mut ws, 1, hello(TOKEN));
+    assert!(matches!(hear(&mut ws), Some(Event::Refused { .. })));
+    let mut ws = connect(&rig);
+    say(&mut ws, 1, hello(WRONG_TOKEN));
+    assert!(matches!(hear(&mut ws), Some(Event::Welcome { .. })));
+    rig.listener.stop();
+}

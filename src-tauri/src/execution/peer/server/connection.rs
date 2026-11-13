@@ -23,6 +23,9 @@ use crate::execution::peer::protocol::{parse_request, Envelope, Event, Request, 
 
 /// How long a new connection has to say hello before it is dropped.
 const HELLO_WITHIN: Duration = Duration::from_secs(5);
+/// How often a connection checks that its token is still the server's, besides
+/// before every request: rotating the token hangs up open connections.
+const REVALIDATE: Duration = Duration::from_secs(1);
 /// How often an idle connection looks for output to send. Reads wake it sooner.
 const TICK: Duration = Duration::from_millis(25);
 /// A client that won't take a frame for this long is gone.
@@ -86,17 +89,17 @@ pub fn serve(stream: TcpStream, shared: Shared) {
             return;
         }
     };
-    let Some(name) = greet(&mut ws, &shared, &who) else {
+    let Some((name, token)) = greet(&mut ws, &shared, &who) else {
         return;
     };
     eprintln!("trace: peer server: {name} paired from {who}");
-    let why = run(&mut ws, &shared);
+    let why = run(&mut ws, &shared, &token);
     let _ = ws.close(None);
     eprintln!("trace: peer server: {name} from {who} left: {why}");
 }
 
 /// Wait for `hello` and check it. The client's name when it is let in.
-fn greet(ws: &mut Socket, shared: &Shared, who: &str) -> Option<String> {
+fn greet(ws: &mut Socket, shared: &Shared, who: &str) -> Option<(String, String)> {
     let deadline = Instant::now() + HELLO_WITHIN;
     let frame = loop {
         match ws.read() {
@@ -156,23 +159,34 @@ fn greet(ws: &mut Socket, shared: &Shared, who: &str) -> Option<String> {
         capabilities: shared.backend.capabilities(),
     };
     send(ws, &welcome).ok()?;
-    Some(tidy(&client_name))
+    Some((tidy(&client_name), token))
 }
 
 /// The paired loop. Returns why it ended, for the log.
-fn run(ws: &mut Socket, shared: &Shared) -> String {
+fn run(ws: &mut Socket, shared: &Shared, token: &str) -> String {
     let sub = shared.hub.subscribe();
     let (late_tx, late_rx) = channel::<Event>();
     let mut handler = Handler::new(shared.backend.clone(), late_tx);
     if ws.get_mut().set_read_timeout(Some(TICK)).is_err() {
         return "couldn't set a read timeout".to_string();
     }
+    let mut checked = Instant::now();
     loop {
         if shared.stop.load(Ordering::Relaxed) {
             return "the server stopped listening".to_string();
         }
+        if checked.elapsed() >= REVALIDATE {
+            checked = Instant::now();
+            if let Some(why) = unpaired(ws, shared, token) {
+                return why;
+            }
+        }
         match ws.read() {
             Ok(Message::Text(frame)) => {
+                // The token is read afresh for every request.
+                if let Some(why) = unpaired(ws, shared, token) {
+                    return why;
+                }
                 let out = match parse_request(&frame) {
                     Ok(env) => handler.handle(env),
                     Err((id, message)) => vec![Event::Error { id, message }],
@@ -216,6 +230,26 @@ fn run(ws: &mut Socket, shared: &Shared) -> String {
             _ => {}
         }
     }
+}
+
+/// Whether `token`, the one this client paired with, is still the server's. If
+/// not (it was rotated, or can't be read) the client is told and the reason
+/// returned, which ends the connection.
+fn unpaired(ws: &mut Socket, shared: &Shared, token: &str) -> Option<String> {
+    let still = shared
+        .backend
+        .token()
+        .is_ok_and(|current| pairing::accepts(&current, token));
+    if still {
+        return None;
+    }
+    let _ = send(
+        ws,
+        &Event::Refused {
+            reason: "Not paired with this trace any more.".to_string(),
+        },
+    );
+    Some("the pairing token changed".to_string())
 }
 
 fn drain(rx: &Receiver<Event>) -> Vec<Event> {

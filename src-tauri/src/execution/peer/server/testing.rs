@@ -15,9 +15,16 @@ pub const WRONG_TOKEN: &str = "fedcba9876543210fedcba9876543210fedcba9876543210f
 pub struct FakeBackend {
     /// What happened, as `verb workspace detail`.
     pub calls: Mutex<Vec<String>>,
+    /// Set by [`FakeBackend::rotate`]; the server's token is TOKEN until then.
+    pub rotated: Mutex<Option<String>>,
 }
 
 impl FakeBackend {
+    /// As `peer_rotate_token` does: from now on the token is another one.
+    pub fn rotate(&self) {
+        *self.rotated.lock() = Some(WRONG_TOKEN.to_string());
+    }
+
     fn note(&self, line: String) {
         self.calls.lock().push(line);
     }
@@ -29,7 +36,11 @@ impl FakeBackend {
 
 impl Backend for FakeBackend {
     fn token(&self) -> Result<String, String> {
-        Ok(TOKEN.to_string())
+        Ok(self
+            .rotated
+            .lock()
+            .clone()
+            .unwrap_or_else(|| TOKEN.to_string()))
     }
 
     fn capabilities(&self) -> ServerCapabilities {

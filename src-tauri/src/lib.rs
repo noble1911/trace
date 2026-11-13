@@ -163,7 +163,6 @@ pub fn run() {
             commands::terminal::start_terminal,
             commands::tailscale::tailscale_status,
             commands::peer_server::peer_server_status,
-            commands::peer_server::set_peer_server,
             commands::preflight::preflight_checks,
             commands::preflight::preflight_install,
             commands::preflight::preflight_sign_in,
