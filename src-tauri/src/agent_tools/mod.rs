@@ -110,8 +110,10 @@ pub fn call(app: &AppHandle, name: &str, arguments: &Value, caller: &str) -> Too
     reply
 }
 
-/// The `--mcp-config` JSON for one agent: the endpoint, the token, and who it
-/// is; and each MCP server switched on for this computer (Integrations → MCP
+/// The `--mcp-config` JSON for one agent: the endpoint, who it is, and the token
+/// as `${TRACE_MCP_TOKEN}`, which Claude Code expands from the agent's env
+/// ([`token_env`]) so the secret is never on its command line (`ps` shows
+/// argv to other local accounts). Each MCP server switched on for this computer (Integrations → MCP
 /// servers), through trace's proxy on the same endpoint (`mcp_auth::proxy`).
 pub fn mcp_config_arg(server: &ToolServer, workspace_id: &str) -> String {
     let entry = |path: &str| {
@@ -119,7 +121,7 @@ pub fn mcp_config_arg(server: &ToolServer, workspace_id: &str) -> String {
             "type": "http",
             "url": format!("http://127.0.0.1:{}{path}", server.port),
             "headers": {
-                "Authorization": format!("Bearer {}", server.token),
+                "Authorization": format!("Bearer ${{{}}}", codex::TOKEN_ENV),
                 "X-Trace-Workspace": workspace_id,
             },
         })
@@ -132,5 +134,32 @@ pub fn mcp_config_arg(server: &ToolServer, workspace_id: &str) -> String {
     json!({ "mcpServers": servers }).to_string()
 }
 
+/// The env that carries the token [`mcp_config_arg`] names. Only added when the
+/// server bound, as the config is.
+pub fn token_env(server: &ToolServer) -> std::collections::HashMap<String, String> {
+    std::collections::HashMap::from([(codex::TOKEN_ENV.to_string(), server.token.clone())])
+}
+
 /// The permission rule that lets agents call these tools without a prompt.
 pub const ALLOW_RULE: &str = "mcp__trace";
+
+#[cfg(test)]
+mod config_tests {
+    use super::*;
+
+    #[test]
+    fn the_token_is_in_the_env_and_in_no_argument() {
+        let server = ToolServer {
+            port: 4321,
+            token: "s3cret-token".into(),
+        };
+        let arg = mcp_config_arg(&server, "ws-1");
+        assert!(!arg.contains("s3cret-token"), "{arg}");
+        assert!(arg.contains("Bearer ${TRACE_MCP_TOKEN}"), "{arg}");
+        let env = token_env(&server);
+        assert_eq!(
+            env.get(codex::TOKEN_ENV).map(String::as_str),
+            Some("s3cret-token")
+        );
+    }
+}
