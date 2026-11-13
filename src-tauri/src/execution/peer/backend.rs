@@ -33,8 +33,8 @@ pub struct Replay {
 }
 
 pub trait Backend: Send + Sync {
-    /// The server's pairing token. Read for each connection, so rotating it
-    /// takes effect for the next one.
+    /// The server's pairing token. Read at every `hello`, before every request and
+    /// once a second, so rotating it also ends connections paired with the old one.
     fn token(&self) -> Result<String, String>;
     fn capabilities(&self) -> ServerCapabilities;
     fn sessions(&self) -> Vec<RemoteSession>;
