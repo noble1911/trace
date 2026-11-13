@@ -24,8 +24,6 @@ function note(ask: Ask, answerable: boolean): string | null {
       return null;
     case "question":
       return answerable ? null : "Open it to answer in the terminal.";
-    case "turn":
-      return "Reply below, or open it to carry on.";
     default:
       return "Open it to see what it needs.";
   }

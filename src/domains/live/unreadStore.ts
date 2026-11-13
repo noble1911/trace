@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { useBoardStore } from "@/domains/board/store";
+import { isScheduledRun } from "@/domains/schedules/ids";
 import { agentWorkspaceIds } from "@/domains/sessions/agentRoster";
 import { useSessionsStore } from "@/domains/sessions/store";
 import { loadUnread, saveUnread } from "./prefs";
@@ -51,7 +53,14 @@ function watchedSession(): string | null {
 export function watchUnread(): () => void {
   const offLive = useLiveStore.subscribe((s, prev) => {
     if (s.info === prev.info) return;
-    const done = finishedTurns(prev.info, s.info);
+    // Unseen = the user hasn't looked since the turn ended; a scheduled run's
+    // pauses are the runner's business, not news.
+    const { ackedWaiting } = useBoardStore.getState();
+    const done = finishedTurns(
+      prev.info,
+      s.info,
+      (id) => !ackedWaiting.has(id) && !isScheduledRun(id)
+    );
     if (done.length === 0) return;
     const { sessions } = useSessionsStore.getState();
     const watched = watchedSession();

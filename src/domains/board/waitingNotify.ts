@@ -232,11 +232,7 @@ function maybeNotifyWaiting(workspaceId: string) {
   // quiet below, so a turn the user already saw can't resurface on a later
   // repaint — it takes new input from them to arm the next one.
   if (!armed.delete(workspaceId)) return;
-  alertUnlessWatching(
-    workspaceId,
-    (title) => `${title} is waiting`,
-    "The agent finished its turn and needs your input."
-  );
+  alertUnlessWatching(workspaceId, (title) => `${title} is ready`, "The agent finished its turn.");
 }
 
 /**
