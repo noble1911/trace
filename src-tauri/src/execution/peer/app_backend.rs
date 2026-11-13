@@ -30,7 +30,7 @@ impl AppBackend {
 /// folder stays here: only the summary is ever sent.
 fn repos() -> Vec<(RepoSummary, String)> {
     let paths = crate::commands::repos::all_repos();
-    crate::repo_catalog::details(&paths)
+    let all = crate::repo_catalog::details(&paths)
         .into_iter()
         .filter(|d| d.exists)
         .map(|d| {
@@ -41,7 +41,8 @@ fn repos() -> Vec<(RepoSummary, String)> {
             );
             (summary, d.path)
         })
-        .collect()
+        .collect();
+    super::capabilities::drop_ambiguous(all)
 }
 
 /// The agent kinds this machine can start.
@@ -70,8 +71,7 @@ impl Backend for AppBackend {
             .pty_sessions
             .lock()
             .keys()
-            // A shell beside an agent isn't one.
-            .filter(|id| !id.starts_with("term:"))
+            .filter(|id| super::backend::is_served(id))
             .cloned()
             .collect();
         ids.sort();

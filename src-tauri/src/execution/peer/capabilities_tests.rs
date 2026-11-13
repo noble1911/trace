@@ -40,3 +40,14 @@ fn a_newer_or_older_server_still_reads() {
     assert_eq!(caps.name, "old");
     assert!(caps.agents.is_empty() && caps.repos.is_empty());
 }
+
+#[test]
+fn a_name_two_repos_share_is_offered_for_neither() {
+    let repos = vec![
+        (summarize("/a/app", None), 1),
+        (summarize("/b/app", None), 2),
+        (summarize("/c/other", None), 3),
+    ];
+    let kept: Vec<i32> = drop_ambiguous(repos).into_iter().map(|(_, n)| n).collect();
+    assert_eq!(kept, [3]);
+}

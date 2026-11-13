@@ -48,6 +48,12 @@ pub trait Backend: Send + Sync {
     fn stop(&self, workspace_id: &str) -> Result<(), String>;
 }
 
+/// Whether a peer may see or drive this workspace: agents, not the plain shell
+/// beside one (the Terminal tab), which the server never lists or serves.
+pub fn is_served(workspace_id: &str) -> bool {
+    !workspace_id.starts_with("term:")
+}
+
 /// What to send a client that has seen up to `from_seq`, from a history of
 /// `chunks` that ends at `seq`. A client that is ahead of the server (the run
 /// restarted and its seq began again) or behind what the server kept starts over.

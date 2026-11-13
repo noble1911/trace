@@ -15,13 +15,14 @@ use std::time::{Duration, Instant};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
 
+use super::deadline::Deadline;
 use super::handler::Handler;
 use crate::execution::peer::backend::Backend;
 use crate::execution::peer::hub::Hub;
 use crate::execution::peer::pairing;
 use crate::execution::peer::protocol::{parse_request, Envelope, Event, Request, PROTOCOL_VERSION};
 
-/// How long a new connection has to say hello before it is dropped.
+/// How long a new connection has for the handshake and hello together.
 const HELLO_WITHIN: Duration = Duration::from_secs(5);
 /// How often a connection checks that its token is still the server's, besides
 /// before every request: rotating the token hangs up open connections.
@@ -35,7 +36,7 @@ const REFUSAL_DELAY: Duration = Duration::from_millis(300);
 /// The largest frame either way: a pasted file, not a download.
 const MAX_FRAME: usize = 1024 * 1024;
 
-type Socket = WebSocket<TcpStream>;
+type Socket = WebSocket<Deadline>;
 
 /// What every connection shares.
 #[derive(Clone)]
@@ -71,7 +72,6 @@ pub fn serve(stream: TcpStream, shared: Shared) {
         .peer_addr()
         .map_or_else(|_| "unknown".to_string(), |a| a.ip().to_string());
     if stream.set_nonblocking(false).is_err()
-        || stream.set_read_timeout(Some(HELLO_WITHIN)).is_err()
         || stream.set_write_timeout(Some(WRITE_WITHIN)).is_err()
     {
         eprintln!("trace: peer server: couldn't set up a connection from {who}");
@@ -82,7 +82,13 @@ pub fn serve(stream: TcpStream, shared: Shared) {
         max_frame_size: Some(MAX_FRAME),
         ..WebSocketConfig::default()
     };
-    let mut ws = match tungstenite::accept_with_config(stream, Some(config)) {
+    let mut ws = match tungstenite::accept_with_config(
+        Deadline {
+            tcp: stream,
+            until: Some(Instant::now() + HELLO_WITHIN),
+        },
+        Some(config),
+    ) {
         Ok(ws) => ws,
         Err(e) => {
             eprintln!("trace: peer server: handshake with {who} failed: {e}");
@@ -167,7 +173,8 @@ fn run(ws: &mut Socket, shared: &Shared, token: &str) -> String {
     let sub = shared.hub.subscribe();
     let (late_tx, late_rx) = channel::<Event>();
     let mut handler = Handler::new(shared.backend.clone(), late_tx);
-    if ws.get_mut().set_read_timeout(Some(TICK)).is_err() {
+    ws.get_mut().until = None;
+    if ws.get_mut().tcp.set_read_timeout(Some(TICK)).is_err() {
         return "couldn't set a read timeout".to_string();
     }
     let mut checked = Instant::now();

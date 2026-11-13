@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use base64::Engine;
 
-use crate::execution::peer::backend::{Backend, SpawnRequest};
+use crate::execution::peer::backend::{is_served, Backend, SpawnRequest};
 use crate::execution::peer::protocol::{Envelope, Event, Request};
 
 /// The most a `Spawn` prompt or `Input` may carry. Pasting a file is fine; a
@@ -31,6 +31,17 @@ fn error(id: Option<u64>, message: impl Into<String>) -> Event {
     }
 }
 
+/// The workspace a request is about, for those that name one.
+fn workspace_of(request: &Request) -> Option<&str> {
+    match request {
+        Request::Attach { workspace_id, .. }
+        | Request::Input { workspace_id, .. }
+        | Request::Resize { workspace_id, .. }
+        | Request::Stop { workspace_id } => Some(workspace_id),
+        _ => None,
+    }
+}
+
 impl Handler {
     pub fn new(backend: Arc<dyn Backend>, late: Sender<Event>) -> Self {
         Handler {
@@ -42,6 +53,11 @@ impl Handler {
 
     /// Serve one request after the connection is paired.
     pub fn handle(&mut self, env: Envelope) -> Vec<Event> {
+        if let Some(ws) = workspace_of(&env.request) {
+            if !is_served(ws) {
+                return vec![error(env.id, "No such agent.")];
+            }
+        }
         let id = env.id;
         match env.request {
             Request::Hello { .. } => vec![error(id, "Already connected.")],
