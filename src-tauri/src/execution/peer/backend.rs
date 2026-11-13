@@ -33,8 +33,8 @@ pub struct Replay {
 }
 
 pub trait Backend: Send + Sync {
-    /// The server's pairing token. Read for each connection, so rotating it
-    /// takes effect for the next one.
+    /// The server's pairing token. Read at every `hello`, before every request and
+    /// once a second, so rotating it also ends connections paired with the old one.
     fn token(&self) -> Result<String, String>;
     fn capabilities(&self) -> ServerCapabilities;
     fn sessions(&self) -> Vec<RemoteSession>;
@@ -46,6 +46,12 @@ pub trait Backend: Send + Sync {
     /// One PTY serves every viewer, so whoever resizes last sets the size.
     fn resize(&self, workspace_id: &str, cols: u16, rows: u16) -> Result<(), String>;
     fn stop(&self, workspace_id: &str) -> Result<(), String>;
+}
+
+/// Whether a peer may see or drive this workspace: agents, not the plain shell
+/// beside one (the Terminal tab), which the server never lists or serves.
+pub fn is_served(workspace_id: &str) -> bool {
+    !workspace_id.starts_with("term:")
 }
 
 /// What to send a client that has seen up to `from_seq`, from a history of

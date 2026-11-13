@@ -7,6 +7,7 @@
 //! Tailscale's range.
 
 mod connection;
+mod deadline;
 mod handler;
 #[cfg(test)]
 pub(crate) mod testing;

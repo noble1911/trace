@@ -220,3 +220,30 @@ fn an_oversized_prompt_is_refused() {
     assert!(matches!(&out[..], [Event::Error { .. }]));
     assert!(backend.calls().is_empty());
 }
+
+#[test]
+fn a_terminal_shell_is_not_served_in_any_request() {
+    let (mut h, backend, _) = handler();
+    let id = || "term:abc".to_string();
+    let requests = [
+        Request::Attach {
+            workspace_id: id(),
+            from_seq: 0,
+        },
+        Request::Input {
+            workspace_id: id(),
+            data: "aGk=".into(),
+        },
+        Request::Resize {
+            workspace_id: id(),
+            cols: 80,
+            rows: 24,
+        },
+        Request::Stop { workspace_id: id() },
+    ];
+    for request in requests {
+        let out = ask(&mut h, request);
+        assert!(matches!(&out[..], [Event::Error { id: Some(7), .. }]));
+    }
+    assert!(backend.calls().is_empty(), "the backend must not be asked");
+}
