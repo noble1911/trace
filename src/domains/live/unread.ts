@@ -2,9 +2,9 @@ import type { LiveInfo } from "./types.ts";
 
 // "New since you looked" (Slack's bold unread): a session whose agent finished a
 // turn the user hasn't opened the session since. Weight, not colour: the amber
-// light and the count stay for Needs you (a hook-reported ask). The pure half — which agents just
-// finished a turn, and how the unread list changes — lives here, so it can be
-// tested; `unreadSync.ts` wires it to the stores.
+// light and the count stay for Needs you (a hook-reported ask). The pure half —
+// which agents just finished a turn, and how the unread list changes — lives
+// here, so it can be tested; `unreadSync.ts` wires it to the stores.
 
 /**
  * Agents that just finished a turn: `working` a moment ago, now `ready` with the
