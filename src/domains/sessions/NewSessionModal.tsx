@@ -144,6 +144,13 @@ export function NewSessionModal({
   useEffect(() => {
     if (host && firstUsable && !choices.includes(place)) setPlace(firstUsable);
   }, [host, firstUsable, choices, place]);
+  // Back to this computer: a peer's or sandbox's repo isn't one of ours, so drop it.
+  const wasHost = useRef(host);
+  useEffect(() => {
+    const left = wasHost.current && !host;
+    wasHost.current = host;
+    if (left && isRepoPlace(place) && !repos.includes(place)) setPlace(repos[0] ?? SCRATCH);
+  }, [host, place, repos]);
   const canCreate = host ? choices.includes(place) : true;
 
   const submit = async () => {
