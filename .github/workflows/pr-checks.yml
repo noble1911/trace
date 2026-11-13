@@ -1,0 +1,51 @@
+# Checks every pull request runs on Linux. The other OSes' backend build and tests are
+# `cross-platform.yml` (by hand / on port branches); this one is the quick PR gate.
+name: PR checks
+
+on: pull_request
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Third-party actions are pinned to a commit SHA (tag in the comment).
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux system libraries
+        run: scripts/install-linux-build-deps.sh
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check
+      - run: npm test
+      - run: scripts/check-platform-boundary.sh
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D clippy::disallowed_methods
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
+
+      - run: npm audit --audit-level=high
+
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit --file src-tauri/Cargo.lock

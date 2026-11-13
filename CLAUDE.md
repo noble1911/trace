@@ -247,7 +247,9 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - Publishing a GitHub release (tag `vX.Y.Z`) triggers `.github/workflows/release.yml`. It builds macOS, Linux and
   Windows at the tag's version and uploads each one's installers plus updater bundle + minisign signature. Once
   all three succeed, its last job merges their parts into `latest.json`: if any fails, nobody is offered the release.
-- `.github/workflows/cross-platform.yml` is the only other CI: it builds and tests all three OSes, by hand and on
+- `.github/workflows/pr-checks.yml` runs on every pull request (Linux): typecheck, Biome, node tests, `cargo fmt`,
+  clippy, `cargo test`, the platform-boundary script, `npm audit` and `cargo audit`.
+- `.github/workflows/cross-platform.yml` is the other CI: it builds and tests all three OSes, by hand and on
   pushes to `port/**` or to `main` when platform code changes, and keeps Linux and Windows installers as artifacts.
 - In-app updates (`tauri-plugin-updater`) poll `releases/latest/download/latest.json`; users install from
   Settings → Updates. Signing needs the `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` repo secrets (same key pair as
