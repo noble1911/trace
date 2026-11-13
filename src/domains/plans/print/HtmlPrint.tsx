@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { fallbackSrcDoc } from "./fallbackDoc";
 import { fitToPaper, settle } from "./paperFit";
 import { clearDocument, type Rendered, renderDocument } from "./renderDocument";
 
@@ -11,8 +12,8 @@ interface HtmlPrintProps {
 
 // An HTML document's print copy: sanitised and rendered into the page itself
 // (a shadow root, `renderDocument.ts`), so the print engine breaks it across
-// pages like any other content. If that fails, it prints as before, in a frame:
-// whole, but as one box the page edge can cut through.
+// pages like any other content. If that fails, it prints its text in a frame:
+// whole, but plain, and nothing of the document is loaded.
 export function HtmlPrint({ html, title, onReady }: HtmlPrintProps) {
   const host = useRef<HTMLDivElement>(null);
   const [inFrame, setInFrame] = useState(false);
@@ -50,9 +51,10 @@ export function HtmlPrint({ html, title, onReady }: HtmlPrintProps) {
   return <div ref={host} className="plan-print-doc" inert />;
 }
 
-// The fallback, and how HTML printed before: a frame sized to the document's
-// full height on load. Only this copy may be read from here (allow-same-origin)
-// to measure it; scripts stay off (no allow-scripts), so the page can't act on that.
+// The fallback: a frame sized to its full height on load, showing the document's
+// text only (`fallbackDoc.ts`). It is reached when the sanitiser threw, so the
+// document is never passed on as HTML. Only this copy may be read from here
+// (allow-same-origin) to measure it; scripts stay off (no allow-scripts).
 function FramePrint({ html, title, onReady }: HtmlPrintProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const onLoad = () => {
@@ -66,7 +68,7 @@ function FramePrint({ html, title, onReady }: HtmlPrintProps) {
       ref={frame}
       className="plan-print-frame"
       sandbox="allow-same-origin"
-      srcDoc={html}
+      srcDoc={fallbackSrcDoc(html)}
       title={title}
       onLoad={onLoad}
     />
