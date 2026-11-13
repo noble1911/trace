@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { BusyLabel } from "@/components/BusyLabel";
 import { Modal } from "@/components/Modal";
+import { PeersSection } from "@/domains/peers/PeersSection";
 import { useTailscaleStore } from "@/domains/tailscale/store";
 import type { TailnetDevice, TailnetState } from "@/ipc/tailscale";
 import { TAILSCALE } from "./tailscale";
@@ -44,7 +45,7 @@ export function TailscaleDialog({ onClose }: { onClose: () => void }) {
         <div className="ig-dialog-head">
           <img className="ig-logo" src={TAILSCALE.logo} alt="" />
           <div className="ig-dialog-text">
-            <div className="ig-desc">{TAILSCALE.description} A preview: it shows status only.</div>
+            <div className="ig-desc">{TAILSCALE.description}</div>
             {running && (
               <div className="ig-account">
                 {status.tailnet ? `Tailnet ${status.tailnet}` : "Connected"}
@@ -56,6 +57,7 @@ export function TailscaleDialog({ onClose }: { onClose: () => void }) {
         {status && status.state !== "running" && (
           <div className="ig-note">{NEXT_STEP[status.state]}</div>
         )}
+        {running && <PeersSection />}
         {running && (
           <div className="ig-sub">
             <h3>Other devices on your tailnet</h3>

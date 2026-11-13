@@ -27,6 +27,7 @@ pub mod keep_awake;
 pub mod mcp;
 pub mod orchestrator;
 pub mod peer_server;
+pub mod peers;
 pub mod permissions;
 pub mod plans;
 pub mod pr;

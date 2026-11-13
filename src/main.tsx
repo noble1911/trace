@@ -72,6 +72,7 @@ import "@/domains/schedules/share.css";
 import "@/domains/agentTools/agent-tools.css";
 import "@/domains/schedules/precheck.css";
 import "@/domains/integrations/integrations.css";
+import "@/domains/peers/peers.css";
 import "@/domains/integrations/mcp.css";
 import "@/domains/github/github.css";
 import "@/domains/repos/repos.css";

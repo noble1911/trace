@@ -319,7 +319,8 @@ The roadmap's iPhone and Android apps aren't planned yet, but this work shouldn'
 - [x] Server mode (`execution/peer/server/`, `supervisor.rs`): a WebSocket listener on the Tailscale IP, sending `pty-output`,
       `agent-run-state` and `agent-turn` to attached clients.
 - [ ] Client: a `PeerHost` and a remote `AgentSession`.
-- [ ] Peers in Settings, and a "Run on" choice when starting a session or agent.
+- [x] Peers in Settings (discovery, pairing, server switch: Integrations → Tailscale).
+- [ ] A "Run on" choice when starting a session or agent.
 - [ ] A host badge on Sessions and Fleet. Rejoin remote sessions on launch.
 
 ### Phase 2b: Sandbox host + Vercel

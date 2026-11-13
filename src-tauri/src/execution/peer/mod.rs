@@ -5,8 +5,10 @@
 pub mod app_backend;
 pub mod backend;
 pub mod capabilities;
+pub mod discovery;
 pub mod hub;
 pub mod pairing;
+pub mod probe;
 pub mod protocol;
 pub mod publish;
 pub mod server;

@@ -1,0 +1,62 @@
+/* Peers (Integrations → Tailscale): the server switch, pairing code and peer rows. */
+.pr-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 12px;
+  font-size: var(--text-ui);
+  color: var(--fg-1);
+}
+.pr-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: 6px;
+}
+.pr-code-row {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 8px;
+}
+.pr-code-row input {
+  flex: 1;
+  min-width: 0;
+}
+.pr-code-field {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+.pr-error {
+  color: var(--fg-2);
+}
+.pr-peer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--text-ui);
+}
+.pr-peer:last-child {
+  border-bottom: none;
+}
+.pr-peer-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--control-h-xs);
+}
+.pr-detail {
+  color: var(--fg-2);
+  font-size: var(--text-meta);
+}
+.pr-detail-label {
+  display: inline-block;
+  min-width: 56px;
+  margin-right: 8px;
+  color: var(--fg-3);
+}
