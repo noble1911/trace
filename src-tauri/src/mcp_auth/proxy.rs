@@ -42,15 +42,28 @@ pub fn route(url: &str) -> Option<(String, String)> {
 }
 
 /// The upstream URL for a proxied request: the server's URL, plus any path
-/// and query after its slug.
-pub fn upstream(server_url: &str, tail: &str) -> String {
-    if tail.is_empty() {
-        return server_url.to_string();
+/// and query after its slug. A path with a `..` segment (plain or
+/// percent-encoded) is refused: it could climb out of the server's own path.
+/// Nothing else is restricted, as servers use paths of their own (`/sse`,
+/// `/messages/?session_id=…`).
+pub fn upstream(server_url: &str, tail: &str) -> Result<String, String> {
+    let (path, query) = match tail.split_once('?') {
+        Some((p, q)) => (p, Some(q)),
+        None => (tail, None),
+    };
+    let decoded = path.to_ascii_lowercase().replace("%2e", ".");
+    if decoded.split(['/', '\\']).any(|s| s == "..") {
+        return Err("A path with `..` in it isn't proxied.".to_string());
     }
-    match tail.strip_prefix('?') {
-        Some(query) => format!("{server_url}?{query}"),
-        None => format!("{}{tail}", server_url.trim_end_matches('/')),
-    }
+    let base = if path.is_empty() {
+        server_url.to_string()
+    } else {
+        format!("{}{path}", server_url.trim_end_matches('/'))
+    };
+    Ok(match query {
+        Some(q) => format!("{base}?{q}"),
+        None => base,
+    })
 }
 
 fn client() -> Result<&'static reqwest::blocking::Client, String> {
@@ -63,6 +76,9 @@ fn client() -> Result<&'static reqwest::blocking::Client, String> {
         .user_agent("trace")
         .timeout(None)
         .connect_timeout(Duration::from_secs(20))
+        // The server's login header would follow a redirect to wherever it
+        // points; a 3xx goes back to the agent as it is.
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| e.to_string())?;
     Ok(CLIENT.get_or_init(|| built))
@@ -119,7 +135,14 @@ fn serve_from(mut request: Request, servers: Vec<Added>) {
     };
     let method = reqwest::Method::from_bytes(request.method().as_str().as_bytes())
         .unwrap_or(reqwest::Method::POST);
-    let mut up = client.request(method, upstream(&server.url, &tail));
+    let url = match upstream(&server.url, &tail) {
+        Ok(u) => u,
+        Err(why) => {
+            let _ = request.respond(json_error(400, &why));
+            return;
+        }
+    };
+    let mut up = client.request(method, url);
     for h in request.headers() {
         let name = h.field.as_str().as_str().to_ascii_lowercase();
         if FORWARD_UP.contains(&name.as_str()) {
@@ -284,15 +307,75 @@ mod tests {
     fn the_upstream_url_is_the_servers_plus_what_followed() {
         assert_eq!(
             upstream("https://mcp.sentry.dev/mcp", ""),
-            "https://mcp.sentry.dev/mcp"
+            Ok("https://mcp.sentry.dev/mcp".to_string())
         );
         assert_eq!(
             upstream("https://mcp.vercel.com/", "/x"),
-            "https://mcp.vercel.com/x"
+            Ok("https://mcp.vercel.com/x".to_string())
         );
         assert_eq!(
             upstream("https://mcp.linear.app/mcp", "?s=2"),
-            "https://mcp.linear.app/mcp?s=2"
+            Ok("https://mcp.linear.app/mcp?s=2".to_string())
+        );
+    }
+
+    #[test]
+    fn a_dotdot_path_is_refused() {
+        for tail in [
+            "/../admin",
+            "/a/%2E%2e/b",
+            "/a/..",
+            "/..\\x",
+            "/a/%2e%2E?x=1",
+        ] {
+            assert!(
+                upstream("https://mcp.sentry.dev/mcp", tail).is_err(),
+                "{tail}"
+            );
+        }
+        assert!(upstream("https://mcp.sentry.dev/mcp", "/a..b/c?p=..").is_ok());
+    }
+
+    #[test]
+    fn a_redirect_is_passed_back_not_followed() {
+        let target = tiny_http::Server::http("127.0.0.1:0").expect("bind");
+        let target_port = target.server_addr().to_ip().expect("ip").port();
+        let hit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let seen = hit.clone();
+        std::thread::spawn(move || {
+            for r in target.incoming_requests() {
+                seen.store(true, std::sync::atomic::Ordering::SeqCst);
+                let _ = r.respond(Response::empty(200));
+            }
+        });
+        let origin = tiny_http::Server::http("127.0.0.1:0").expect("bind");
+        let origin_port = origin.server_addr().to_ip().expect("ip").port();
+        std::thread::spawn(move || {
+            for r in origin.incoming_requests() {
+                let to =
+                    Header::from_bytes("Location", format!("http://127.0.0.1:{target_port}/x"))
+                        .expect("header");
+                let _ = r.respond(Response::empty(302).with_header(to));
+            }
+        });
+        let port = proxy(vec![added(
+            "hop",
+            &format!("http://127.0.0.1:{origin_port}/mcp"),
+            Auth::Open,
+            Some(("Authorization", "Bearer server-key")),
+        )]);
+        let res = reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("client")
+            .post(format!("http://127.0.0.1:{port}/mcp-proxy/hop"))
+            .body("{}")
+            .send()
+            .expect("send");
+        assert_eq!(res.status().as_u16(), 302);
+        assert!(
+            !hit.load(std::sync::atomic::Ordering::SeqCst),
+            "never followed"
         );
     }
 }

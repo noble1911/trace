@@ -12,6 +12,7 @@ pub mod cards;
 pub mod catalog;
 #[cfg(test)]
 mod catalog_live;
+mod endpoints;
 pub mod flow;
 pub mod oauth;
 pub mod proxy;
