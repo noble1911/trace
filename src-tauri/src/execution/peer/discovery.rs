@@ -11,6 +11,9 @@ use super::pairing::{PairedPeer, PairingCode, PeerSummary};
 use super::probe::{probe, PeerInfo, Probe, Prober, NO_TOKEN, PEER_PORT};
 use super::tailscale::Device;
 
+/// Most devices probed at once.
+const MAX_PROBES: usize = 16;
+
 #[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum PeerState {
@@ -57,6 +60,8 @@ fn device_for<'a>(devices: &'a [Device], address: &str) -> Option<&'a Device> {
 fn paired_entry(p: &PairedPeer, device: Option<&Device>, found: Probe) -> PeerEntry {
     let (state, info) = match found {
         Probe::Welcome(info) => (PeerState::Ready, Some(info)),
+        // `Refused` carries no reason a client can rely on, so a protocol-version
+        // refusal reads like a changed token ("Pair again") until it does.
         Probe::Refused => (PeerState::Refused, None),
         Probe::Silent => (PeerState::Away, None),
     };
@@ -111,33 +116,34 @@ pub fn discover(
                 })
             })
             .collect();
-        let unpaired_jobs: Vec<_> = unpaired
-            .iter()
-            .map(|(d, address)| {
-                s.spawn(move || {
-                    (
-                        *d,
-                        address.clone(),
-                        probe(prober, address, NO_TOKEN, client_name),
-                    )
-                })
-            })
-            .collect();
         let entries: Vec<PeerEntry> = paired_jobs
             .into_iter()
             .filter_map(|j| j.join().ok())
             .collect();
-        let found: Vec<_> = unpaired_jobs
-            .into_iter()
-            .filter_map(|j| j.join().ok())
-            .collect();
+        // A big tailnet is probed a few at a time, not all at once.
+        let mut found = Vec::new();
+        for chunk in unpaired.chunks(MAX_PROBES) {
+            let jobs: Vec<_> = chunk
+                .iter()
+                .map(|(d, address)| {
+                    s.spawn(move || {
+                        (
+                            *d,
+                            address.clone(),
+                            probe(prober, address, NO_TOKEN, client_name),
+                        )
+                    })
+                })
+                .collect();
+            found.extend(jobs.into_iter().filter_map(|j| j.join().ok()));
+        }
         (entries, found)
     });
 
     for (d, address, answered) in found {
         // A trace refuses an empty token; anything that isn't one stays out of the list.
         if answered == Probe::Refused {
-            entries.extend([PeerEntry {
+            entries.push(PeerEntry {
                 id: None,
                 name: d.name.clone(),
                 address,
@@ -145,7 +151,7 @@ pub fn discover(
                 online: true,
                 state: PeerState::Unpaired,
                 info: None,
-            }]);
+            });
         }
     }
     entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -158,8 +164,13 @@ pub fn is_tailnet_host(host: &str) -> bool {
     let host = host
         .trim_matches(|c| c == '[' || c == ']')
         .to_ascii_lowercase();
-    if host.ends_with(".ts.net") || host.starts_with("fd7a:115c:a1e0:") {
-        return true;
+    if host.ends_with(".ts.net") {
+        return host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    }
+    if host.starts_with("fd7a:115c:a1e0:") {
+        return host.bytes().all(|b| b.is_ascii_hexdigit() || b == b':');
     }
     // 100.64.0.0/10
     let mut parts = host.split('.').map(str::parse::<u8>);

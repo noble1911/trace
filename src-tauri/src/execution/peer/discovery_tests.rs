@@ -171,6 +171,10 @@ fn tailnet_hosts_are_the_only_ones_a_code_may_name() {
         "192.168.1.5",
         "example.com",
         "100.64.0.1.evil.com",
+        "evil.com#.ts.net",
+        "a/b.ts.net",
+        "x.ts.net@evil.com",
+        "fd7a:115c:a1e0::1/evil",
         "127.0.0.1",
     ] {
         assert!(!is_tailnet_host(bad), "{bad}");
