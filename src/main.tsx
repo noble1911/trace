@@ -75,6 +75,7 @@ import "@/domains/integrations/integrations.css";
 import "@/domains/peers/peers.css";
 import "@/domains/integrations/mcp.css";
 import "@/domains/github/github.css";
+import "@/domains/skills/skills.css";
 import "@/domains/repos/repos.css";
 import "@/domains/settings/settings.css";
 import "@/domains/settings/setting-row.css";

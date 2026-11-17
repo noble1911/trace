@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useGitHubStore } from "@/domains/github/store";
 import { useIssuesStore } from "@/domains/issues/store";
+import { SkillsTab } from "@/domains/skills/SkillsTab";
 import { useTailscaleStatus } from "@/domains/tailscale/store";
 import { useVercelStatus } from "@/domains/vercel/store";
 import { GitHubDialog } from "./GitHubDialog";
@@ -42,10 +43,11 @@ function IntegrationCard({ name, logo, description, connected, preview, onOpen }
 const TABS = [
   { id: "services", label: "Integrations" },
   { id: "mcp", label: "MCP servers" },
+  { id: "skills", label: "Skills" },
 ] as const;
 
-// Two tabs. Integrations: the services trace works with, one card each. MCP servers:
-// the tools trace's agents get (`McpTab`). Connect and disconnect a service here. Connecting a
+// Three tabs. Integrations: the services trace works with, one card each. MCP servers:
+// the tools trace's agents get (`McpTab`). Skills: GitHub repos of Claude Code skills (`SkillsTab`). Connect and disconnect a service here. Connecting a
 // tracker adds its board to the rail; disconnecting takes it away. GitHub is about
 // code rather than a board: signed in with trace's own token, it opens the repo browser.
 // Vercel is somewhere sessions run: connected, New session offers it. Tailscale is a
@@ -61,7 +63,7 @@ export function IntegrationsView() {
   const [vercelOpen, setVercelOpen] = useState(false);
   const tailscale = useTailscaleStatus();
   const [tailscaleOpen, setTailscaleOpen] = useState(false);
-  const [tab, setTab] = useState<"services" | "mcp">("services");
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("services");
 
   useEffect(() => void checkGitHub(), [checkGitHub]);
 
@@ -139,8 +141,10 @@ export function IntegrationsView() {
             {section("Connected integrations", connected)}
             {section("Available integrations", available)}
           </div>
-        ) : (
+        ) : tab === "mcp" ? (
           <McpTab />
+        ) : (
+          <SkillsTab />
         )}
       </div>
       {open && <IntegrationDialog integration={open} onClose={() => setOpen(null)} />}
