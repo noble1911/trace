@@ -10,6 +10,10 @@
   width: var(--side-w-closed);
 }
 .as.pinned {
+  /* As wide as the panel plus whatever sits after it (the Files divider), so the
+     list keeps its whole --as-w. The panel's width is definite: never size it from
+     its content, which can report no width at all (Files' list is a size container,
+     `container-type: inline-size`, so pinned it would fold to a sliver). */
   width: auto;
   /* However wide it was left, the pane keeps room to read. */
   max-width: calc(100% - 240px);
@@ -53,8 +57,9 @@
 }
 .as.pinned .as-panel {
   position: static;
-  flex: 0 1 var(--as-w);
-  width: auto;
+  /* Its own width, shrinking only when the max-width above leaves less. */
+  flex: 0 1 auto;
+  width: var(--as-w);
   opacity: 1;
   transform: none;
   pointer-events: auto;
