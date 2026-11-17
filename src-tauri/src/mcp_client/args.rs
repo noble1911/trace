@@ -4,8 +4,10 @@
 //!
 //! Each [`Arg`] lists the names (and value shapes) a server might use,
 //! preferred first; [`shape`] sends the first one the tool's schema lists,
-//! its value coerced to the schema's type. A naming difference between what
-//! an adapter guessed and what the server says then doesn't break the call.
+//! its value coerced to the schema's type and kept inside any `minimum` /
+//! `maximum` it gives. A naming difference between what an adapter guessed and
+//! what the server says then doesn't break the call, and nor does a page size
+//! the server caps lower than trace asked (Pylon's `limit`, at most 100).
 
 use serde_json::{Map, Value};
 
@@ -54,11 +56,10 @@ pub fn shape(schema: Option<&Value>, args: Vec<Arg>) -> Value {
             (None, Some(_)) => None,
         };
         if let Some((key, value)) = chosen {
-            let ty = props
-                .and_then(|p| p.get(*key))
-                .and_then(|s| s.get("type"))
-                .and_then(Value::as_str);
-            out.insert(key.to_string(), coerce(value.clone(), ty));
+            let prop = props.and_then(|p| p.get(*key));
+            let ty = prop.and_then(|s| s.get("type")).and_then(Value::as_str);
+            let value = coerce(value.clone(), ty);
+            out.insert(key.to_string(), within_bounds(value, prop));
         }
     }
     Value::Object(out)
@@ -102,6 +103,34 @@ fn coerce(value: Value, ty: Option<&str>) -> Value {
     }
 }
 
+/// A number kept inside the property's `minimum`/`maximum` (and exclusive
+/// bounds, for integers): a server validates them strictly and refuses the
+/// whole call over a page size one too big. Anything else is left as it is.
+fn within_bounds(value: Value, prop: Option<&Value>) -> Value {
+    let Some(prop) = prop else { return value };
+    let bound = |k: &str| prop.get(k).and_then(Value::as_f64);
+    let integer = value.is_i64() || value.is_u64();
+    let Some(mut n) = value.as_f64() else {
+        return value;
+    };
+    let hi = bound("maximum").or_else(|| bound("exclusiveMaximum").map(|m| m - 1.0));
+    let lo = bound("minimum").or_else(|| bound("exclusiveMinimum").map(|m| m + 1.0));
+    let mut changed = false;
+    if let Some(hi) = hi.filter(|hi| n > *hi) {
+        n = hi;
+        changed = true;
+    }
+    if let Some(lo) = lo.filter(|lo| n < *lo) {
+        n = lo;
+        changed = true;
+    }
+    match (changed, integer) {
+        (false, _) => value,
+        (true, true) => Value::from(n.floor() as i64),
+        (true, false) => serde_json::Number::from_f64(n).map_or(value, Value::Number),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,6 +168,25 @@ mod tests {
         );
         assert_eq!(args["filter_json"], r#"{"field":"state"}"#);
         assert_eq!(args["sort"], json!({ "order": "desc" }));
+    }
+
+    #[test]
+    fn numbers_stay_inside_the_schemas_bounds() {
+        let schema = json!({ "properties": {
+            "limit": { "type": "integer", "maximum": 100, "minimum": 1 },
+            "page_size": { "type": "integer", "exclusiveMaximum": 50 },
+            "offset": { "type": "integer", "minimum": 0 } } });
+        let args = shape(
+            Some(&schema),
+            vec![
+                Arg::opt(vec![("limit", json!(200))]),
+                Arg::opt(vec![("page_size", json!("80"))]),
+                Arg::opt(vec![("offset", json!(-3))]),
+            ],
+        );
+        assert_eq!(args, json!({ "limit": 100, "page_size": 49, "offset": 0 }));
+        let small = shape(Some(&schema), vec![Arg::opt(vec![("limit", json!(25))])]);
+        assert_eq!(small, json!({ "limit": 25 }));
     }
 
     #[test]

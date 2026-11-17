@@ -1,6 +1,8 @@
 //! Connecting trace to one MCP server: the browser half of OAuth. A one-shot
 //! listener on the fixed loopback redirect waits for the server to send the
-//! browser back with a code, checked against the `state` trace sent.
+//! browser back with a code, checked against the `state` trace sent. One
+//! login waits at a time (`pending`): a new one, a cancel, or the deadline
+//! ends it and frees the port.
 
 use std::time::{Duration, Instant};
 
@@ -8,6 +10,7 @@ use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
 use super::oauth::{self, Client, REDIRECT_PORT};
+use super::pending::{self, Ticket};
 use super::store::{self, Grant};
 
 /// Authorization servers that can't register clients themselves, with the
@@ -15,8 +18,14 @@ use super::store::{self, Grant};
 /// is `oauth::REDIRECT_URI`, and it has no secret (a public client, PKCE).
 const KNOWN_CLIENTS: &[(&str, &str)] = &[];
 
-/// How long to wait for the browser to come back.
-const WAIT: Duration = Duration::from_secs(5 * 60);
+/// How long to wait for the browser to come back. Long enough for SSO and a
+/// second factor; a login that went wrong in the browser can be cancelled
+/// sooner, or is cancelled by trying again.
+const WAIT: Duration = Duration::from_secs(3 * 60);
+/// How often the wait looks up from the socket to see if it was cancelled.
+const POLL: Duration = Duration::from_millis(250);
+/// How long a new login waits for a cancelled one to let go of the port.
+const PORT_FREED: Duration = Duration::from_secs(3);
 
 /// Said when a server can't register trace and knows no client for it.
 pub const NEEDS_CLIENT: &str = "needs-client-id";
@@ -89,11 +98,12 @@ pub fn connect(
 }
 
 fn login(app: &AppHandle, name: &str, url: &str, client_id: Option<&str>) -> Result<Grant, String> {
+    // Taken first, so a login still waiting lets go of the port while this
+    // one discovers and registers.
+    let ticket = pending::begin();
     let d = oauth::discover(url)?;
     let client = client(&d, client_id)?;
-    let server = tiny_http::Server::http(("127.0.0.1", REDIRECT_PORT)).map_err(|_| {
-        format!("Port {REDIRECT_PORT} is busy: is another login still waiting in your browser?")
-    })?;
+    let server = listen(&ticket)?;
     let verifier = oauth::verifier();
     let state = crate::helpers::new_id();
     app.opener()
@@ -102,11 +112,31 @@ fn login(app: &AppHandle, name: &str, url: &str, client_id: Option<&str>) -> Res
             None::<&str>,
         )
         .map_err(|e| format!("Couldn't open your browser: {e}"))?;
-    let code = wait_for_code(&server, &state)?;
+    let code = wait_for_code(&server, &state, &ticket)?;
     let tokens = oauth::exchange(&d, &client, &code, &verifier)?;
     let grant = store::grant_from(name, url, &d, tokens);
     store::save(&grant)?;
     Ok(grant)
+}
+
+/// The loopback listener, once a cancelled login before this one has let go
+/// of the port (it looks up every `POLL`).
+fn listen(ticket: &Ticket) -> Result<tiny_http::Server, String> {
+    let deadline = Instant::now() + PORT_FREED;
+    loop {
+        if ticket.cancelled() {
+            return Err(pending::CANCELLED.to_string());
+        }
+        match tiny_http::Server::http(("127.0.0.1", REDIRECT_PORT)) {
+            Ok(server) => return Ok(server),
+            Err(_) if Instant::now() < deadline => std::thread::sleep(POLL / 2),
+            Err(_) => {
+                return Err(format!(
+                    "Port {REDIRECT_PORT} is busy: something else on this computer is using it."
+                ))
+            }
+        }
+    }
 }
 
 fn same_url(a: &str, b: &str) -> bool {
@@ -125,15 +155,27 @@ fn page(text: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
     tiny_http::Response::from_string(html).with_header(header)
 }
 
-fn wait_for_code(server: &tiny_http::Server, state: &str) -> Result<String, String> {
+fn wait_for_code(
+    server: &tiny_http::Server,
+    state: &str,
+    ticket: &Ticket,
+) -> Result<String, String> {
     let deadline = Instant::now() + WAIT;
     loop {
+        if ticket.cancelled() {
+            return Err(pending::CANCELLED.to_string());
+        }
         let left = deadline.saturating_duration_since(Instant::now());
         if left.is_zero() {
-            return Err("The login wasn't finished in the browser in time.".to_string());
+            return Err(
+                "The login wasn't finished in the browser in time. Check the details and connect again."
+                    .to_string(),
+            );
         }
-        let Ok(Some(request)) = server.recv_timeout(left) else {
-            continue;
+        let request = match server.recv_timeout(left.min(POLL)) {
+            Ok(Some(request)) => request,
+            Ok(None) => continue,
+            Err(e) => return Err(format!("The login listener stopped: {e}")),
         };
         let url = format!("http://127.0.0.1{}", request.url());
         let Ok(parsed) = reqwest::Url::parse(&url) else {

@@ -75,6 +75,16 @@ export function imageSrc(workspaceId: string, setId: string, img: GalleryImage):
   return `${convertFileSrc(token, "trace-img")}?v=${img.modified}-${img.size}`;
 }
 
+/**
+ * Where an image an agent's chat reply names loads from (`gallery::inline`): an absolute
+ * path (or `~/…`), no set needed. `v` makes a remount fetch the file as it is now, since
+ * agents often rewrite the same preview.
+ */
+export function inlineImageSrc(path: string, v: number): string {
+  const token = base64Url(JSON.stringify({ file: path }));
+  return `${convertFileSrc(token, "trace-img")}?v=${v}`;
+}
+
 /** A workspace's sets changed backend-side (an agent showed images). */
 export function onGallerySets(cb: (p: { workspaceId: string }) => void): Promise<UnlistenFn> {
   return listen<{ workspaceId: string }>("gallery-sets", (e) => cb(e.payload));

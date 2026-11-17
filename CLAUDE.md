@@ -197,7 +197,9 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   that gets nothing of trace's: the capability names the `main` *webview*, every command from
   another webview is refused (`browser::guard`), and it can't load trace's own origins. Gallery
   images load only through `trace-img`, which serves image files inside the set's roots
-  (canonicalised) to the main webview only. Codex agents get the same endpoint as `-c` overrides
+  (canonicalised) to the main webview only; an image in an agent's chat reply
+  (`![](/path.png)`) loads through it too, by path, with the same file checks
+  (`gallery/inline.rs`). Codex agents get the same endpoint as `-c` overrides
   (`agent_tools/codex.rs`). Agents are top-level
   Claude sessions: inherited Claude Code session markers (`claude::env::INHERITED_SESSION_ENV`) are
   stripped, or a trace started from a Claude session would hand its agents transcript saving off.

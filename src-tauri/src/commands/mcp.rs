@@ -7,7 +7,7 @@
 use tauri::AppHandle;
 
 use crate::mcp_auth::catalog::{self, Auth};
-use crate::mcp_auth::{self, flow, oauth, store, ServerStatus, Source};
+use crate::mcp_auth::{self, flow, oauth, pending, store, ServerStatus, Source};
 
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -157,6 +157,14 @@ fn is_logo_id(id: &str) -> bool {
         && id
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// Stop waiting on the browser login in progress (any of them: a server's here,
+/// or a tracker's over MCP), freeing its port. Its connect fails with
+/// `pending::CANCELLED`. False when nothing was waiting.
+#[tauri::command]
+pub fn mcp_cancel_login() -> bool {
+    pending::cancel()
 }
 
 /// Switch one on or off for this computer and for sandboxes.

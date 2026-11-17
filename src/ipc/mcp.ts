@@ -38,6 +38,14 @@ export interface McpServerStatus {
 /** What a connect rejects with when the server can't register trace itself. */
 export const NEEDS_CLIENT_ID = "needs-client-id";
 
+/** What a browser login rejects with when it was cancelled (`mcp_auth::pending`): say nothing. */
+export const LOGIN_CANCELLED = "login-cancelled";
+
+/** Whether a connect failed only because its login was cancelled. */
+export function isLoginCancelled(err: unknown): boolean {
+  return String(err).includes(LOGIN_CANCELLED);
+}
+
 /** Where a server that can't register trace itself has it registered once, by hand. */
 export const REDIRECT_URI = "http://127.0.0.1:47321/callback";
 
@@ -93,6 +101,14 @@ export function mcpSetUse(
   remote: boolean
 ): Promise<McpServerStatus[]> {
   return invoke("mcp_set_use", { url, local, remote });
+}
+
+/**
+ * Stop waiting on the browser login in progress (a server's, or a tracker's over MCP),
+ * freeing its loopback port. Its connect rejects with `LOGIN_CANCELLED`.
+ */
+export function mcpCancelLogin(): Promise<boolean> {
+  return invoke("mcp_cancel_login");
 }
 
 export function mcpDisconnect(url: string): Promise<McpServerStatus[]> {

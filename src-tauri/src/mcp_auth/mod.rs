@@ -15,6 +15,7 @@ mod catalog_live;
 mod endpoints;
 pub mod flow;
 pub mod oauth;
+pub mod pending;
 pub mod proxy;
 pub mod servers;
 pub mod store;

@@ -2,7 +2,14 @@ import { useState } from "react";
 import { toast } from "@/app/toast";
 import { BusyLabel } from "@/components/BusyLabel";
 import { Modal } from "@/components/Modal";
-import { type McpServerStatus, mcpAdd, NEEDS_CLIENT_ID, REDIRECT_URI } from "@/ipc/mcp";
+import {
+  isLoginCancelled,
+  type McpServerStatus,
+  mcpAdd,
+  NEEDS_CLIENT_ID,
+  REDIRECT_URI,
+} from "@/ipc/mcp";
+import { CancelLogin } from "./CancelLogin";
 import { freeName, type SelfHostedService, serverUrl } from "./selfHosted";
 
 interface Props {
@@ -48,7 +55,7 @@ export function AddMcpDialog({ onClose, onAdded, service, taken = [] }: Props) {
       })
       .catch((e) => {
         if (String(e).includes(NEEDS_CLIENT_ID)) setNeedsClient(true);
-        else toast.error(String(e));
+        else if (!isLoginCancelled(e)) toast.error(String(e));
       })
       .finally(() => setBusy(false));
   };
@@ -125,6 +132,7 @@ export function AddMcpDialog({ onClose, onAdded, service, taken = [] }: Props) {
           </div>
         )}
         <div className="ig-form-foot">
+          <CancelLogin waiting={busy && !key.trim()} />
           <button
             type="button"
             className="btn primary"

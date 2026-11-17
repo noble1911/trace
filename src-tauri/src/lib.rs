@@ -185,6 +185,7 @@ pub fn run() {
             commands::mcp::mcp_add,
             commands::mcp::mcp_set_use,
             commands::mcp::mcp_disconnect,
+            commands::mcp::mcp_cancel_login,
             commands::vercel::sandbox_lifetime,
             commands::vercel::set_sandbox_lifetime,
             commands::vercel::sandbox_size,

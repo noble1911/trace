@@ -132,6 +132,25 @@
 .ac-md .tx-file {
   vertical-align: baseline;
 }
+/* An image in a reply (ChatImage): its own size, never wider than the reply, and
+   short enough to read the text around it. */
+.ac-md .ac-img {
+  display: block;
+  max-width: 100%;
+  max-height: min(480px, 60vh);
+  height: auto;
+  margin: var(--md-gap) 0;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.ac-md .ac-img-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: var(--text-meta);
+}
 /* (Not after a code block: it would sit on a line of its own inside the box.
    In an Insight card being written, after the card's last block.) */
 .ac-reply.streaming .md > :last-child:not(.md-code):not(.md-insight)::after,

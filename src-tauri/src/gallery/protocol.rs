@@ -3,6 +3,9 @@
 //! only if it comes from trace's own webview and `contain::image_path` admits the
 //! path for that set. Anything else is refused with a status, never a file.
 //!
+//! An image in an agent's chat reply has no set: its token is `{"file": path}`,
+//! and `inline` decides it with the same file checks.
+//!
 //! SVG goes out as `image/svg+xml` with a CSP that allows no scripts, and the
 //! Gallery only ever shows it as an `<img>`, where scripts never run anyway.
 
@@ -10,7 +13,7 @@ use base64::Engine;
 use tauri::http::{header, Method, Request, Response, StatusCode};
 use tauri::{Runtime, UriSchemeContext, UriSchemeResponder};
 
-use super::{contain, kinds, store};
+use super::{contain, inline, kinds, store};
 use crate::browser::guard;
 
 /// What a request asks for.
@@ -27,14 +30,19 @@ pub fn token(ask: &Ask) -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json)
 }
 
-/// The request's `Ask`, from its path (`/<token>`, any query ignored).
-pub fn parse(path: &str) -> Option<Ask> {
+/// The token's JSON, from the request's path (`/<token>`, any query ignored).
+fn decode(path: &str) -> Option<serde_json::Value> {
     let raw = path.trim_start_matches('/');
     let raw = raw.split(['?', '#']).next()?;
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(raw.trim_end_matches('='))
         .ok()?;
-    let parts: Vec<String> = serde_json::from_slice(&bytes).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// The request's `Ask`, from its path (`/<token>`, any query ignored).
+pub fn parse(path: &str) -> Option<Ask> {
+    let parts: Vec<String> = serde_json::from_value(decode(path)?).ok()?;
     let [workspace_id, set_id, path]: [String; 3] = parts.try_into().ok()?;
     Some(Ask {
         workspace_id,
@@ -59,16 +67,9 @@ pub fn respond(label: &str, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     if request.method() != Method::GET {
         return refuse(StatusCode::METHOD_NOT_ALLOWED, "GET only.");
     }
-    let Some(ask) = parse(request.uri().path()) else {
-        return refuse(StatusCode::BAD_REQUEST, "Not an image address.");
-    };
-    let sets = store::load(&ask.workspace_id).unwrap_or_default();
-    let Some(set) = sets.iter().find(|s| s.id == ask.set_id) else {
-        return refuse(StatusCode::NOT_FOUND, "No such set.");
-    };
-    let file = match contain::image_path(set, &ask.path) {
+    let file = match resolve(request.uri().path()) {
         Ok(file) => file,
-        Err(why) => return refuse(StatusCode::FORBIDDEN, &why),
+        Err((status, why)) => return refuse(status, &why),
     };
     let Some(mime) = kinds::mime_for(&file) else {
         return refuse(StatusCode::FORBIDDEN, "Not an image.");
@@ -88,6 +89,21 @@ pub fn respond(label: &str, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         );
     }
     response.body(bytes).unwrap_or_default()
+}
+
+/// The file a request's path names: a chat's image, or one of a set's.
+fn resolve(path: &str) -> Result<std::path::PathBuf, (StatusCode, String)> {
+    let bad = || (StatusCode::BAD_REQUEST, "Not an image address.".to_string());
+    if let Some(file) = decode(path).as_ref().and_then(|v| v.get("file")) {
+        let file = file.as_str().ok_or_else(bad)?;
+        return inline::file(file).map_err(|why| (StatusCode::FORBIDDEN, why));
+    }
+    let ask = parse(path).ok_or_else(bad)?;
+    let sets = store::load(&ask.workspace_id).unwrap_or_default();
+    let Some(set) = sets.iter().find(|s| s.id == ask.set_id) else {
+        return Err((StatusCode::NOT_FOUND, "No such set.".to_string()));
+    };
+    contain::image_path(set, &ask.path).map_err(|why| (StatusCode::FORBIDDEN, why))
 }
 
 /// The protocol handler: answers off the UI thread.
@@ -131,5 +147,26 @@ mod tests {
             StatusCode::FORBIDDEN
         );
         assert_eq!(respond("main", &req).status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn a_chat_image_is_served_by_path_and_only_an_image() {
+        let dir = crate::gallery::scan::tests::Scratch::new("protocol-inline");
+        let png = dir.file("out/My File.png", b"\x89PNG");
+        let txt = dir.file("out/secret.txt", b"x");
+        let get = |path: &std::path::Path| {
+            let json = serde_json::json!({ "file": path.to_string_lossy() }).to_string();
+            let t = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json);
+            let req = Request::builder()
+                .uri(format!("http://trace-img.localhost/{t}?v=1"))
+                .body(Vec::new())
+                .unwrap();
+            (respond("main", &req), respond("browser-ws-page", &req))
+        };
+        let (ok, other) = get(&png);
+        assert_eq!(ok.status(), StatusCode::OK);
+        assert_eq!(ok.headers()[header::CONTENT_TYPE], "image/png");
+        assert_eq!(other.status(), StatusCode::FORBIDDEN);
+        assert_eq!(get(&txt).0.status(), StatusCode::FORBIDDEN);
     }
 }

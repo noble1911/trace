@@ -7,6 +7,7 @@
 
 pub mod contain;
 pub mod glob;
+pub mod inline;
 pub mod kinds;
 pub mod protocol;
 pub mod scan;
