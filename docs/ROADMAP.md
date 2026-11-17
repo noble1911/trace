@@ -47,6 +47,10 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       width, code theme, tool activity); fenced code is highlighted. Changing an option never
       moves the page: Settings keeps Standard density, and a zoom keeps the clicked control
       under the pointer.
+- [~] **Skills from GitHub:** pick any repo of skills (a plugin marketplace or plain `SKILL.md`
+      folders), see what's in it, install into projects for everyone or just you, and keep them
+      up to date. Claude Code installs plugins; trace is the friendly front. See
+      [the plan](SKILLS_PLAN.md).
 
 ## Candidates
 
@@ -184,5 +188,7 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
 
 - **Orchestration runs and task graphs:** overlaps with the trace orchestrator and agent tools.
 - **SSH hosts.**
-- **Plugins and 30+ agent support:** don't fit an app focused on Claude and Codex.
+- **trace plugins and 30+ agent support:** extending trace itself, or supporting every coding
+  agent, doesn't fit an app focused on Claude and Codex. (Claude Code's own plugins and skills
+  are a different thing: see *Skills from GitHub* above.)
 - **Computer use and mobile emulators:** niche for this workflow.

@@ -16,7 +16,7 @@
 
 pub mod account;
 pub mod accounts;
-mod api;
+pub(crate) mod api;
 pub mod checkout;
 mod checks;
 pub mod clone;

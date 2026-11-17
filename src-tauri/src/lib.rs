@@ -39,6 +39,7 @@ pub mod recording;
 pub mod repo_catalog;
 pub mod saved_prompts;
 pub mod schedule;
+pub mod skills;
 pub mod state;
 pub mod workspace_dir;
 pub mod worktree_diff;
@@ -186,6 +187,10 @@ pub fn run() {
             commands::mcp::mcp_set_use,
             commands::mcp::mcp_disconnect,
             commands::mcp::mcp_cancel_login,
+            commands::skills::skills_sources,
+            commands::skills::skills_read_source,
+            commands::skills::skills_add_source,
+            commands::skills::skills_remove_source,
             commands::vercel::sandbox_lifetime,
             commands::vercel::set_sandbox_lifetime,
             commands::vercel::sandbox_size,

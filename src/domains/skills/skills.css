@@ -1,0 +1,116 @@
+/* Integrations → Skills (`domains/skills`): sources as sections of cards, like MCP servers. */
+.sk-source-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sk-source-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sk-source-title h2 {
+  margin: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.sk-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sk-card {
+  gap: 6px;
+}
+.sk-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.sk-card-foot {
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.sk-version {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: 400;
+  color: var(--fg-3);
+}
+.sk-error {
+  font-size: var(--text-ui);
+  color: var(--c-danger);
+}
+.sk-empty {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-ui);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+/* What a plugin holds. */
+.sk-modal {
+  width: min(640px, calc(100vw - 48px));
+}
+.sk-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sk-skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sk-skill-list li {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+}
+.sk-skill-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.sk-skill-about {
+  margin-top: 4px;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+/* Adding a source by owner/name, under the repo list. */
+.sk-typed {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sk-typed input {
+  flex: 1;
+  height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  color: var(--fg-0);
+  font: inherit;
+  font-size: var(--text-ui);
+}
+.sk-typed input:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
