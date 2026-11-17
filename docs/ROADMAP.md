@@ -23,9 +23,10 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       which has no desktop dependencies.
       *Started:* Vercel sessions, terminal or chat, that survive a quit and resume after a stop
       ([remote execution](REMOTE_EXECUTION_PLAN.md)), with a readiness checklist, sandbox state and a
-      PR tab ([#71](https://github.com/noble1911/trace/pull/71)); another trace over Tailscale is under
-      way: its server (a Settings switch, listening on the Tailscale IP) and peer discovery, pairing and the
-      Integrations → Tailscale section are built; the client and "Run on" are next.
+      PR tab ([#71](https://github.com/noble1911/trace/pull/71)); sessions on another trace over
+      Tailscale: its server (a Settings switch, listening on the Tailscale IP), peer discovery, pairing,
+      the Integrations → Tailscale section, the client and New session's "Run on" (v0.16.0). Still to
+      come there: chat sessions (terminal only today) and tickets on a peer.
       *Then:* on a par with Conductor's cloud workspaces (Phase 3 of the plan): no token in the
       sandbox (firewall-injected), the repo's setup, Files, real turns and PR links from an
       event log, trace's tools and the team's own MCP servers (Integrations → MCP servers),
@@ -170,7 +171,8 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       the Files tab or your editor.
 - [ ] **File previews:** images, PDFs and Markdown next to the agent. Images have started: the
       Gallery tab shows folders of images an agent points you at with `show_images`, with a
-      full-size viewer and side-by-side compare (`domains/gallery`, `src-tauri/src/gallery/`).
+      full-size viewer and side-by-side compare (`domains/gallery`, `src-tauri/src/gallery/`), and
+      an image in an agent's chat reply shows in place (`agentChat/ChatImage.tsx`, `gallery/inline.rs`).
       Markdown has too: the Files tab's Preview draws a `.md` file the way the Plan tab draws a
       document, on a centred reading column (`agent/files/MarkdownPreview.tsx`).
 - [ ] **Dictation:** speak into the prompt or terminal.
