@@ -2,6 +2,8 @@ import { type ReactNode, useState } from "react";
 import { BusyLabel } from "@/components/BusyLabel";
 import { I } from "@/components/Icon";
 import type { TrackerSite } from "@/ipc/issues";
+import { isLoginCancelled } from "@/ipc/mcp";
+import { CancelLogin } from "./CancelLogin";
 import type { LoginWay } from "./registry";
 
 interface TwoWayConnectProps {
@@ -35,7 +37,7 @@ export function TwoWayConnect({ way, onLogin, children }: TwoWayConnectProps) {
         setSites(choice);
         setSiteId(choice[0]?.id ?? "");
       })
-      .catch((err) => setError(String(err)))
+      .catch((err) => setError(isLoginCancelled(err) ? null : String(err)))
       .finally(() => setBusy(false));
   };
 
@@ -60,19 +62,22 @@ export function TwoWayConnect({ way, onLogin, children }: TwoWayConnectProps) {
           </div>
         )}
         {error && <div className="ig-error">{error}</div>}
-        <button
-          type="button"
-          className="btn primary"
-          disabled={busy || (sites !== null && !siteId)}
-          onClick={login}
-        >
-          <I.Plug size={14} />{" "}
-          <BusyLabel
-            busy={busy}
-            idle={sites ? "Connect" : way.label}
-            working={sites ? "Connecting…" : "Waiting for your browser…"}
-          />
-        </button>
+        <div className="ig-way-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={busy || (sites !== null && !siteId)}
+            onClick={login}
+          >
+            <I.Plug size={14} />{" "}
+            <BusyLabel
+              busy={busy}
+              idle={sites ? "Connect" : way.label}
+              working={sites ? "Connecting…" : "Waiting for your browser…"}
+            />
+          </button>
+          <CancelLogin waiting={busy && !sites} />
+        </div>
       </div>
       <div className="ig-way">
         <h3>API token</h3>

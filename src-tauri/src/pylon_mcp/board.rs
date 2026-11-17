@@ -31,7 +31,10 @@ use crate::pylon::models::{state_category, state_name, BASE_STATES};
 
 /// The rolling window, as on REST.
 const WINDOW_DAYS: i64 = 30;
-const PAGE_SIZE: usize = 200;
+/// Pylon's own cap on `search_issues`' `limit` (its schema says `maximum: 100`
+/// and a bigger one fails the whole call). `args::shape` also clamps to
+/// whatever the schema advertises, should that change.
+const PAGE_SIZE: usize = 100;
 /// Runaway guard on top of `MAX_ISSUES` (a server that ignores `limit`).
 const MAX_PAGES: usize = 10;
 const MAX_USER_PAGES: usize = 5;

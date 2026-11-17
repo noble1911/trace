@@ -137,7 +137,7 @@ async fn the_window_is_asked_for_as_a_filter_and_pages_follow_the_cursor() {
         .expect("RFC 3339");
     let days = (chrono::Utc::now() - since.with_timezone(&chrono::Utc)).num_days();
     assert!((29..=30).contains(&days), "30 days back, was {days}");
-    assert_eq!(searches[0]["limit"], 200);
+    assert_eq!(searches[0]["limit"], 100);
     assert_eq!(searches[0]["include_messages"], false);
     assert_eq!(searches[0].get("cursor"), None);
     assert_eq!(searches[1]["cursor"], "page-2");

@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown, { type Components, type UrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./markdown/CodeBlock";
 import { CopyableTable } from "./markdown/CopyableTable";
@@ -71,6 +71,8 @@ interface MarkdownProps {
   className?: string;
   /** Overrides on top of MARKDOWN_COMPONENTS (e.g. the chat's file links). */
   components?: Components;
+  /** Which URLs survive (react-markdown's default drops `file:`, which the chat's images keep). */
+  urlTransform?: UrlTransform;
 }
 
 export function Markdown({
@@ -79,12 +81,14 @@ export function Markdown({
   inline = false,
   className,
   components = MARKDOWN_COMPONENTS,
+  urlTransform,
 }: MarkdownProps) {
   const cls = ["md", prose && "prose", inline && "md-inline", className].filter(Boolean).join(" ");
   const render = (markdown: string) => (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
       components={components}
+      urlTransform={urlTransform}
       allowedElements={inline ? INLINE : undefined}
       unwrapDisallowed={inline}
     >

@@ -5,6 +5,7 @@ import { InlineConfirm } from "@/components/InlineConfirm";
 import { Modal } from "@/components/Modal";
 import { Switch } from "@/components/Switch";
 import {
+  isLoginCancelled,
   type McpServerStatus,
   mcpConnect,
   mcpDisconnect,
@@ -13,6 +14,7 @@ import {
   NEEDS_CLIENT_ID,
   REDIRECT_URI,
 } from "@/ipc/mcp";
+import { CancelLogin } from "./CancelLogin";
 import { McpLogo } from "./McpLogo";
 
 interface Props {
@@ -40,7 +42,7 @@ export function McpServerDialog({ server, onClose, onChange }: Props) {
       })
       .catch((e) => {
         if (String(e).includes(NEEDS_CLIENT_ID)) setNeedsClient(true);
-        else toast.error(String(e));
+        else if (!isLoginCancelled(e)) toast.error(String(e));
       })
       .finally(() => setBusy(false));
   };
@@ -137,6 +139,7 @@ export function McpServerDialog({ server, onClose, onChange }: Props) {
               </div>
             )}
             <div className="ig-form-foot">
+              <CancelLogin waiting={busy && server.auth === "oauth"} />
               <button
                 type="button"
                 className="btn primary"
@@ -174,6 +177,7 @@ function MoveNotice(props: {
         {props.server.name} working: you log in once more, and agents get it as before.
       </div>
       <div className="ig-form-foot">
+        <CancelLogin waiting={props.busy} />
         <button
           type="button"
           className="btn primary"
