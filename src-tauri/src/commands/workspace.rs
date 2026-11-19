@@ -60,23 +60,34 @@ fn git(cwd: &str, args: &[&str]) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// The repo root a checkout at `cwd` belongs to (`cwd` itself when it isn't in
+/// git) and its checked-out branch (`None` when detached).
+pub(crate) fn checkout_of(cwd: &str) -> (String, Option<String>) {
+    // A worktree's common dir is the main repo's `.git`; its parent is the repo.
+    let repo = git(
+        cwd,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .and_then(|d| {
+        std::path::Path::new(&d)
+            .parent()
+            .map(|p| p.to_string_lossy().into_owned())
+    })
+    .unwrap_or_else(|| cwd.to_string());
+    (repo, branch_of(cwd))
+}
+
+/// The branch checked out at `cwd`; `None` when detached or not in git.
+pub(crate) fn branch_of(cwd: &str) -> Option<String> {
+    git(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).filter(|b| b != "HEAD")
+}
+
 /// Repo, cwd and live branch for a workspace; `None` before it has a repo.
 #[tauri::command]
 pub async fn workspace_info(workspace_id: String) -> Result<Option<WorkspaceInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let (cwd, _) = locate(&workspace_id)?;
-        // A worktree's common dir is the main repo's `.git`; its parent is the repo.
-        let repo = git(
-            &cwd,
-            &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-        )
-        .and_then(|d| {
-            std::path::Path::new(&d)
-                .parent()
-                .map(|p| p.to_string_lossy().into_owned())
-        })
-        .unwrap_or_else(|| cwd.clone());
-        let branch = git(&cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).filter(|b| b != "HEAD");
+        let (repo, branch) = checkout_of(&cwd);
         Some(WorkspaceInfo {
             is_worktree: cwd != repo,
             repo,
@@ -110,17 +121,7 @@ pub async fn sessions_overview(ids: Vec<String>) -> Result<Vec<SessionOverview>,
             let Some((cwd, _)) = locate(&id) else {
                 continue;
             };
-            let repo = git(
-                &cwd,
-                &["rev-parse", "--path-format=absolute", "--git-common-dir"],
-            )
-            .and_then(|d| {
-                std::path::Path::new(&d)
-                    .parent()
-                    .map(|p| p.to_string_lossy().into_owned())
-            })
-            .unwrap_or(cwd.clone());
-            let branch = git(&cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).filter(|b| b != "HEAD");
+            let (repo, branch) = checkout_of(&cwd);
             rows.push(SessionOverview {
                 id,
                 repo,

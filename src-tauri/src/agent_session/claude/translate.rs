@@ -13,12 +13,14 @@
 //!   `SessionInfo`. See `turn` for the turn's lifecycle. Usage also fills the
 //!   context gauge (`context`).
 //! - Task/Agent calls and `system` `task_*` lines → a subagent on the call's
-//!   row, its own rows carrying `parentCallId` (`subagents`).
+//!   row, its own rows carrying `parentCallId` (`subagents`); other background
+//!   tasks (shells, monitors, workflows) → `SessionInfo::background` (`tasks`).
 
 mod context;
 mod options;
 mod session;
 mod subagents;
+mod tasks;
 mod turn;
 
 use std::collections::{HashMap, HashSet};
@@ -82,6 +84,8 @@ pub struct Translator {
     subagents: HashMap<String, subagents::SubRun>,
     /// Claude's task ids → the call that started each.
     tasks: HashMap<String, String>,
+    /// Background tasks that aren't subagents, by Claude's task id.
+    background: HashMap<String, tasks::TaskRun>,
     /// Prompts awaiting the user, by request id.
     pending: HashMap<String, Pending>,
     /// `total_cost_usd` so far: it's cumulative, a turn's cost is the difference.
@@ -127,6 +131,7 @@ impl Translator {
             tools: HashMap::new(),
             subagents: HashMap::new(),
             tasks: HashMap::new(),
+            background: HashMap::new(),
             pending: HashMap::new(),
             cost_so_far: 0.0,
             context: context::ContextState::default(),

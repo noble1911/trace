@@ -1,0 +1,78 @@
+/* What's running behind the conversation (`BackgroundWork`): a small control in
+   the fact strip, and the list it opens. Neutral throughout — a background shell
+   isn't agent state, so no state colour except a subagent that needs you. */
+
+.ac-bg {
+  display: inline-flex;
+}
+.ac-bg-trigger {
+  gap: 6px;
+  color: var(--fg-2);
+}
+.ac-bg-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--fg-1);
+}
+.ac-bg-pop {
+  min-width: 320px;
+  max-width: 440px;
+}
+.ac-bg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ac-bg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--control-h);
+  padding: 0 4px 0 8px;
+  border-radius: var(--radius-sm);
+}
+.ac-bg-row:hover {
+  background: var(--bg-2);
+}
+.ac-bg-kind {
+  flex: none;
+  width: 64px;
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.ac-bg-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui);
+  color: var(--fg-1);
+}
+.ac-bg-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-ui);
+}
+.ac-bg-open:hover,
+.ac-bg-open:focus-visible {
+  color: var(--fg-0);
+  text-decoration: underline;
+}
+.ac-bg-age {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+/* Keeps the ages lined up where a task can't be stopped on its own. */
+.ac-bg-nostop {
+  flex: none;
+  width: var(--control-h-xs);
+}

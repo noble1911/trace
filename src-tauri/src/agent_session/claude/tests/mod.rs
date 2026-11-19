@@ -7,6 +7,7 @@ use serde_json::json;
 
 mod replay;
 mod subagents;
+mod tasks;
 
 use super::translate::Translator;
 use crate::agent_session::journal::*;

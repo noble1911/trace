@@ -11,9 +11,9 @@
   text-transform: capitalize;
 }
 .session-cli.claude {
-  color: var(--c-review);
-  border-color: color-mix(in oklch, var(--c-review) 40%, transparent);
-  background: var(--c-review-bg);
+  color: var(--c-accent);
+  border-color: color-mix(in oklch, var(--c-accent) 40%, transparent);
+  background: var(--c-accent-bg);
 }
 /* Where a session runs (a Vercel Sandbox): a place, not an agent type, so a dashed
    outline in the body face rather than .session-cli's mono chip, and no state colour. */

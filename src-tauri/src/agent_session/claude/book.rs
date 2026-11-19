@@ -56,6 +56,11 @@ impl RowBook {
         self.next_seq
     }
 
+    /// Now, by the book's clock (fixed in tests).
+    pub fn now(&self) -> u64 {
+        (self.clock)()
+    }
+
     pub fn get(&self, id: &str) -> Option<&JournalRow> {
         self.live.get(id)
     }

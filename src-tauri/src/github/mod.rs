@@ -11,6 +11,8 @@
 //! - `links`: *which* PRs belong to a workspace — its branch's PRs plus any PR
 //!   URL the conversation mentions (agents print the URL after `gh pr create`,
 //!   but it scrolls off the TUI's screen, which is the whole problem).
+//! - `raised`, `pr_lookup`: every PR many workspaces raised, with states, in a
+//!   call or two per repo (the Pull requests page).
 //! - `thread`: one PR's state + discussion (comments, reviews, inline threads)
 //!   with edit timestamps, so the rail can show comments that change in place.
 
@@ -24,6 +26,8 @@ pub mod device;
 pub(crate) mod gh;
 pub mod links;
 pub mod pick;
+pub mod pr_lookup;
+pub mod raised;
 pub mod repo_list;
 pub mod repo_prs;
 pub mod thread;

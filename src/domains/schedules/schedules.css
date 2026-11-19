@@ -38,8 +38,8 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: var(--c-review-bg);
-  color: var(--c-review);
+  background: var(--c-accent-bg);
+  color: var(--c-accent);
   flex-shrink: 0;
 }
 .sched-row-main {
@@ -219,9 +219,9 @@
   border-color: var(--border-strong);
 }
 .sched-day.on {
-  color: var(--c-review);
-  background: var(--c-review-bg);
-  border-color: var(--c-review);
+  color: var(--c-accent);
+  background: var(--c-accent-bg);
+  border-color: var(--c-accent);
 }
 .sched-preview {
   min-height: 16px;

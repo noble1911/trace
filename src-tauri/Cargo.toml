@@ -59,6 +59,11 @@ tempfile = "3"
 # ~2.3: 2.4+ needs tauri 2.12 (and @tauri-apps/api 2.12); bump them together.
 tauri-plugin-clipboard-manager = "~2.3.2"
 
+# Settings → Appearance's font pickers: every family installed on this machine
+# (the webview can't list them without a permission prompt). Pure Rust; reads the
+# OS font folders and each file's header only.
+fontdb = { version = "0.24", default-features = false, features = ["std", "fs", "fontconfig"] }
+
 [target.'cfg(unix)'.dependencies]
 # Process signals
 libc = "0.2"

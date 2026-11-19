@@ -111,8 +111,9 @@ impl Translator {
             };
             self.end_turn(state, None, None, &mut out);
         }
-        // Background subagents went with the process.
+        // Background subagents and tasks went with the process.
         self.end_subagents(SubagentState::Stopped, &mut out);
+        self.end_tasks(&mut out);
         if let Some(reason) = reason {
             self.status(reason, Tone::Error, &mut out);
         }
@@ -207,6 +208,7 @@ impl Translator {
                 }
             }
         }
+        self.tasks_outlive_turn(out);
         let plan = format!("plan:{}", turn.id);
         self.book.retire(&plan);
         let id = format!("turn:{}", turn.id);

@@ -162,6 +162,12 @@
   max-height: 320px;
   overflow-y: auto;
 }
+/* The Installed section lists every family on the machine, each drawn in its own
+   face: skip laying out (and loading) the ones scrolled out of view. */
+.font-field .pop-menu-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--control-h);
+}
 
 /* An item with a shortcut hint: the label takes the room, the hint sits at the end. */
 .pop-menu-label {
