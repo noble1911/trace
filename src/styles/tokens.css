@@ -32,6 +32,8 @@
   /* Status hues — oklch, all chroma ~0.13, lightness ~0.72 */
   --c-todo: oklch(0.72 0.01 250); /* neutral */
   --c-prog: oklch(0.78 0.15 70); /* amber */
+  /* The "In review" status (and open PRs): a fixed violet that doesn't follow the
+     accent. A brand highlight (selection, a toggle that's on) is --c-accent. */
   --c-review: oklch(0.72 0.16 290); /* violet */
   --c-done: oklch(0.74 0.14 155); /* green */
 

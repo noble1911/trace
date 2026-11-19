@@ -60,9 +60,10 @@
   opacity: 0.5;
   cursor: default;
 }
+/* A toggle that's on: the accent (trace-ui §2). */
 .switch.on {
-  background: var(--fg-0);
-  border-color: var(--fg-0);
+  background: var(--c-accent);
+  border-color: var(--c-accent);
 }
 .switch.on::after {
   left: 16px;

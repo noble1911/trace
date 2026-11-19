@@ -11,11 +11,12 @@ const FALLBACKS = ["monospace", "serif", "sans-serif"];
 
 let ctx: CanvasRenderingContext2D | null | undefined;
 
-function widthIn(font: string): number | null {
+/** The width of `text` drawn in `font` (a CSS font-family list), or null without a canvas. */
+function widthIn(font: string, text = SAMPLE): number | null {
   if (ctx === undefined) ctx = document.createElement("canvas").getContext("2d");
   if (!ctx) return null;
   ctx.font = `72px ${font}`;
-  return ctx.measureText(SAMPLE).width;
+  return ctx.measureText(text).width;
 }
 
 /** Whether `family` renders on this machine (true when it can't tell). */
@@ -26,6 +27,16 @@ export function isFontInstalled(family: string): boolean {
     const withFont = widthIn(`"${family}", ${fallback}`);
     return base === null || withFont === null || withFont !== base;
   });
+}
+
+/**
+ * Whether `family` draws every glyph the same width: a narrow and a wide run of
+ * the same length measure equal. For fonts that don't flag themselves as
+ * monospace. False when it can't tell (no canvas).
+ */
+export function isFixedWidth(family: string): boolean {
+  const narrow = widthIn(`"${family}", serif`, "iiiiiiiiii");
+  return narrow !== null && narrow === widthIn(`"${family}", serif`, "WWWWWWWWWW");
 }
 
 /** The suggestions this machine can show, in their given order. */
@@ -44,6 +55,12 @@ export const UI_FONT_SUGGESTIONS = [
   "Roboto",
   "Ubuntu",
   "Noto Sans",
+  "IBM Plex Sans",
+  "Source Sans 3",
+  "Atkinson Hyperlegible",
+  "Avenir Next",
+  "Lucida Grande",
+  "Verdana",
   "Arial",
   "system-ui",
 ];
@@ -55,6 +72,11 @@ export const MONO_FONT_SUGGESTIONS = [
   "Cascadia Code",
   "Cascadia Mono",
   "Fira Code",
+  "IBM Plex Mono",
+  "Source Code Pro",
+  "Iosevka",
+  "Monaspace Neon",
+  "Hack",
   "SF Mono",
   "Menlo",
   "Monaco",

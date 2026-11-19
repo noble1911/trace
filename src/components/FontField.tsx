@@ -8,8 +8,10 @@ interface FontFieldProps {
   value: string;
   /** Called with a value to apply: a pick from the menu, or what was typed, on Enter or blur. */
   onChange: (next: string) => void;
-  /** Families to offer, each shown in its own face. */
+  /** Families to offer first, each shown in its own face. */
   suggestions: string[];
+  /** Every other installed family, listed under "Installed" after the suggestions. */
+  installed?: string[];
   /** What a blank value means, for the Default item ("Geist Mono", "Same as code font"). */
   defaultFamily: string;
   label: string;
@@ -23,7 +25,14 @@ interface FontFieldProps {
 // the whole app in every prefix on the way ("Geist" before "Geist Mono") and
 // reconfigured every live terminal. Escape drops the draft. A menu pick applies
 // at once.
-export function FontField({ value, onChange, suggestions, defaultFamily, label }: FontFieldProps) {
+export function FontField({
+  value,
+  onChange,
+  suggestions,
+  installed = [],
+  defaultFamily,
+  label,
+}: FontFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const current = value.trim();
   const pick = (next: string) => {
@@ -35,6 +44,12 @@ export function FontField({ value, onChange, suggestions, defaultFamily, label }
     setDraft(null);
     if (draft.trim() !== current) onChange(draft.trim());
   };
+  const item = (family: string) => ({
+    id: family,
+    label: <span style={{ fontFamily: `"${family}"` }}>{family}</span>,
+    checked: current.toLowerCase() === family.toLowerCase(),
+    onSelect: () => pick(family),
+  });
   const items = [
     {
       id: "default",
@@ -42,13 +57,12 @@ export function FontField({ value, onChange, suggestions, defaultFamily, label }
       checked: current === "",
       onSelect: () => pick(""),
     },
-    ...suggestions.map((family) => ({
-      id: family,
-      label: <span style={{ fontFamily: `"${family}"` }}>{family}</span>,
-      checked: current.toLowerCase() === family.toLowerCase(),
-      onSelect: () => pick(family),
-    })),
+    ...suggestions.map(item),
   ];
+  const sections =
+    installed.length > 0
+      ? [{ items }, { title: "Installed", items: installed.map(item) }]
+      : [{ items }];
   return (
     <div className="font-field">
       <input
@@ -83,7 +97,7 @@ export function FontField({ value, onChange, suggestions, defaultFamily, label }
             <MenuCaret />
           </IconButton>
         )}
-        sections={[{ items }]}
+        sections={sections}
       />
     </div>
   );

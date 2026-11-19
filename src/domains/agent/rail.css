@@ -72,7 +72,7 @@
   flex-shrink: 0;
 }
 .linked-row a.linked-key:hover {
-  color: var(--c-review);
+  color: var(--c-accent);
   text-decoration: underline;
 }
 .linked-row .linked-sub {

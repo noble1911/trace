@@ -215,9 +215,10 @@
   background: var(--bg-2);
   color: var(--fg-1);
 }
+/* The page on screen: a selection, so the accent (as the Appearance preview draws it). */
 .rail .nav-btn.active {
   color: var(--fg-0);
-  background: var(--bg-2);
+  background: color-mix(in oklch, var(--c-accent) 16%, transparent);
 }
 .rail .nav-btn.active::before {
   content: "";
@@ -227,7 +228,7 @@
   transform: translateY(-50%);
   width: 2px;
   height: 16px;
-  background: var(--fg-0);
+  background: var(--c-accent);
   border-radius: 2px;
 }
 .rail .nav-btn .badge {

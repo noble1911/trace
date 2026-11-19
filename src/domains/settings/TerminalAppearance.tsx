@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useReducer } from "react";
 import { FontField } from "@/components/FontField";
 import { Segmented } from "@/components/Segmented";
 import { Switch } from "@/components/Switch";
@@ -16,7 +16,6 @@ import {
   termScrollback,
 } from "@/domains/agent/terminalPrefs";
 import { applyTerminalPrefs } from "@/domains/agent/terminalRegistry";
-import { installedOnly, MONO_FONT_SUGGESTIONS } from "@/domains/appearance/installedFonts";
 import type { CursorStyle } from "@/domains/appearance/prefs";
 import { TerminalPreview } from "@/domains/appearance/previews/TerminalPreview";
 import { SizeField } from "@/domains/appearance/SizeField";
@@ -28,6 +27,7 @@ import {
   TERM_SCROLLBACKS,
   TERM_SIZE,
 } from "@/domains/appearance/terminalOptions";
+import { useFontChoices } from "@/domains/appearance/useFontChoices";
 import { AppearanceGroup } from "./AppearanceGroup";
 import { SettingRow } from "./SettingRow";
 
@@ -56,8 +56,7 @@ export function TerminalAppearance() {
   const reset = useAppearance((s) => s.reset);
   const reduced = useAppearance(isMotionReduced);
   const [, bump] = useReducer((n: number) => n + 1, 0);
-  // Measured once per visit: only suggestions this machine can show.
-  const [monoFonts] = useState(() => installedOnly(MONO_FONT_SUGGESTIONS));
+  const fonts = useFontChoices();
 
   const apply = (write: () => void) => {
     write();
@@ -95,7 +94,8 @@ export function TerminalAppearance() {
           label="Terminal font"
           value={termFontRaw()}
           onChange={(font) => apply(() => setTermFont(font))}
-          suggestions={monoFonts}
+          suggestions={fonts.mono.suggested}
+          installed={fonts.mono.installed}
           defaultFamily="Same as code font"
         />
       </SettingRow>
