@@ -8,6 +8,7 @@ pub mod agent_session;
 pub mod agent_tools;
 pub mod board_settings;
 pub mod browser;
+pub mod changelog;
 pub mod claude;
 pub mod cleanup;
 pub mod commands;
@@ -298,6 +299,7 @@ pub fn run() {
             commands::tests::run_tests,
             commands::update::check_app_update,
             commands::update::install_app_update,
+            commands::update::list_releases,
             commands::worktrees::list_worktrees,
             commands::worktrees::remove_worktree,
             commands::cleanup::get_cleanup_settings,
