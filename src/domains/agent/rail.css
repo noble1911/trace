@@ -169,6 +169,9 @@
   flex-direction: column;
   gap: 6px;
 }
+.turn-section:empty {
+  display: none;
+}
 .turn-next {
   display: flex;
   flex-direction: column;

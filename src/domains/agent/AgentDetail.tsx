@@ -25,6 +25,7 @@ import { primaryPr } from "@/domains/prs/primaryPr";
 import { canonicalPrUrl } from "@/domains/prs/prUrl";
 import { usePrWatchStore } from "@/domains/prs/watchStore";
 import { useQuickOpen } from "@/domains/quickOpen/useQuickOpen";
+import { useRecapVisit } from "@/domains/recap/useRecapVisit";
 import {
   type AgentCli,
   type AgentProvider,
@@ -93,6 +94,7 @@ export function AgentDetail({ issue, site, onBack, backLabel }: AgentDetailProps
   const clearOutput = useBoardStore((s) => s.clearOutput);
   const ackWaiting = useBoardStore((s) => s.ackWaiting);
   const live = useLiveStore((s) => s.info[issue.key]);
+  useRecapVisit(issue.key);
   const quiet = useAgentQuiet(issue.key);
   const startingRef = useRef(false);
   const prs = useBoardStore((s) => s.pullRequests[issue.key] ?? EMPTY_PRS);

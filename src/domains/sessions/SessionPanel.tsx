@@ -3,6 +3,7 @@ import { useSidePanel } from "@/components/useSidePanel";
 import { TurnSection } from "@/domains/agent/TurnSection";
 import { WorkspaceSection } from "@/domains/agent/WorkspaceSection";
 import { OrchestratorPane } from "@/domains/orchestrator/OrchestratorPane";
+import { useRecap } from "@/domains/recap/store";
 import { SandboxSection } from "./SandboxSection";
 import { StartedSessionsSection, useStartedSessions } from "./StartedSessions";
 import type { SessionHost } from "./types";
@@ -20,7 +21,7 @@ interface SessionPanelProps {
   host?: SessionHost | null;
 }
 
-// A session's right-edge panel: its details (once it has a PR or has started
+// A session's right-edge panel: its details (once it has a recap, a PR or started
 // sessions, and always for one in a sandbox, whose state is told there) or the
 // orchestrator — one at a time, remembered for sessions in general. The PRs
 // themselves live in the workspace's Pull request tab.
@@ -33,7 +34,8 @@ export function SessionPanel({
   host,
 }: SessionPanelProps) {
   const started = useStartedSessions(sessionId).length;
-  const hasContext = hasPr || started > 0 || Boolean(host);
+  const recapped = useRecap(activeWorkspaceId) !== null;
+  const hasContext = recapped || hasPr || started > 0 || Boolean(host);
   const panel = useSidePanel(
     "session",
     hasContext ? ["context", "orchestrator"] : ["orchestrator"]
@@ -51,8 +53,8 @@ export function SessionPanel({
           {host?.kind === "vercel" && (
             <SandboxSection sessionId={sessionId} host={host} attached={running} />
           )}
-          <StartedSessionsSection workspaceId={sessionId} />
           <TurnSection workspaceId={activeWorkspaceId} hasPr={hasPr} />
+          <StartedSessionsSection workspaceId={sessionId} />
           {/* A sandbox's checkout isn't on this computer; its Sandbox section says where. */}
           {!host && (
             <WorkspaceSection workspaceId={sessionId} turnIds={turnIds} refreshKey={running} />

@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { toast } from "@/app/toast";
 import { I } from "@/components/Icon";
 import { useBoardStore } from "@/domains/board/store";
+import { useRecap } from "@/domains/recap/store";
 import { useChatActions } from "./actions";
 import { ChatHeader } from "./ChatHeader";
 import { ChatList } from "./ChatList";
@@ -46,6 +47,7 @@ export function ChatAgentPane({
   const live = useBoardStore((s) => s.runningAgents.has(workspaceId));
   const stopped = onStart !== undefined && !live;
   const info = useAgentChatStore((s) => s.info[workspaceId]);
+  const recap = useRecap(workspaceId);
   const loaded = useAgentChatStore((s) => s.loaded[workspaceId] ?? false);
   const { turns, subagents } = useChat(workspaceId);
   const last = turns[turns.length - 1];
@@ -74,7 +76,7 @@ export function ChatAgentPane({
   return (
     <ChatViewContext.Provider value={view}>
       <div className="ac-pane" ref={paneRef}>
-        <ChatHeader info={info} turns={turns} />
+        <ChatHeader info={info} turns={turns} now={recap?.now} />
         {turns.length === 0 ? (
           <Empty loaded={loaded} stopped={stopped} onStart={onStart} />
         ) : (

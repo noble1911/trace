@@ -7,6 +7,7 @@ import { trackerForIssueKey } from "@/domains/issues/types";
 import type { LiveEntry } from "@/domains/live/entries";
 import { ageLabel, shownAsk } from "@/domains/live/light";
 import { useAgentQuiet } from "@/domains/live/quietStore";
+import { useRecap } from "@/domains/recap/store";
 import { TRACKER_NAMES } from "@/domains/sidebar/items";
 import { useAgentRowActions } from "./agentRowActions";
 
@@ -58,7 +59,9 @@ export function FleetRow(props: FleetRowProps) {
   const { info } = entry;
   const quiet = useAgentQuiet(entry.id);
   const ask = shownAsk(info);
-  const latest = ask?.label ?? info.update ?? info.lastMessage ?? "";
+  const recap = useRecap(entry.id);
+  // An ask, then the agent's own note, then where its recap says it's up to.
+  const latest = ask?.label ?? info.update ?? recap?.now ?? info.lastMessage ?? "";
   const menu = useRowMenu();
   const actions = useAgentRowActions({ entry, onOpen: props.onOpen, pr });
   return (

@@ -34,6 +34,7 @@ import "@/domains/agent/detail.css";
 import "@/domains/agent/header-fit.css";
 import "@/domains/agent/answer.css";
 import "@/domains/agent/rail.css";
+import "@/domains/recap/recap.css";
 import "@/domains/agent/files.css";
 import "@/domains/agent/files/files-tree.css";
 import "@/domains/quickOpen/quick-open.css";

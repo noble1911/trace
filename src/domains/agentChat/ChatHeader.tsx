@@ -6,15 +6,18 @@ import type { LimitWindow, SessionInfo } from "./types";
 
 // The chat's fact strip: which agent and model (picked in the composer,
 // `AgentOptionPickers`), the session's cost so far, how full the context window
-// is, and the usage-limit windows the agent reports (how full, and when each resets).
+// is, where its recap says it's up to (`domains/recap`; the full recap is in
+// Details), and the usage-limit windows the agent reports (how full, and when each resets).
 // Stopping the agent is the detail header's; interrupting a turn, the composer's.
 
 interface ChatHeaderProps {
   info: SessionInfo | undefined;
   turns: ChatTurn[];
+  /** The recap's "Now" line, if the agent has one. */
+  now?: string | null;
 }
 
-export function ChatHeader({ info, turns }: ChatHeaderProps) {
+export function ChatHeader({ info, turns, now }: ChatHeaderProps) {
   let cost = 0;
   let hasCost = false;
   for (const t of turns) {
@@ -38,6 +41,11 @@ export function ChatHeader({ info, turns }: ChatHeaderProps) {
       {hasCost && (
         <span className="ac-head-fact" title="Cost of this conversation so far">
           {formatCost(cost)}
+        </span>
+      )}
+      {now && (
+        <span className="ac-head-now" title={now}>
+          <span className="ac-head-now-label">Now</span> {now}
         </span>
       )}
       <span className="ac-head-limits">

@@ -21,6 +21,7 @@ import { type Panes, usePanes } from "@/domains/panes/usePanes";
 import { usePlanTab } from "@/domains/plans/store";
 import { usePrWatch } from "@/domains/prs/hooks/usePrWatch";
 import { useQuickOpen } from "@/domains/quickOpen/useQuickOpen";
+import { useRecapVisit } from "@/domains/recap/useRecapVisit";
 import { type AgentCli, type AgentProvider, detachAgent } from "@/ipc/agent";
 import { agentRoster, agentWorkspaceIds, companionsOf, MAX_COMPANIONS } from "./agentRoster";
 import { useSessionAgentRun } from "./hooks/useSessionAgentRun";
@@ -75,6 +76,7 @@ export function SessionDetail({
   // Falls back to the session's own agent, which also self-heals the selection
   // when the companion whose tab was open is removed.
   const active = roster.find((r) => r.workspaceId === selectedAgent) ?? roster[0];
+  useRecapVisit(active.workspaceId);
 
   const run = useSessionAgentRun(session, active);
   const disconnect = () =>

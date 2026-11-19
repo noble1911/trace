@@ -33,6 +33,7 @@ pub mod platform;
 pub mod preflight;
 pub mod pylon;
 pub mod pylon_mcp;
+pub mod recap;
 // The homepage clip recorder's hooks; never in a release build (site/README.md).
 #[cfg(feature = "recording")]
 pub mod recording;
@@ -280,6 +281,9 @@ pub fn run() {
             commands::groups::save_session_groups,
             commands::session_order::list_session_order,
             commands::session_order::set_session_list,
+            commands::recaps::list_recaps,
+            commands::recaps::save_recap,
+            commands::recaps::mark_recap_seen,
             commands::permissions::list_permission_rules,
             commands::permissions::save_permission_rule,
             commands::permissions::delete_permission_rule,

@@ -12,6 +12,7 @@ import { askIsOver, noteAgentTurn } from "@/domains/board/waitingNotify";
 import { userActed } from "@/domains/live/answer";
 import { clearLiveUpdate, noteLiveAsk, noteLiveTurn, useLiveSync } from "@/domains/live/sync";
 import { usePlanStore } from "@/domains/plans/store";
+import { useRecapSync } from "@/domains/recap/engine";
 import { useSessionsStore } from "@/domains/sessions/store";
 import {
   onAgentAnswered,
@@ -33,6 +34,7 @@ export function useAppEvents(): void {
   const setAgentRunning = useBoardStore((s) => s.setAgentRunning);
   const appendOutput = useBoardStore((s) => s.appendOutput);
   useLiveSync();
+  useRecapSync();
   useAgentTools();
   useViewerEvents();
 

@@ -153,8 +153,11 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
 - [ ] **Usage and rate limits:** status bar readout with time to reset and a warning at 80%.
 - [ ] **Multiple Claude/Codex accounts:** switch accounts or run them side by side, each with its
       own login.
+- [x] **Session recap:** each ticket's and session's Details opens with where its agent is up to
+      (Goal / Done / Now / Next, written by Haiku from the conversation when a turn ends) and what
+      happened since you last looked; the "Now" line also shows on Fleet and a chat agent's strip.
 - [ ] **Worktree status comment:** agents post a short "what I'm doing now" note, which could show
-      on board cards.
+      on board cards. *Started:* the recap's "Now" is that note; board cards don't show it yet.
 - [ ] **Cost estimates:** a stats breakdown by model.
 
 ### Workspace
