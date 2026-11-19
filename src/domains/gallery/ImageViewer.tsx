@@ -83,6 +83,7 @@ export function ImageViewer(p: ImageViewerProps) {
         onFit={() => setView(FIT)}
         onActual={() => setView({ fit: false, scale: 1, x: 0, y: 0 })}
         onCompare={(mode) => (mode ? startCompare(mode) : setCompare(null))}
+        onStep={(step) => p.onIndex(stepIndex(index, step, images.length))}
         onClose={p.onClose}
       />
       {compare?.mode === "side" && other ? (
