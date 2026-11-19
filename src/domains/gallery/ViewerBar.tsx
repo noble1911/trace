@@ -27,6 +27,8 @@ interface ViewerBarProps {
   onFit: () => void;
   onActual: () => void;
   onCompare: (mode: Compare["mode"] | null) => void;
+  /** Step to the previous (-1) or next (1) image in the set, wrapping around. */
+  onStep: (step: -1 | 1) => void;
   onClose: () => void;
 }
 
@@ -38,12 +40,27 @@ const MODES: { value: Mode; label: ReactNode; name: string }[] = [
   { value: "swipe", label: <I.MoveHorizontal size={14} />, name: "Swipe" },
 ];
 
-// The viewer's header: which image (and against which), Fit / 1:1 and the zoom,
-// the comparison mode, the image's actions, and close.
+// The viewer's header: previous / next, which image (and against which), Fit / 1:1
+// and the zoom, the comparison mode, the image's actions, and close.
 export function ViewerBar(p: ViewerBarProps) {
   const zoom = p.fit ? "Fit" : `${Math.round(p.scale * 100)}%`;
   return (
     <div className="gv-bar">
+      {p.count > 1 && (
+        <div className="gv-nav">
+          <IconButton
+            size="sm"
+            className="gv-prev"
+            label="Previous image"
+            onClick={() => p.onStep(-1)}
+          >
+            <I.Chevron size={14} />
+          </IconButton>
+          <IconButton size="sm" label="Next image" onClick={() => p.onStep(1)}>
+            <I.Chevron size={14} />
+          </IconButton>
+        </div>
+      )}
       <div className="gv-what">
         <span className="gv-name" title={p.img.path}>
           {p.img.name}

@@ -20,6 +20,15 @@
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-faint);
 }
+.gv-nav {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+/* Chevron points forward; turned round, it's Previous. */
+.gv-prev svg {
+  transform: rotate(180deg);
+}
 .gv-what {
   flex: 1;
   min-width: 160px;
