@@ -1,0 +1,61 @@
+/* The recap at the top of Details (RecapSection): since you looked, then where it's at. */
+
+.recap-since {
+  margin-bottom: 8px;
+}
+.recap-since .label,
+.recap-head .label {
+  margin-bottom: 4px;
+}
+/* New since you looked is weight, never colour (trace-ui §2). */
+.recap-since-line {
+  margin: 0;
+  font-size: var(--text-ui);
+  font-weight: 600;
+  color: var(--fg-0);
+  line-height: 1.45;
+}
+
+.recap {
+  margin-bottom: 8px;
+}
+.recap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.recap-rows {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recap-row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 8px;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+}
+.recap-row dt {
+  color: var(--fg-3);
+}
+.recap-row dd {
+  margin: 0;
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+.recap-asof {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.recap-pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: var(--text-ui);
+  color: var(--fg-3);
+}

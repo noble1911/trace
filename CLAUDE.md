@@ -67,6 +67,7 @@ src/
     ├── inbox/              # agents that need you, answered in place
     ├── fleet/              # every running agent
     ├── live/               # each agent's live state (the source for StatusLight) + answering its prompts
+    ├── recap/              # each agent's "where it's up to" (Haiku, at turn end) + "since you looked"
     ├── orchestrator/       # the assistant in the side panel
     ├── agentTools/         # the tools agents call on trace (board = the orchestrator's, + scheduled prompts)
     ├── sidebar/            # the rail's pages: order, show/hide, tracker-page rule (Settings → Sidebar)
@@ -99,6 +100,7 @@ src-tauri/src/
 ├── gallery/                # Gallery tab: sets, scanning, path containment, the `trace-img` protocol
 ├── repo_catalog/           # per-repo remote, checkouts, default branch + worktree setup hooks
 ├── interrupted.rs          # ledger of live agents; ones cut off by quit/update/crash are offered back
+├── recap.rs                # each agent's saved recap + when the user last looked (recaps.json)
 ├── keep_awake.rs           # holds idle sleep off while an agent runs (port: platform::SleepInhibitor)
 ├── execution/              # where agents run: AgentHost port; this machine, or a cloud sandbox
 │                           #   (sandbox/ + vercel/: terminal in tmux, chat as a background command)

@@ -32,6 +32,18 @@
   font-family: var(--font-mono);
   color: var(--fg-2);
 }
+/* Where the recap says the agent is up to: takes the strip's spare width, one line. */
+.ac-head-now {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-1);
+}
+.ac-head-now-label {
+  color: var(--fg-3);
+}
 .ac-head-limits {
   margin-left: auto;
   display: flex;

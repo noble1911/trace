@@ -1,5 +1,7 @@
 import { shownAsk } from "@/domains/live/light";
 import { useLiveStore } from "@/domains/live/store";
+import { RecapSection } from "@/domains/recap/RecapSection";
+import { useRecap } from "@/domains/recap/store";
 
 interface TurnSectionProps {
   workspaceId: string;
@@ -21,24 +23,31 @@ function nextStep(
   return null;
 }
 
-// Top of the detail rail: what the agent last said, and what to do about it.
+// Top of the detail rail: where the agent is up to (its recap, and what happened
+// since you looked), then the one thing to do about it. Its last message stands
+// in for the recap until there is one (no transcript, no model, or not yet).
 export function TurnSection({ workspaceId, hasPr }: TurnSectionProps) {
   const info = useLiveStore((s) => s.info[workspaceId]);
-  if (!info) return null;
-  const step = nextStep(info.light, shownAsk(info)?.label, hasPr, info.lastMessage != null);
-  if (!info.lastMessage && !step) return null;
+  const recap = useRecap(workspaceId);
+  const step = info
+    ? nextStep(info.light, shownAsk(info)?.label, hasPr, info.lastMessage != null || !!recap)
+    : null;
+  const lastMessage = recap ? null : (info?.lastMessage ?? null);
+  // Always mounted, so a workspace with a transcript but no recap yet gets one;
+  // with nothing in it the section is `:empty` and hidden (rail.css).
   return (
     <div className="ctx-section turn-section">
+      <RecapSection workspaceId={workspaceId} />
       {step && (
         <div className="turn-next">
           <div className="label">Next step</div>
-          <span className={`turn-step ${info.light}`}>{step}</span>
+          <span className={`turn-step ${info?.light ?? ""}`}>{step}</span>
         </div>
       )}
-      {info.lastMessage && (
+      {lastMessage && (
         <>
           <div className="label">Last message</div>
-          <p className="turn-said">{info.lastMessage}</p>
+          <p className="turn-said">{lastMessage}</p>
         </>
       )}
     </div>

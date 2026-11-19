@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useRecap } from "@/domains/recap/store";
 import { modelLabel } from "./agentOptionsFormat";
 import { BackgroundWork } from "./BackgroundWork";
 import { backgroundItems } from "./background";
@@ -10,7 +11,8 @@ import type { LimitWindow, SessionInfo } from "./types";
 
 // The chat's fact strip: which agent and model (picked in the composer,
 // `AgentOptionPickers`), the session's cost so far, how full the context window
-// is, and the usage-limit windows the agent reports (how full, and when each resets).
+// is, where its recap says it's up to (`domains/recap`; the full recap is in
+// Details), and the usage-limit windows the agent reports (how full, and when each resets).
 // While anything runs behind the conversation (subagents, a background shell, a
 // workflow), a small control lists it (`BackgroundWork`).
 // Stopping the agent is the detail header's; interrupting a turn, the composer's.
@@ -23,6 +25,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ workspaceId, info, turns, subagents }: ChatHeaderProps) {
+  const now = useRecap(workspaceId)?.now ?? null;
   const tasks = info?.background;
   const background = useMemo(() => backgroundItems(subagents, tasks ?? []), [subagents, tasks]);
   let cost = 0;
@@ -51,6 +54,11 @@ export function ChatHeader({ workspaceId, info, turns, subagents }: ChatHeaderPr
         </span>
       )}
       <BackgroundWork workspaceId={workspaceId} items={background} />
+      {now && (
+        <span className="ac-head-now" title={now}>
+          <span className="ac-head-now-label">Now</span> {now}
+        </span>
+      )}
       <span className="ac-head-limits">
         <ContextGauge context={info?.context} agent={info?.agent} />
         {(info?.limits ?? []).map((w) => (
