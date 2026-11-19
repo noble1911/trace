@@ -194,6 +194,23 @@ export interface SessionInfo {
   permissionMode?: string;
   /** A third-party provider behind the agent, which pins its model. */
   provider?: string;
+  /** Work still running that isn't a subagent: background shells, monitors, workflows. */
+  background?: BackgroundTask[];
+}
+
+/** `agent_session::TaskKind`. */
+export type TaskKind = "shell" | "monitor" | "workflow" | "agent" | "other";
+
+/** `agent_session::BackgroundTask`: one task running behind the conversation. */
+export interface BackgroundTask {
+  taskId: string;
+  kind: TaskKind;
+  /** A shell's command or description, in the agent's words. */
+  description: string;
+  /** Unix ms. */
+  startedAt: number;
+  /** The call that started it, which also names it to stop. */
+  callId?: string;
 }
 
 /** A workspace's picked agent options (`agent_session::options`); unset = Settings' default. */

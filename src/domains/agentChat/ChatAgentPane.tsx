@@ -74,7 +74,7 @@ export function ChatAgentPane({
   return (
     <ChatViewContext.Provider value={view}>
       <div className="ac-pane" ref={paneRef}>
-        <ChatHeader info={info} turns={turns} />
+        <ChatHeader workspaceId={workspaceId} info={info} turns={turns} subagents={subagents} />
         {turns.length === 0 ? (
           <Empty loaded={loaded} stopped={stopped} onStart={onStart} />
         ) : (

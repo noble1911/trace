@@ -123,6 +123,50 @@ pub struct SessionInfo {
     /// for Anthropic.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
+    /// Work still running behind the conversation that isn't a subagent: a
+    /// shell started in the background, a monitor, a workflow. It has no row of
+    /// its own once its call returns, so this is the only place it shows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub background: Vec<BackgroundTask>,
+}
+
+/// What kind of background work a task is, as the chat's fact strip names it.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskKind {
+    /// A shell command left running (`run_in_background`, or one that outlived its turn).
+    Shell,
+    /// Something watched for events (Claude's Monitor tool).
+    Monitor,
+    /// A multi-agent workflow.
+    Workflow,
+    /// An agent that isn't one of the conversation's subagents (remote, a teammate).
+    Agent,
+    Other,
+}
+
+impl TaskKind {
+    /// Agents and workflows report back when they finish, so the agent is still
+    /// at work while one runs; a shell or monitor can run for as long as it likes.
+    pub fn is_work(self) -> bool {
+        matches!(self, TaskKind::Workflow | TaskKind::Agent)
+    }
+}
+
+/// One running background task (`SessionInfo::background`).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundTask {
+    /// The agent's own id for it.
+    pub task_id: String,
+    pub kind: TaskKind,
+    /// What it is, in the agent's words: a shell's command or description.
+    pub description: String,
+    /// When it started (unix ms).
+    pub started_at: u64,
+    /// The call that started it, which also names it to stop (`stop_subagent`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call_id: Option<String>,
 }
 
 impl SessionInfo {
@@ -175,7 +219,7 @@ pub trait AgentAdapter: Send {
     /// Stop the current turn and keep the agent. Running subagents stop too,
     /// background ones included.
     fn interrupt(&mut self) -> Result<(), String>;
-    /// Stop one subagent, named by the call that started it.
+    /// Stop one subagent or background task, named by the call that started it.
     fn stop_subagent(&mut self, _call_id: &str) -> Result<(), String> {
         Err("This agent can't stop one subagent on its own.".to_string())
     }

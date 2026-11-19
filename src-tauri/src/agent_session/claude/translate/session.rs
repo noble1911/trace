@@ -41,7 +41,9 @@ impl Translator {
                     self.set_info(out, |i| i.permission_mode = Some(mode));
                 }
             }
-            Some(sub @ ("task_started" | "task_progress" | "task_notification")) => {
+            Some(
+                sub @ ("task_started" | "task_progress" | "task_updated" | "task_notification"),
+            ) => {
                 self.task_event(m, sub, out);
             }
             Some("compact_boundary") => {
