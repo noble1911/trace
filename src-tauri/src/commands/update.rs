@@ -39,6 +39,13 @@ pub async fn check_app_update(app: AppHandle) -> Result<Option<UpdateInfo>, Stri
     }))
 }
 
+/// Every published release's notes, newest first, for the About tab's
+/// changelog (the updater's own feed has only the newest one's).
+#[tauri::command]
+pub async fn list_releases() -> Result<Vec<crate::changelog::Release>, String> {
+    crate::changelog::fetch().await
+}
+
 /// Download and install the available update, then restart into the new
 /// build. Re-checks rather than trusting the frontend's earlier result — the
 /// signature is verified against the bundled pubkey during install.
