@@ -64,6 +64,13 @@ runs, `runningSubagents`) travel separately as `SessionInfo`, not as rows. An ag
 while `busy` or `runningSubagents > 0` (`agentChat/working.ts`): background subagents keep it
 working, and stoppable, after their turn ends.
 
+`background` lists running tasks that aren't subagents: a shell left running, a monitor, a
+workflow, a remote agent or teammate. Once its call returns such a task has no row that changes,
+so this is where it shows: the chat's fact strip has a "Background N" control (`BackgroundWork`)
+listing these with the running subagents, each stoppable by the call that started it. Workflows
+and agents count in `runningSubagents` (they report back); shells and monitors don't (a dev
+server can run all day while the agent is ready).
+
 ## Adapters
 
 `agent_session::AgentAdapter` is the only thing a brand implements:
@@ -118,6 +125,7 @@ The translator (`translate`) is pure and replayed in tests against recorded stre
 | … Task / Agent | plus `subagent` (kind, description, background from the input); its row stays open until the subagent ends |
 | `assistant` text / thinking with `parent_tool_use_id` | `message` with `parentCallId` (a subagent's words never stream: these lines are the only copy) |
 | `system` `task_started` / `task_progress` / `task_notification` | that call's `subagent`: Claude's task id (for `stop_task`) and `is_backgrounded`; `activity`, tool count, time; the end (completed with `summary` as `result`, failed, stopped) |
+| … `task_*` / `task_updated` for any other task (`task_type` `local_bash`, `monitor_*`, `local_workflow`, …) | `SessionInfo.background` (`claude/translate/tasks.rs`); a foreground shell only once backgrounded or its turn ends; one with a `parent_task_id` belongs to that task |
 | `user` `tool_result` | that `tool` completed or failed, output capped |
 | … for Edit, MultiEdit, Write | plus `diff`: `before`/`after` from the input, `patch` from `structuredPatch`, Write's add vs edit from `tool_use_result.type` |
 | `tool_use` TodoWrite | `plan`, one per turn (no tool row) |

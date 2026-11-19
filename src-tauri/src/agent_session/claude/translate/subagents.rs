@@ -11,7 +11,7 @@
 //! - The call's own `tool_result` can come before or after that end (and comes
 //!   at once for a background agent), so the row stays open until both have.
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::{Out, Translator};
 use crate::agent_session::claude::handback;
@@ -63,22 +63,22 @@ impl Translator {
             task_done: false,
         };
         self.subagents.insert(call_id.to_string(), run);
+        self.not_a_task(call_id);
         self.count_subagents(out);
     }
 
     /// `system` `task_*` lines about a subagent.
     pub(super) fn task_event(&mut self, m: &Value, subtype: &str, out: &mut Vec<Out>) {
-        let call = match str_at(m, "tool_use_id") {
-            Some(c) => c.to_string(),
-            None => match str_at(m, "task_id").and_then(|t| self.tasks.get(t)) {
-                Some(c) => c.clone(),
-                None => return,
-            },
-        };
-        // Background shells report as tasks too; only subagents are ours here.
-        if !self.subagents.contains_key(&call) {
+        let call = str_at(m, "tool_use_id").map(str::to_string).or_else(|| {
+            str_at(m, "task_id")
+                .and_then(|t| self.tasks.get(t))
+                .cloned()
+        });
+        // Background shells, monitors and workflows report as tasks too (`tasks`).
+        let Some(call) = call.filter(|c| self.subagents.contains_key(c)) else {
+            self.other_task(m, subtype, out);
             return;
-        }
+        };
         let usage = &m["usage"];
         let tool_uses = usage["tool_uses"].as_u64().map(|n| n as u32);
         let duration = usage["duration_ms"].as_u64();
@@ -192,8 +192,12 @@ impl Translator {
         self.count_subagents(out);
     }
 
-    /// `stop_task` for one subagent.
+    /// `stop_task` for one subagent, or for the background task a call started
+    /// (a shell, a monitor: `tasks`).
     pub fn stop_subagent(&mut self, call_id: &str) -> Result<Value, String> {
+        if let Some(task) = self.task_of_call(call_id) {
+            return Ok(super::tasks::stop_task(task));
+        }
         let run = self
             .subagents
             .get(call_id)
@@ -203,16 +207,12 @@ impl Translator {
             .task_id
             .as_deref()
             .ok_or("Claude hasn't named that subagent's task yet.")?;
-        Ok(json!({
-            "type": "control_request",
-            "request_id": format!("stop-{task}"),
-            "request": {"subtype": "stop_task", "task_id": task},
-        }))
+        Ok(super::tasks::stop_task(task))
     }
 
-    /// Subagents still working.
+    /// Subagents still working, and agents or workflows among the other tasks.
     pub(super) fn running_subagents(&self) -> u32 {
-        self.subagents.values().filter(|r| r.running).count() as u32
+        self.subagents.values().filter(|r| r.running).count() as u32 + self.working_tasks()
     }
 
     pub(super) fn count_subagents(&mut self, out: &mut Vec<Out>) {

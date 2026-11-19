@@ -50,6 +50,7 @@ import "@/domains/agentChat/questions.css";
 import "@/domains/agentChat/agentOptions.css";
 import "@/domains/agentChat/attachments.css";
 import "@/domains/agentChat/subagents.css";
+import "@/domains/agentChat/background.css";
 import "@/domains/agentChat/transport.css";
 import "@/domains/agentChat/compact.css";
 import "@/domains/plans/plans.css";
