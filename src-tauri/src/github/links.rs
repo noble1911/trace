@@ -62,17 +62,30 @@ pub fn urls_in(text: &str) -> Vec<String> {
 /// conversation prints a PR). Every other URL in the log is a mention, not this
 /// conversation's PR.
 pub fn created_in(log: &str) -> Vec<String> {
+    created_in_dated(log)
+        .into_iter()
+        .map(|(url, _)| url)
+        .collect()
+}
+
+/// [`created_in`] with each PR's latest `pr-link` time (ISO 8601, so it sorts as
+/// text; empty when the record has none), for ordering PRs across several logs.
+pub fn created_in_dated(log: &str) -> Vec<(String, String)> {
     let mut seen = HashSet::new();
-    let mut found: Vec<String> = log
+    let mut found: Vec<(String, String)> = log
         .lines()
         // Logs run to megabytes: only parse the lines that can be a record.
         .filter(|line| line.contains("\"pr-link\""))
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .filter(|entry| entry["type"] == "pr-link")
-        .filter_map(|entry| entry["prUrl"].as_str().and_then(|u| urls_in(u).pop()))
+        .filter_map(|entry| {
+            let url = entry["prUrl"].as_str().and_then(|u| urls_in(u).pop())?;
+            let at = entry["timestamp"].as_str().unwrap_or("").to_string();
+            Some((url, at))
+        })
         .collect();
     found.reverse();
-    found.retain(|u| seen.insert(u.clone()));
+    found.retain(|(u, _)| seen.insert(u.clone()));
     found
 }
 

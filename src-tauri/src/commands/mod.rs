@@ -31,6 +31,7 @@ pub mod peers;
 pub mod permissions;
 pub mod plans;
 pub mod pr;
+pub mod pr_list;
 pub mod pr_watch;
 pub mod preflight;
 pub mod providers;

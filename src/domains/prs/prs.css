@@ -10,7 +10,7 @@
 .pr-row-head,
 .pr-row {
   display: grid;
-  grid-template-columns: 26px 56px minmax(0, 1fr) minmax(0, 200px) 168px 92px;
+  grid-template-columns: 26px 56px minmax(0, 1fr) minmax(0, 180px) minmax(0, 168px) 140px 92px;
   align-items: center;
   gap: 12px;
   padding: 0 16px;
@@ -106,6 +106,34 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* The way back to the session or ticket agent that raised the PR: always visible. */
+.pr-row .raised {
+  min-width: 0;
+  font-size: var(--text-ui);
+}
+.pr-row .raised-link {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-1);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.pr-row .raised-link.key {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+.pr-row .raised-link:hover,
+.pr-row .raised-link:focus-visible {
+  outline: none;
+  color: var(--fg-0);
+  text-decoration-color: var(--c-accent);
+}
+.pr-row .raised .none {
+  color: var(--fg-3);
 }
 .pr-row .who {
   display: flex;

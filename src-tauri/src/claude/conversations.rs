@@ -35,6 +35,12 @@ pub(crate) fn session_id_for(issue_key: &str) -> Option<String> {
         .cloned()
 }
 
+/// Every workspace's saved Claude conversation id, read once — for a caller
+/// walking many workspaces, where [`session_id_for`] would re-read the file each.
+pub(crate) fn all_session_ids() -> HashMap<String, String> {
+    persist::read_or_log::<HashMap<String, String>>(&sessions_file())
+}
+
 pub(crate) fn upsert_session_id(issue_key: &str, id: &str) -> Result<(), String> {
     update(|map| {
         map.insert(issue_key.to_string(), id.to_string());
@@ -80,8 +86,14 @@ pub(crate) fn conversation_path(cwd: &str, session_id: &str) -> Option<PathBuf> 
 /// known, else whichever project holds it (ids are UUIDs, so at most one does):
 /// reading a journal knows only the workspace.
 pub(crate) fn saved_conversation_file(workspace_id: &str, cwd: Option<&str>) -> Option<PathBuf> {
-    let id = session_id_for(workspace_id)?;
-    if let Some(path) = cwd.and_then(|cwd| conversation_path(cwd, &id)) {
+    conversation_file(&session_id_for(workspace_id)?, cwd)
+}
+
+/// The file of Claude conversation `id`: in `cwd`'s project when it's there, else
+/// whichever project holds it — a ticket whose worktree was cleaned up runs from
+/// its repo root, a different project than the one its conversation was saved in.
+pub(crate) fn conversation_file(id: &str, cwd: Option<&str>) -> Option<PathBuf> {
+    if let Some(path) = cwd.and_then(|cwd| conversation_path(cwd, id)) {
         if path.exists() {
             return Some(path);
         }

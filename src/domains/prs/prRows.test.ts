@@ -56,6 +56,14 @@ describe("mergePrRows", () => {
     assert.equal(row.author, "ron");
   });
 
+  it("keeps the session that raised a PR Jira links to a ticket", () => {
+    const [linked] = mergePrRows([[pr(7, "open"), issue("ABC-7")]], [ws(7, "open")]);
+    assert.equal(linked.owner.kind, "issue");
+    assert.deepEqual(linked.raisedIn, session);
+    const [jiraOnly] = mergePrRows([[pr(8, "open"), issue("ABC-8")]], []);
+    assert.equal(jiraOnly.raisedIn, null, "a PR only Jira knows wasn't raised in trace");
+  });
+
   it("never lets a stale open shadow a merged one, whichever came first", () => {
     const rows = mergePrRows([], [ws(3, "merged"), ws(3, "open", { title: "Three" })]);
     assert.equal(rows.length, 1);

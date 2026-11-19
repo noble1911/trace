@@ -52,6 +52,7 @@ export function PrsView() {
             <span>PR</span>
             <span>Title</span>
             <span>Branch</span>
+            <span>Raised in</span>
             <span>Who</span>
             <span className="col-state">State</span>
           </div>
