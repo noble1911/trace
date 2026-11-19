@@ -1,15 +1,10 @@
-import { useState } from "react";
 import { FontField } from "@/components/FontField";
 import { Segmented } from "@/components/Segmented";
 import { Switch } from "@/components/Switch";
-import {
-  installedOnly,
-  MONO_FONT_SUGGESTIONS,
-  UI_FONT_SUGGESTIONS,
-} from "@/domains/appearance/installedFonts";
 import { type Density, UI_SCALES } from "@/domains/appearance/prefs";
 import { InterfacePreview } from "@/domains/appearance/previews/InterfacePreview";
 import { useAppearance } from "@/domains/appearance/store";
+import { useFontChoices } from "@/domains/appearance/useFontChoices";
 import { AppearanceGroup } from "./AppearanceGroup";
 import { SettingRow } from "./SettingRow";
 
@@ -31,9 +26,7 @@ export function InterfaceAppearance() {
   const systemReducedMotion = useAppearance((s) => s.systemReducedMotion);
   const update = useAppearance((s) => s.update);
   const reset = useAppearance((s) => s.reset);
-  // Measured once per visit: only suggestions this machine can show.
-  const [uiFonts] = useState(() => installedOnly(UI_FONT_SUGGESTIONS));
-  const [monoFonts] = useState(() => installedOnly(MONO_FONT_SUGGESTIONS));
+  const fonts = useFontChoices();
 
   return (
     <AppearanceGroup
@@ -66,7 +59,8 @@ export function InterfaceAppearance() {
           label="Interface font"
           value={prefs.uiFont}
           onChange={(uiFont) => update({ uiFont })}
-          suggestions={uiFonts}
+          suggestions={fonts.ui.suggested}
+          installed={fonts.ui.installed}
           defaultFamily="Geist"
         />
       </SettingRow>
@@ -78,7 +72,8 @@ export function InterfaceAppearance() {
           label="Code font"
           value={prefs.monoFont}
           onChange={(monoFont) => update({ monoFont })}
-          suggestions={monoFonts}
+          suggestions={fonts.mono.suggested}
+          installed={fonts.mono.installed}
           defaultFamily="Geist Mono"
         />
       </SettingRow>

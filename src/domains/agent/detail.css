@@ -84,7 +84,7 @@
   cursor: pointer;
 }
 .detail-top .id-link:hover {
-  color: var(--c-review);
+  color: var(--c-accent);
   text-decoration-color: currentColor;
 }
 .detail-top .ttl {
@@ -141,8 +141,8 @@
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  background: var(--c-review-bg);
-  color: var(--c-review);
+  background: var(--c-accent-bg);
+  color: var(--c-accent);
   flex-shrink: 0;
 }
 .detail-left {

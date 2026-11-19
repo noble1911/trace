@@ -40,7 +40,8 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       buttons unless Settings → Shortcuts' "Show shortcut hints on buttons" is on.
 - [x] **Themes and appearance:** Settings → Appearance: Dark, Light, Midnight, Paper or System
       (with its own light and dark picks, so Paper and Midnight follow the OS too), plus accent,
-      interface size (80–150%, also ⌘= / ⌘− / ⌘0), density, interface and code fonts, terminal
+      interface size (80–150%, also ⌘= / ⌘− / ⌘0), density, interface and code fonts (the
+      pickers list every installed family), terminal
       scheme, font, cursor and scrollback, reduced motion.
       ([#14](https://github.com/noble1911/trace/pull/14)) Each group shows a live preview in a
       fixed frame, and Chat & transcript styles agent Markdown (fonts, sizes, spacing, reading

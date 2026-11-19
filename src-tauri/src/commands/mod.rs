@@ -16,6 +16,7 @@ pub mod custom_boards;
 pub mod diff;
 pub mod editor;
 pub mod files;
+pub mod fonts;
 pub mod gallery;
 pub mod github;
 pub mod groups;

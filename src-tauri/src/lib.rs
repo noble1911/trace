@@ -16,6 +16,7 @@ pub mod custom_boards;
 pub mod diff_parse;
 pub mod diff_summary;
 pub mod execution;
+pub mod fonts;
 pub mod gallery;
 pub mod git;
 pub mod github;
@@ -287,6 +288,7 @@ pub fn run() {
             commands::saved_prompts::list_saved_prompts,
             commands::saved_prompts::save_saved_prompt,
             commands::saved_prompts::delete_saved_prompt,
+            commands::fonts::list_installed_fonts,
             commands::sound::list_notify_sounds,
             commands::sound::play_notify_sound,
             commands::tests::run_tests,

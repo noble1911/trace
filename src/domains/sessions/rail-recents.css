@@ -87,9 +87,13 @@
   border-radius: var(--radius-sm);
   text-align: left;
 }
-.rr-row:hover,
-.rr-row.active {
+.rr-row:hover {
   background: var(--bg-3);
+}
+/* The session on screen: a selection, in the accent. */
+.rr-row.active {
+  background: color-mix(in oklch, var(--c-accent) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--c-accent);
 }
 .rr-title {
   overflow: hidden;
