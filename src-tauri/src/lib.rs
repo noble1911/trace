@@ -224,6 +224,7 @@ pub fn run() {
             commands::pr::raise_pr,
             commands::pr::merge_pr,
             commands::pr_watch::workspace_prs,
+            commands::pr_list::raised_prs,
             commands::pr_watch::pr_thread,
             commands::workspace::workspace_info,
             commands::workspace::sessions_overview,

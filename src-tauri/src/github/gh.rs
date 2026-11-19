@@ -103,6 +103,23 @@ fn run_as(cwd: &str, args: &[String], login: Option<&str>) -> Result<Output, Str
 /// the signed-in accounts until one can see it. Returns stdout, or the first
 /// error when none can.
 pub fn run(cwd: &str, owner: &str, args: &[String]) -> Result<Vec<u8>, String> {
+    run_with(cwd, owner, args, false)
+}
+
+/// Like [`run`], for `gh api graphql`: GitHub answers a query that is partly
+/// unresolvable (one PR of fifty deleted) with the rest of its `data` *and* an
+/// error, which `gh` turns into a failed exit with that answer still on stdout.
+/// This keeps the answer; the caller reads what's there.
+pub fn run_partial(cwd: &str, owner: &str, args: &[String]) -> Result<Vec<u8>, String> {
+    run_with(cwd, owner, args, true)
+}
+
+fn run_with(
+    cwd: &str,
+    owner: &str,
+    args: &[String],
+    keep_partial: bool,
+) -> Result<Vec<u8>, String> {
     // The remembered account, then the active one (`None` = no env override),
     // then — only reached if those can't see the repo — every other account.
     // `logins()` lists the active account first, and it was already tried.
@@ -133,6 +150,12 @@ pub fn run(cwd: &str, owner: &str, args: &[String]) -> Result<Vec<u8>, String> {
         }
         let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
         if !is_not_visible(&stderr) {
+            if keep_partial && !out.stdout.is_empty() {
+                if let Some(login) = login {
+                    remember(owner, &login);
+                }
+                return Ok(out.stdout);
+            }
             return Err(stderr);
         }
         first_err.get_or_insert(stderr);

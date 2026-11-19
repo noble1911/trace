@@ -4,11 +4,11 @@ import type { Issue, PullRequest } from "@/domains/issues/types";
 import { useLiveStore } from "@/domains/live/store";
 import { runIdOf } from "@/domains/schedules/ids";
 import { agentRoster } from "@/domains/sessions/agentRoster";
-import { useSessionsOverview } from "@/domains/sessions/hooks/useSessionsOverview";
 import { useSessionsStore } from "@/domains/sessions/store";
 import type { ScratchSession } from "@/domains/sessions/types";
 import { mergePrRows, type PrOwner, type PrRow, type WorkspacePr } from "../prRows";
 import { usePrWatchStore } from "../watchStore";
+import { useRaisedPrs } from "./useRaisedPrs";
 
 /** The session a workspace id belongs to: the session's own, or one of its agents'. */
 function sessionOf(sessions: ScratchSession[], id: string): ScratchSession | undefined {
@@ -20,10 +20,10 @@ function sessionOf(sessions: ScratchSession[], id: string): ScratchSession | und
 
 /**
  * Every pull request trace knows, for the Pull requests page (`prRows`): the ones Jira
- * links to the loaded board's tickets; each session's (its branch's, from one `gh pr
- * list` per repo, refreshed every minute while the page is open); and every PR the
- * watcher found for a session or ticket workspace this run (`watchStore`), which
- * carries titles. Ticket workspaces are looked up while their agents are live in trace.
+ * links to the loaded board's tickets; every one a session or ticket workspace raised
+ * (`useRaisedPrs`: its branch's and each its conversation created, in any repo,
+ * refreshed every minute while the page is open; every ticket trace ever started, not
+ * only live ones); and every PR the watcher found this run (`watchStore`).
  */
 export function usePrRows(): PrRow[] {
   const data = useBoardStore((s) => s.data);
@@ -36,7 +36,7 @@ export function usePrRows(): PrRow[] {
   const active = sessions.filter((s) => !s.archivedAt);
   // Live agents not in a session (and not scheduled runs) are tickets'.
   const tickets = Object.keys(live).filter((id) => !runIdOf(id) && !sessionOf(sessions, id));
-  const overview = useSessionsOverview([...active.map((s) => s.id), ...tickets]);
+  const raised = useRaisedPrs([...active.map((s) => s.id), ...tickets]);
 
   const issueOf = (key: string) => data?.issues.find((i) => i.key === key);
   const ownerOf = (id: string): PrOwner | null => {
@@ -54,11 +54,9 @@ export function usePrRows(): PrRow[] {
     };
   };
 
+  // The watcher's first: its fetches are live, the backend's list up to a minute old,
+  // and `mergePrRows` takes each fact from the first source that has it.
   const workspace: WorkspacePr[] = [];
-  for (const [id, row] of Object.entries(overview)) {
-    const owner = row.pr && ownerOf(id);
-    if (row.pr && owner) workspace.push({ ...row.pr, branch: row.branch, owner });
-  }
   for (const [id, urls] of Object.entries(links)) {
     const owner = ownerOf(id);
     if (!owner) continue;
@@ -77,11 +75,14 @@ export function usePrRows(): PrRow[] {
     }
   }
 
+  for (const pr of raised) {
+    const owner = ownerOf(pr.workspaceId);
+    if (owner) workspace.push({ ...pr, owner });
+  }
+
   const jira: [PullRequest, Issue][] = [];
   for (const issue of data?.issues ?? []) {
     for (const pr of pullRequests[issue.key] ?? []) jira.push([pr, issue]);
   }
-  // The watcher's fetches first among the workspaces': they carry titles and authors.
-  workspace.sort((a, b) => Number(Boolean(b.title)) - Number(Boolean(a.title)));
   return mergePrRows(jira, workspace);
 }
