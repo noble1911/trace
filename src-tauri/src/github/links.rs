@@ -89,17 +89,44 @@ pub fn created_in_dated(log: &str) -> Vec<(String, String)> {
     found
 }
 
+/// What one look for a workspace's PRs found. `complete` is false when a source
+/// couldn't answer (`gh` failed, the worktree was mid-rebase on a detached
+/// `HEAD`, a log couldn't be read): then `urls` is only part of the answer, and
+/// the PRs already known must be kept rather than replaced by it.
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Found {
+    pub urls: Vec<String>,
+    pub complete: bool,
+}
+
+impl Found {
+    /// Nothing could be looked at: keep whatever was known.
+    pub fn unknown() -> Self {
+        Self::default()
+    }
+}
+
 /// PRs for a workspace running in `cwd` whose Claude conversations are
 /// `conversation_ids`: the branch's own PRs first (unambiguously this
 /// workspace's), then the ones its conversations created, newest first.
-pub fn discover(cwd: &str, conversation_ids: &[String]) -> Vec<String> {
-    let mut out = branch_prs(cwd);
+pub fn discover(cwd: &str, conversation_ids: &[String]) -> Found {
+    let branch = branch_prs(cwd);
+    let mut complete = branch.is_some();
+    let mut out = branch.unwrap_or_default();
     for id in conversation_ids {
         let Some(path) = crate::claude::conversations::conversation_path(cwd, id) else {
+            complete = false;
             continue;
         };
-        let Ok(raw) = std::fs::read_to_string(path) else {
-            continue;
+        let raw = match std::fs::read_to_string(path) {
+            Ok(raw) => raw,
+            // A conversation that hasn't written its log yet has no PRs.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => {
+                complete = false;
+                continue;
+            }
         };
         for url in created_in(&raw) {
             if !out.contains(&url) {
@@ -108,25 +135,31 @@ pub fn discover(cwd: &str, conversation_ids: &[String]) -> Vec<String> {
         }
     }
     out.truncate(MAX_PRS);
-    out
+    Found {
+        urls: out,
+        complete,
+    }
 }
 
 /// PRs whose head is the worktree's current branch. Empty on the default
 /// branch (a legacy session running in the repo root) — "every PR ever merged
-/// from main" isn't this workspace's.
-fn branch_prs(cwd: &str) -> Vec<String> {
-    let Some(branch) = git_stdout(cwd, "git", &["rev-parse", "--abbrev-ref", "HEAD"]) else {
-        return Vec::new();
-    };
-    if branch == "HEAD" || branch == crate::git::get_default_branch(cwd) {
-        return Vec::new();
+/// from main" isn't this workspace's. `None` when it couldn't tell: git or `gh`
+/// failed, or `HEAD` is detached (an agent mid-rebase), which says nothing
+/// about the branch's PRs.
+fn branch_prs(cwd: &str) -> Option<Vec<String>> {
+    let branch = git_stdout(cwd, "git", &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    if branch == "HEAD" {
+        return None;
+    }
+    if branch == crate::git::get_default_branch(cwd) {
+        return Some(Vec::new());
     }
     // The owner keys which signed-in account `gh::run` uses; a non-GitHub
     // remote has no PRs to find.
     let Some(owner) = git_stdout(cwd, "git", &["remote", "get-url", "origin"])
         .and_then(|remote| remote_owner(&remote))
     else {
-        return Vec::new();
+        return Some(Vec::new());
     };
     head_prs(cwd, &owner, &head_pr_args(&branch, None))
 }
@@ -134,11 +167,10 @@ fn branch_prs(cwd: &str) -> Vec<String> {
 /// PRs whose head is `branch` on GitHub's `owner/name`, with no checkout to
 /// ask: a session in a cloud sandbox pushes its branch there, and its
 /// conversation log stays in the sandbox, so the branch is the one source.
-pub fn repo_branch_prs(remote: &RemoteRepo, branch: &str) -> Vec<String> {
+/// `None` when `gh` couldn't answer.
+pub fn repo_branch_prs(remote: &RemoteRepo, branch: &str) -> Option<Vec<String>> {
     // `gh` needs somewhere to run; `--repo` says which repo, so anywhere will do.
-    let Some(home) = dirs::home_dir() else {
-        return Vec::new();
-    };
+    let home = dirs::home_dir()?;
     let args = head_pr_args(branch, Some(&remote.full_name()));
     head_prs(&home.to_string_lossy(), &remote.owner, &args)
 }
@@ -157,16 +189,16 @@ fn head_pr_args(branch: &str, repo: Option<&str>) -> Vec<String> {
 }
 
 /// The PR URLs `gh args` lists, as whichever account can see `owner`'s repo.
-fn head_prs(cwd: &str, owner: &str, args: &[String]) -> Vec<String> {
-    super::gh::run(cwd, owner, args)
-        .map(|out| {
-            String::from_utf8_lossy(&out)
-                .lines()
-                .filter(|l| parse_pr_url(l).is_some())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
+/// `None` when `gh` failed (offline, signed out, rate-limited): not "no PRs".
+fn head_prs(cwd: &str, owner: &str, args: &[String]) -> Option<Vec<String>> {
+    let out = super::gh::run(cwd, owner, args).ok()?;
+    Some(
+        String::from_utf8_lossy(&out)
+            .lines()
+            .filter(|l| parse_pr_url(l).is_some())
+            .map(str::to_string)
+            .collect(),
+    )
 }
 
 /// The owner in a GitHub remote — `git@github.com:acme/web.git`, an ssh host

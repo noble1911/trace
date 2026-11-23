@@ -9,6 +9,7 @@ use crate::execution::sandbox::host::{SandboxHost, SandboxTarget, Secrets};
 use crate::execution::sandbox::SandboxProvider;
 use crate::execution::vercel::{auth, Vercel};
 use crate::execution::{Capabilities, Host, SessionHost};
+use crate::github::links::Found;
 use crate::repo_catalog::model::RemoteRepo;
 
 /// The host `workspace_id`'s agent runs on.
@@ -151,7 +152,7 @@ pub(crate) fn sandbox_cwd(host: &SessionHost) -> String {
 
 /// The PRs of a session in a sandbox: its branch's, on its GitHub repo, since
 /// there's no checkout here to ask. None when `workspace_id` isn't one.
-pub(crate) fn remote_prs(workspace_id: &str) -> Option<Vec<String>> {
+pub(crate) fn remote_prs(workspace_id: &str) -> Option<Found> {
     let id = crate::commands::session::owning_session(workspace_id)
         .map_or_else(|| workspace_id.to_string(), |s| s.id);
     let host = crate::commands::issue_host::host_of(&id)?;
@@ -161,13 +162,15 @@ pub(crate) fn remote_prs(workspace_id: &str) -> Option<Vec<String>> {
     let remote = remote.as_deref().and_then(github_remote)?;
     let branch = crate::execution::sandbox::host::session_branch(&id);
     // The ones its `gh` reported opening, then its branch's on GitHub.
-    let mut prs = crate::execution::sandbox::prs::of(&id);
-    for url in crate::github::links::repo_branch_prs(&remote, &branch) {
-        if !prs.contains(&url) {
-            prs.push(url);
+    let mut urls = crate::execution::sandbox::prs::of(&id);
+    let branch_prs = crate::github::links::repo_branch_prs(&remote, &branch);
+    let complete = branch_prs.is_some();
+    for url in branch_prs.unwrap_or_default() {
+        if !urls.contains(&url) {
+            urls.push(url);
         }
     }
-    Some(prs)
+    Some(Found { urls, complete })
 }
 
 /// `owner/name` as a GitHub repo.
