@@ -5,13 +5,17 @@
 //! (`spawn_blocking`) — a sync command would stall the UI for every `gh` call.
 
 use crate::commands::workspace::locate;
-use crate::github::{links, thread::PrThread};
+use crate::github::{
+    links::{self, Found},
+    thread::PrThread,
+};
 
-/// PR URLs a workspace's agent raised or mentioned, most relevant first. Empty
-/// (not an error) when the workspace has no repo yet. A session in a sandbox has
-/// no checkout here, so its PRs are its branch's on GitHub.
+/// PR URLs a workspace's agent raised or mentioned, most relevant first, and
+/// whether every source answered (when one didn't, the renderer keeps the PRs it
+/// knew). Nothing, incomplete, when the workspace has no repo yet. A session in a
+/// sandbox has no checkout here, so its PRs are its branch's on GitHub.
 #[tauri::command]
-pub async fn workspace_prs(workspace_id: String) -> Result<Vec<String>, String> {
+pub async fn workspace_prs(workspace_id: String) -> Result<Found, String> {
     tauri::async_runtime::spawn_blocking(move || {
         // A ticket in a sandbox has no worktree here, even if it has a repo assigned.
         let remote = crate::commands::issue_host::of_issue(&workspace_id)
@@ -19,7 +23,7 @@ pub async fn workspace_prs(workspace_id: String) -> Result<Vec<String>, String> 
         remote
             .or_else(|| locate(&workspace_id).map(|(cwd, ids)| links::discover(&cwd, &ids)))
             .or_else(|| crate::commands::session_host::remote_prs(&workspace_id))
-            .unwrap_or_default()
+            .unwrap_or_else(Found::unknown)
     })
     .await
     .map_err(|e| e.to_string())

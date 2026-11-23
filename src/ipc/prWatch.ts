@@ -64,8 +64,16 @@ export interface PrThread {
   entries: PrEntry[];
 }
 
-/** PR URLs a workspace's agent raised or mentioned, most relevant first. */
-export function workspacePrs(workspaceId: string): Promise<string[]> {
+/** One look for a workspace's PRs. */
+export interface FoundPrs {
+  /** Most relevant first. */
+  urls: string[];
+  /** Every source answered, so `urls` is the whole list (else keep what was known). */
+  complete: boolean;
+}
+
+/** PR URLs a workspace's agent raised or mentioned, and whether that's all of them. */
+export function workspacePrs(workspaceId: string): Promise<FoundPrs> {
   return invoke("workspace_prs", { workspaceId });
 }
 

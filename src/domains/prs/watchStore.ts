@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import type { PrEntry, PrThread } from "@/ipc/prWatch";
+import type { FoundPrs, PrEntry, PrThread } from "@/ipc/prWatch";
 import { logChecks } from "./checkEvents";
+import { nextPrLinks } from "./prLinks";
 
 // The PRs each workspace raised, and their live discussion, polled by
 // `usePrWatch`. Also remembers what the user has already seen of each PR, so a
@@ -24,7 +25,8 @@ interface PrWatchState {
   errors: Record<string, string>;
   /** PR URL → entry id → signature the user has seen. */
   seen: Record<string, Record<string, string>>;
-  setLinks: (workspaceId: string, urls: string[]) => void;
+  /** Take one look's PRs: the whole list if it's complete, else added to what's known. */
+  setLinks: (workspaceId: string, found: FoundPrs) => void;
   setThread: (url: string, thread: PrThread) => void;
   setError: (url: string, error: string) => void;
   /** Mark entries (default: all) of a PR as seen at their current state. */
@@ -39,8 +41,9 @@ export const usePrWatchStore = create<PrWatchState>((set, get) => ({
   threads: {},
   errors: {},
   seen: {},
-  setLinks: (workspaceId, urls) => {
+  setLinks: (workspaceId, found) => {
     const prev = get().links[workspaceId];
+    const urls = nextPrLinks(prev, found);
     if (prev && prev.join("\n") === urls.join("\n")) return;
     set((s) => ({ links: { ...s.links, [workspaceId]: urls } }));
   },
