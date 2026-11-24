@@ -51,7 +51,9 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
 - [~] **Skills from GitHub:** pick any repo of skills (a plugin marketplace or plain `SKILL.md`
       folders), see what's in it, install into projects for everyone or just you, and keep them
       up to date. Claude Code installs plugins; trace is the friendly front. See
-      [the plan](SKILLS_PLAN.md).
+      [the plan](SKILLS_PLAN.md). Browsing and installing a marketplace's plugins (for
+      you everywhere, or per repository for everyone or just you) ship; skill folders,
+      auto-update and *Share with the team* are next.
 
 ## Candidates
 

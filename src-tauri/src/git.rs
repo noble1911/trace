@@ -117,6 +117,12 @@ pub fn create_worktree(
             String::from_utf8_lossy(&output.stderr)
         ));
     }
+    // Plugins installed "Just me" on the repo live in an uncommitted file the new
+    // branch doesn't bring: carry it over before the agent starts. Best-effort.
+    let _ = crate::skills::project::carry_local_settings(
+        Path::new(repo_path),
+        Path::new(worktree_path),
+    );
     // The repo's setup hooks (`npm install`, copying `.env`), on their own thread.
     crate::repo_catalog::setup::after_worktree_created(repo_path, worktree_path);
     Ok(())

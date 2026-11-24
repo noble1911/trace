@@ -88,7 +88,8 @@ PRs; trace never commits for the user.
   so trace never holds a stale copy of it.
 - Backend `src-tauri/src/skills/`: `source.rs` (read a repo over the GitHub API: kind,
   plugins, skills, frontmatter), `cli.rs` (the `claude plugin` port + `--json`
-  parsing), `project.rs` (committed state: settings and lock, read from git),
+  parsing), `installs.rs` (what's installed where, and the actions),
+  `project.rs` (committed state: settings and lock, read from git),
   `folders.rs` (copy a skill folder, write the lock), `store.rs`. Commands in
   `commands/skills.rs`, IPC in `src/ipc/skills.ts`.
 - Frontend `src/domains/skills/`: the **Skills** tab on the Integrations page (beside
@@ -97,11 +98,18 @@ PRs; trace never commits for the user.
 
 ## Stages
 
-1. **Sources and browsing.** Add a source from the repo browser, read it over the API,
-   show its plugins or skills. Read-only; nothing installs.
+1. **Sources and browsing.** *Done.* Add a source from the repo browser, read it over
+   the API, show its plugins or skills.
 2. **Plugins: install, update, remove** through `claude plugin`, with scopes, the
    *already installed* check, auto-update, and copying `settings.local.json` into
-   worktrees.
+   worktrees. *Done, except auto-update:* a plugin's dialog lists *Everywhere, just
+   for me* and each repository (`InstallPlaces`); `skills/cli.rs` runs the CLI (never
+   `-y`: a marketplace-declared command fails with Claude Code's reason, for a person
+   to run), `skills/installs.rs` sorts its list by place, `skills/project.rs` reads
+   `origin/<default>`'s `enabledPlugins` and carries `settings.local.json` into each
+   new worktree (`git::create_worktree`). Update is offered when GitHub's
+   marketplace version is newer than the installed one, and re-reads the marketplace
+   first. The *Keep up to date automatically* switch is still to come.
 3. **Skill folders:** copy-in, `skills-lock.json`, updates by folder SHA.
 4. **Share with the team:** *Not shared yet* and the session that raises the PR.
 

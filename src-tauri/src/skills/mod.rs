@@ -4,11 +4,17 @@
 //! Code installs its plugins) or plain **skill folders** (`…/<name>/SKILL.md`).
 //! Nothing is hardcoded: any repo the repo browser lists can be one.
 //!
-//! Stage 1 (this module today): adding, reading and removing sources. Reading is
-//! over the GitHub REST API with trace's own token (`layout` decides, `source`
-//! fetches); installs come next, through Claude Code's `claude plugin` CLI.
+//! Stage 1: adding, reading and removing sources. Reading is over the GitHub REST
+//! API with trace's own token (`layout` decides, `source` fetches).
+//! Stage 2: installing a marketplace's plugins, through Claude Code's own
+//! `claude plugin` CLI (`cli`), for the user or one of trace's repositories
+//! (`installs`), with what a repo already commits read from git (`project`).
+//! Skill folders (stage 3) are listed but not installed yet.
 
+pub mod cli;
+pub mod installs;
 pub mod layout;
+pub mod project;
 pub mod source;
 pub mod store;
 

@@ -93,6 +93,71 @@
   color: var(--fg-2);
 }
 
+.sk-installed {
+  color: var(--fg-2);
+}
+
+/* Where a plugin is installed: you everywhere, then each repository. */
+.sk-where {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-faint);
+}
+.sk-where-label {
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+}
+.sk-places {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius);
+}
+.sk-place {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 12px;
+}
+.sk-place + .sk-place {
+  border-top: 1px solid var(--border-faint);
+}
+.sk-place-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sk-place-name {
+  font-size: var(--text-ui);
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.sk-place-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-3);
+}
+.sk-place-status {
+  font-size: var(--text-meta);
+  color: var(--fg-2);
+}
+.sk-place-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 /* Adding a source by owner/name, under the repo list. */
 .sk-typed {
   display: flex;

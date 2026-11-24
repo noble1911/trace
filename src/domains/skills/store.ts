@@ -1,15 +1,18 @@
 import { create } from "zustand";
 import {
   addSkillSource,
+  type Installs,
   readSkillSource,
   removeSkillSource,
   type SourceRecord,
   type SourceView,
+  skillInstalls,
   skillSources,
 } from "@/ipc/skills";
 
-// Integrations → Skills: the sources the user added, and what each holds as last read
-// from GitHub. Read again each time the tab opens, so a source's new skills show.
+// Integrations → Skills: the sources the user added, what each holds as last read
+// from GitHub, and what Claude Code has installed. All read again each time the tab
+// opens (and the installs after every install, update or removal), never kept.
 
 /** A source as last read: its view, still loading, or why it couldn't be read. */
 export type SourceState =
@@ -22,8 +25,14 @@ interface SkillsStore {
   sources: SourceRecord[] | null;
   /** By repo, lower-cased. */
   read: Record<string, SourceState>;
-  /** Load the list and read every source. */
+  /** What's installed where; null until read. */
+  installs: Installs | null;
+  /** Why the installs couldn't be read (Claude Code missing, say). */
+  installsError: string | null;
+  /** Load the list and read every source, and the installs. */
   load: () => Promise<void>;
+  /** Ask Claude Code again what's installed. */
+  loadInstalls: () => Promise<void>;
   /** Read one source again. */
   refresh: (repo: string) => Promise<void>;
   /** Add a source; rejects with why it couldn't be. */
@@ -36,11 +45,22 @@ const key = (repo: string) => repo.toLowerCase();
 export const useSkillsStore = create<SkillsStore>((set, get) => ({
   sources: null,
   read: {},
+  installs: null,
+  installsError: null,
 
   async load() {
+    const installs = get().loadInstalls();
     const sources = await skillSources();
     set({ sources });
-    await Promise.all(sources.map((s) => get().refresh(s.repo)));
+    await Promise.all([installs, ...sources.map((s) => get().refresh(s.repo))]);
+  },
+
+  async loadInstalls() {
+    try {
+      set({ installs: await skillInstalls(), installsError: null });
+    } catch (err) {
+      set({ installsError: String(err) });
+    }
   },
 
   async refresh(repo) {

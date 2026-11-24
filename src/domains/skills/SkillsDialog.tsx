@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Modal } from "@/components/Modal";
 import type { Skill } from "@/ipc/skills";
 
@@ -11,12 +12,22 @@ interface SkillsDialogProps {
   skills: Skill[];
   /** Said instead of the list when there are none to show. */
   empty?: string;
+  /** Below the skills: where it's installed (a marketplace's plugin). */
+  children?: ReactNode;
   onClose: () => void;
 }
 
 // What a plugin (or one skill) holds, in plain words: each skill's name and what its
 // author says it's for. Claude reads the same description to decide when to use it.
-export function SkillsDialog({ title, about, version, skills, empty, onClose }: SkillsDialogProps) {
+export function SkillsDialog({
+  title,
+  about,
+  version,
+  skills,
+  empty,
+  children,
+  onClose,
+}: SkillsDialogProps) {
   return (
     <Modal title={title} onClose={onClose} className="sk-modal">
       <div className="sk-dialog">
@@ -40,6 +51,7 @@ export function SkillsDialog({ title, about, version, skills, empty, onClose }: 
             ))}
           </ul>
         )}
+        {children}
       </div>
     </Modal>
   );

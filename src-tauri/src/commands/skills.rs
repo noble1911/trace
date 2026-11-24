@@ -1,11 +1,14 @@
 //! Integrations → Skills: the GitHub repos of skills the user added as sources,
-//! and what each holds (`skills/`, `docs/SKILLS_PLAN.md`). Thin wrappers: the
-//! repo name is checked here, read over GitHub with trace's token, and only a
-//! repo that holds skills is added.
+//! what each holds, and installing their plugins (`skills/`, `docs/SKILLS_PLAN.md`).
+//! Thin wrappers: the repo name is checked here, read over GitHub with trace's
+//! token, and only a repo that holds skills is added. An install names one of
+//! those sources and one of trace's repositories, never any folder or repo.
 
 use serde::Serialize;
 
 use crate::github::{account, clone};
+use crate::skills::cli::Scope;
+use crate::skills::installs::{self, Installs};
 use crate::skills::store::{self, SourceRecord};
 use crate::skills::{source, SourceView};
 
@@ -58,4 +61,76 @@ pub async fn skills_add_source(repo: String) -> Result<Added, String> {
 #[tauri::command]
 pub fn skills_remove_source(repo: String) -> Result<Vec<SourceRecord>, String> {
     store::remove(&checked(&repo)?)
+}
+
+/// One of the sources the user added, as stored.
+fn added_source(repo: &str) -> Result<String, String> {
+    let repo = checked(repo)?;
+    store::list()
+        .into_iter()
+        .find(|s| s.repo.eq_ignore_ascii_case(&repo))
+        .map(|s| s.repo)
+        .ok_or_else(|| format!("{repo} isn't one of your skill sources."))
+}
+
+/// One of trace's repositories (Settings → Repositories), for a project's scopes.
+fn known_repo(scope: Scope, repo: Option<String>) -> Result<Option<String>, String> {
+    if scope == Scope::User {
+        return Ok(None);
+    }
+    let repo = repo.ok_or("Pick a repository to install it in.")?;
+    if !crate::commands::repos::list_repos()?.contains(&repo) {
+        return Err(format!("{repo} isn't one of trace's repositories."));
+    }
+    Ok(Some(repo))
+}
+
+/// Run blocking `claude plugin` / git work off the main thread.
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// What's installed: for the user everywhere, and in each of trace's repositories.
+#[tauri::command]
+pub async fn skills_installs() -> Result<Installs, String> {
+    blocking(|| installs::read(&crate::commands::repos::list_repos()?)).await
+}
+
+/// Install `plugin` from source `source` for `scope` (in `repo`, for a project's).
+#[tauri::command]
+pub async fn skills_install(
+    source: String,
+    plugin: String,
+    scope: Scope,
+    repo: Option<String>,
+) -> Result<String, String> {
+    let source = added_source(&source)?;
+    let repo = known_repo(scope, repo)?;
+    blocking(move || installs::install(&source, &plugin, scope, repo.as_deref())).await
+}
+
+/// Remove plugin `id` (`<plugin>@<marketplace>`) from `scope`.
+#[tauri::command]
+pub async fn skills_uninstall(
+    id: String,
+    scope: Scope,
+    repo: Option<String>,
+) -> Result<String, String> {
+    let repo = known_repo(scope, repo)?;
+    blocking(move || installs::uninstall(&id, scope, repo.as_deref())).await
+}
+
+/// Update plugin `id` in `scope` to its marketplace's latest.
+#[tauri::command]
+pub async fn skills_update(
+    id: String,
+    scope: Scope,
+    repo: Option<String>,
+) -> Result<String, String> {
+    let repo = known_repo(scope, repo)?;
+    blocking(move || installs::update(&id, scope, repo.as_deref())).await
 }

@@ -52,6 +52,7 @@ src/
 └── domains/
     ├── issues/             # provider-agnostic tracker connection (store, types)
     ├── integrations/       # the Integrations page: a card per service, connect/disconnect dialog
+    ├── skills/             # Integrations → Skills: GitHub skill sources, installing their plugins
     ├── github/             # GitHub sign-in (trace's own token), repo browser, clone, post-clone setup step
     ├── repos/              # the repo model (remote + checkouts) and its worktree setup editor
     ├── board/              # Board, Column, Card, filters; store also tracks agent run-state + PTY buffers
@@ -106,6 +107,7 @@ src-tauri/src/
 │                           #   (sandbox/ + vercel/: terminal in tmux, chat as a background command)
 ├── mcp_auth/               # trace's own OAuth logins to the team's MCP servers, for sandboxes
 ├── mcp_client/             # trace calling MCP tools: ToolCaller port, HTTP adapter, schema-driven args
+├── skills/                 # skill sources read from GitHub; plugin installs through `claude plugin`
 └── commands/               # thin wrappers: agent, session, schedules, issues, custom_boards, board_settings, pr, …
 ```
 
