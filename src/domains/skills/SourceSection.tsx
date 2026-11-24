@@ -5,6 +5,8 @@ import { I } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { InlineConfirm } from "@/components/InlineConfirm";
 import type { Plugin, Skill, SourceRecord } from "@/ipc/skills";
+import { InstallPlaces } from "./InstallPlaces";
+import { placesFor, placesSummary } from "./places";
 import { SkillsDialog } from "./SkillsDialog";
 import { sourceState, useSkillsStore } from "./store";
 
@@ -14,17 +16,24 @@ interface Shown {
   version?: string | null;
   skills: Skill[];
   empty?: string;
+  /** A marketplace's plugin: it can be installed. */
+  plugin?: Plugin;
 }
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 // One source: its repo, what kind it is, and a card per plugin (a marketplace) or per
-// skill (folders). A card opens what it holds. Removing a source only stops listing it.
+// skill (folders). A card opens what it holds, and a plugin's says where to install it.
+// Removing a source only stops listing it.
 export function SourceSection({ source }: { source: SourceRecord }) {
   const state = useSkillsStore((s) => sourceState(s.read, source.repo));
   const { refresh, remove } = useSkillsStore.getState();
   const [shown, setShown] = useState<Shown | null>(null);
   const view = state.status === "ready" ? state.view : null;
+  const installs = useSkillsStore((s) => s.installs);
+  const marketplace = view?.marketplace ?? null;
+  const installedWhere = (p: Plugin) =>
+    marketplace && installs ? placesSummary(placesFor(`${p.name}@${marketplace}`, installs)) : null;
 
   const pluginCard = (p: Plugin) => (
     <button
@@ -38,6 +47,7 @@ export function SourceSection({ source }: { source: SourceRecord }) {
           version: p.version,
           skills: p.skills,
           empty: p.folder ? "No skills in it yet." : "It lives in another repository.",
+          plugin: p,
         })
       }
     >
@@ -48,6 +58,7 @@ export function SourceSection({ source }: { source: SourceRecord }) {
       {p.description && <div className="ig-desc sk-clamp">{p.description}</div>}
       <div className="sk-card-foot">
         {p.folder ? plural(p.skills.length, "skill") : "From another repository"}
+        {installedWhere(p) && <span className="sk-installed"> · {installedWhere(p)}</span>}
       </div>
     </button>
   );
@@ -115,7 +126,18 @@ export function SourceSection({ source }: { source: SourceRecord }) {
           It has more skills than trace lists; the first ones are shown.
         </div>
       )}
-      {shown && <SkillsDialog {...shown} onClose={() => setShown(null)} />}
+      {shown && (
+        <SkillsDialog {...shown} onClose={() => setShown(null)}>
+          {shown.plugin && marketplace && (
+            <InstallPlaces
+              source={view?.repo ?? source.repo}
+              plugin={shown.plugin.name}
+              marketplace={marketplace}
+              latest={shown.plugin.version}
+            />
+          )}
+        </SkillsDialog>
+      )}
     </section>
   );
 }
