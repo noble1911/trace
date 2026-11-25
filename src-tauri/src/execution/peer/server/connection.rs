@@ -18,7 +18,7 @@ use tungstenite::{Message, WebSocket};
 use super::deadline::Deadline;
 use super::handler::Handler;
 use super::slots::{Paired, Pending};
-use crate::execution::peer::backend::Backend;
+use crate::execution::peer::backend::{Backend, Requester};
 use crate::execution::peer::hub::Hub;
 use crate::execution::peer::pairing;
 use crate::execution::peer::protocol::{parse_request, Envelope, Event, Request, PROTOCOL_VERSION};
@@ -100,7 +100,11 @@ pub fn serve(stream: TcpStream, shared: Shared, pending: Pending) {
         return;
     };
     eprintln!("trace: peer server: {name} paired from {who}");
-    let why = run(&mut ws, &shared, &token);
+    let from = Requester {
+        address: who.clone(),
+        name: name.clone(),
+    };
+    let why = run(&mut ws, &shared, &token, from);
     let _ = ws.close(None);
     eprintln!("trace: peer server: {name} from {who} left: {why}");
 }
@@ -183,10 +187,10 @@ fn greet(
 }
 
 /// The paired loop. Returns why it ended, for the log.
-fn run(ws: &mut Socket, shared: &Shared, token: &str) -> String {
+fn run(ws: &mut Socket, shared: &Shared, token: &str, from: Requester) -> String {
     let sub = shared.hub.subscribe();
     let (late_tx, late_rx) = channel::<Event>();
-    let mut handler = Handler::new(shared.backend.clone(), late_tx);
+    let mut handler = Handler::new(shared.backend.clone(), from, late_tx);
     ws.get_mut().until = None;
     if ws.get_mut().tcp.set_read_timeout(Some(TICK)).is_err() {
         return "couldn't set a read timeout".to_string();

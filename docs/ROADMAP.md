@@ -25,7 +25,8 @@ reviews, with what shipped and what's still open, live in [`reviews/`](reviews/)
       ([remote execution](REMOTE_EXECUTION_PLAN.md)), with a readiness checklist, sandbox state and a
       PR tab ([#71](https://github.com/noble1911/trace/pull/71)); sessions on another trace over
       Tailscale: its server (a Settings switch, listening on the Tailscale IP), peer discovery, pairing,
-      the Integrations → Tailscale section, the client and New session's "Run on" (v0.16.0). Still to
+      the Integrations → Tailscale section, the client and New session's "Run on" (v0.16.0), and the
+      server's own window listing a peer's session "by <that computer>" to watch or carry on. Still to
       come there: chat sessions (terminal only today) and tickets on a peer.
       *Then:* on a par with Conductor's cloud workspaces (Phase 3 of the plan): no token in the
       sandbox (firewall-injected), the repo's setup, Files, real turns and PR links from an

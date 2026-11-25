@@ -26,6 +26,8 @@ export function creatorKey(cb: CreatedBy): string {
       return `agent:${cb.workspaceId}`;
     case "schedule":
       return `schedule:${cb.promptId}`;
+    case "peer":
+      return `peer:${cb.label}`;
   }
 }
 
@@ -38,6 +40,7 @@ export function creatorLabel(cb: CreatedBy): string {
       return "the orchestrator";
     case "agent":
     case "schedule":
+    case "peer":
       return cb.label;
   }
 }
@@ -53,6 +56,8 @@ export function creatorKind(cb: CreatedBy): string {
       return cb.parent === "ticket" ? "Ticket agent" : "Session";
     case "schedule":
       return "Scheduled prompt";
+    case "peer":
+      return "Another computer";
   }
 }
 

@@ -1,7 +1,8 @@
 //! Who started a session: the user (from the New session dialog — also every
 //! session saved before this was recorded), an agent through trace's MCP
-//! `start_session` tool, the orchestrator, or a scheduled prompt (a run calling
-//! `start_session`, or "Continue as session" on one of its runs).
+//! `start_session` tool, the orchestrator, a scheduled prompt (a run calling
+//! `start_session`, or "Continue as session" on one of its runs), or another
+//! computer: a paired trace that asked this one's peer server for a session.
 //!
 //! The parent's title or key is copied in when the session is made, so "by …"
 //! still reads well after the parent is renamed or deleted. The renderer builds
@@ -47,7 +48,16 @@ pub enum CreatedBy {
         /// The prompt's title, as it was then.
         label: String,
     },
+    /// Another trace, over the peer server (`execution::peer`). `label` is that
+    /// machine's name on the tailnet, looked up by its address here rather than
+    /// taken from what it calls itself.
+    Peer {
+        label: String,
+    },
 }
+
+/// What a peer with no name reads as.
+const UNNAMED_PEER: &str = "another computer";
 
 impl CreatedBy {
     /// What's worth storing: `None` for the user (the default, so records stay as
@@ -60,6 +70,16 @@ impl CreatedBy {
         match self {
             CreatedBy::User => None,
             CreatedBy::Orchestrator => Some(CreatedBy::Orchestrator),
+            CreatedBy::Peer { label } => {
+                let label = clip(label);
+                Some(CreatedBy::Peer {
+                    label: if label.is_empty() {
+                        UNNAMED_PEER.to_string()
+                    } else {
+                        label
+                    },
+                })
+            }
             CreatedBy::Agent {
                 workspace_id,
                 parent,
@@ -157,6 +177,9 @@ mod tests {
     fn schedule_and_orchestrator_creators_round_trip() {
         for cb in [
             CreatedBy::Orchestrator,
+            CreatedBy::Peer {
+                label: "studio-mac".into(),
+            },
             CreatedBy::Schedule {
                 prompt_id: "p1".into(),
                 run_id: Some("r1".into()),
@@ -209,5 +232,10 @@ mod tests {
             panic!("kept");
         };
         assert_eq!(label, "ENG-2");
+        let Some(CreatedBy::Peer { label }) = (CreatedBy::Peer { label: " ".into() }).sanitize()
+        else {
+            panic!("kept");
+        };
+        assert_eq!(label, "another computer");
     }
 }

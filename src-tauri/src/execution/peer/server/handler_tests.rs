@@ -6,7 +6,14 @@ use super::*;
 fn handler() -> (Handler, Arc<FakeBackend>, Receiver<Event>) {
     let backend = Arc::new(FakeBackend::default());
     let (tx, rx) = channel();
-    (Handler::new(backend.clone(), tx), backend, rx)
+    (Handler::new(backend.clone(), requester(), tx), backend, rx)
+}
+
+fn requester() -> Requester {
+    Requester {
+        address: "100.64.0.9".into(),
+        name: "trace (macos)".into(),
+    }
 }
 
 fn ask(h: &mut Handler, request: Request) -> Vec<Event> {
@@ -178,7 +185,7 @@ fn a_second_hello_is_an_error() {
 
 #[test]
 fn spawn_answers_later_without_holding_the_connection() {
-    let (mut h, _, late) = handler();
+    let (mut h, backend, late) = handler();
     let spawn = |repo: &str| Request::Spawn {
         repo: repo.into(),
         cli: "claude".into(),
@@ -196,6 +203,10 @@ fn spawn_answers_later_without_holding_the_connection() {
             workspace_id: "ws-new".into()
         })
     );
+    // The spawn names the connection that asked, so the session can say so.
+    assert!(backend
+        .calls()
+        .contains(&"from 100.64.0.9 trace (macos)".to_string()));
     ask(&mut h, spawn("other/repo"));
     assert!(matches!(
         late.recv_timeout(wait),

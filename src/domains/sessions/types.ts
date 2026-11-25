@@ -23,7 +23,9 @@ export type CreatedBy =
   | { kind: "user" }
   | { kind: "agent"; workspaceId: string; parent: "session" | "ticket"; label: string }
   | { kind: "orchestrator" }
-  | { kind: "schedule"; promptId: string; runId?: string | null; label: string };
+  | { kind: "schedule"; promptId: string; runId?: string | null; label: string }
+  /** Another trace asked this one's peer server for it; `label` is that machine's tailnet name. */
+  | { kind: "peer"; label: string };
 
 /** Where a new session can be asked to run other than here: `vercel`, or `peer:<id>` (the
  * host id of a paired peer, `peers/hostChoices`). What `create_session` takes as `host`. */

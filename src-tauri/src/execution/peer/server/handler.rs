@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use base64::Engine;
 
-use crate::execution::peer::backend::{is_served, Backend, SpawnRequest};
+use crate::execution::peer::backend::{is_served, Backend, Requester, SpawnRequest};
 use crate::execution::peer::protocol::{Envelope, Event, Request};
 
 /// The most a `Spawn` prompt or `Input` may carry. Pasting a file is fine; a
@@ -16,6 +16,8 @@ const MAX_TEXT: usize = 256 * 1024;
 
 pub struct Handler {
     backend: Arc<dyn Backend>,
+    /// The client this connection serves.
+    from: Requester,
     /// Workspaces this client is attached to, with the last output seq it has
     /// been sent: a live chunk at or below it was already in the replay.
     attached: HashMap<String, u64>,
@@ -43,9 +45,10 @@ fn workspace_of(request: &Request) -> Option<&str> {
 }
 
 impl Handler {
-    pub fn new(backend: Arc<dyn Backend>, late: Sender<Event>) -> Self {
+    pub fn new(backend: Arc<dyn Backend>, from: Requester, late: Sender<Event>) -> Self {
         Handler {
             backend,
+            from,
             attached: HashMap::new(),
             late,
         }
@@ -79,6 +82,7 @@ impl Handler {
                 self.spawn(
                     id,
                     SpawnRequest {
+                        from: self.from.clone(),
                         repo,
                         cli,
                         prompt,

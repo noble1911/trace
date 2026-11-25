@@ -1,7 +1,7 @@
 // Run: `npm test` (node's own runner; Node strips the types).
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { creatorLabel, sessionsStartedBy } from "./createdBy.ts";
+import { creatorKey, creatorKind, creatorLabel, sessionsStartedBy } from "./createdBy.ts";
 import {
   asSortMode,
   cleanOrder,
@@ -147,5 +147,14 @@ describe("created by", () => {
       sessionsStartedBy(list, "p").map((x) => x.id),
       ["c1"]
     );
+  });
+
+  it("names a session another computer started by that computer", () => {
+    const peer: CreatedBy = { kind: "peer", label: "studio-mac" };
+    assert.equal(creatorLabel(peer), "studio-mac");
+    assert.equal(creatorKind(peer), "Another computer");
+    assert.equal(creatorKey(peer), "peer:studio-mac");
+    // Not an agent's child: it never nests under a session.
+    assert.deepEqual(sessionsStartedBy([s("x", 1, { createdBy: peer })], "studio-mac"), []);
   });
 });

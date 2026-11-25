@@ -114,6 +114,19 @@ pub fn status() -> TailscaleStatus {
     }
 }
 
+impl TailscaleStatus {
+    /// The name of the device on this tailnet at `ip`. A peer server names who
+    /// started a session by it: Tailscale vouches for the address, where the
+    /// client's own `hello` name is whatever it says.
+    pub fn device_at(&self, ip: &str) -> Option<&str> {
+        self.peers
+            .iter()
+            .chain(self.device.as_ref())
+            .find(|d| d.ip.as_deref() == Some(ip))
+            .map(|d| d.name.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,6 +152,14 @@ mod tests {
         assert_eq!(me.dns_name.as_deref(), Some("devs-macbook.tail1234.ts.net"));
         let names: Vec<&str> = s.peers.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, ["mac-mini", "zed-box"]);
+    }
+
+    #[test]
+    fn a_device_is_found_by_its_address() {
+        let s = parse(RUNNING);
+        assert_eq!(s.device_at("100.64.0.2"), Some("mac-mini"));
+        assert_eq!(s.device_at("100.64.0.1"), Some("Dev’s MacBook"));
+        assert_eq!(s.device_at("100.64.0.77"), None);
     }
 
     #[test]

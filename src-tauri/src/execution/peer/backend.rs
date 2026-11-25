@@ -8,9 +8,20 @@ use std::collections::VecDeque;
 use super::capabilities::ServerCapabilities;
 use super::protocol::RemoteSession;
 
+/// The client on the other end of a connection.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Requester {
+    /// Its tailnet address, which the server can look up a device name for.
+    pub address: String,
+    /// What it called itself in `hello`. Its own say-so: only a fallback.
+    pub name: String,
+}
+
 /// A new session a peer asked for.
 #[derive(Debug, Clone)]
 pub struct SpawnRequest {
+    /// Who asked, so the session can say it was started from there.
+    pub from: Requester,
     pub repo: String,
     pub cli: String,
     pub prompt: Option<String>,
