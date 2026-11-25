@@ -13,6 +13,7 @@ import { userActed } from "@/domains/live/answer";
 import { clearLiveUpdate, noteLiveAsk, noteLiveTurn, useLiveSync } from "@/domains/live/sync";
 import { usePlanStore } from "@/domains/plans/store";
 import { useRecapSync } from "@/domains/recap/engine";
+import { notePeerSession } from "@/domains/sessions/peerStarted";
 import { useSessionsStore } from "@/domains/sessions/store";
 import {
   onAgentAnswered,
@@ -21,6 +22,7 @@ import {
   onAgentRunState,
   onAgentTurn,
   onPtyOutput,
+  onSessionAdded,
 } from "@/ipc/events";
 import { onPlanDoc, onPlanTasks } from "@/ipc/plans";
 import { useViewerEvents } from "./useViewerEvents";
@@ -86,6 +88,8 @@ export function useAppEvents(): void {
       })
     );
     keep(onPlanTasks((p) => usePlanStore.getState().setTasks(p.workspaceId, p.tasks)));
+    // Another computer started a session here (the peer server): list it and its agent.
+    keep(onSessionAdded(notePeerSession));
     // Claude agents' hook-reported turns: tells "busy with background work" from
     // "needs you" (the quiet timer alone can't), and says what the agent asks.
     // What a permission dialog is really for — a question, a plan, a command.

@@ -65,6 +65,7 @@ impl Backend for FakeBackend {
 
     fn spawn(&self, r: SpawnRequest) -> Result<String, String> {
         self.note(format!("spawn {} {} {:?}", r.repo, r.cli, r.prompt));
+        self.note(format!("from {} {}", r.from.address, r.from.name));
         if r.repo == "acme/widgets" {
             Ok("ws-new".into())
         } else {

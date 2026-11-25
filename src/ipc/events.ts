@@ -1,6 +1,7 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ActivityEvent } from "@/domains/activity/types";
 import type { RunStatus } from "@/domains/schedules/types";
+import type { ScratchSession } from "@/domains/sessions/types";
 
 // Typed wrappers around backend events. The PTY pump emits raw bytes per issue.
 
@@ -74,6 +75,11 @@ export function onAgentRunState(cb: (payload: AgentRunState) => void): Promise<U
 
 export function onScheduleRun(cb: (payload: ScheduleRunEvent) => void): Promise<UnlistenFn> {
   return listen<ScheduleRunEvent>("schedule-run", (e) => cb(e.payload));
+}
+
+/** A session this window didn't make: another computer started it here over the peer server. */
+export function onSessionAdded(cb: (session: ScratchSession) => void): Promise<UnlistenFn> {
+  return listen<ScratchSession>("session-added", (e) => cb(e.payload));
 }
 
 /** Prompts changed backend-side (saved, paused, or next-run times advanced). */

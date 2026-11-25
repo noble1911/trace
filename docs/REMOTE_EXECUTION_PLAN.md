@@ -163,6 +163,11 @@ trait SandboxProvider {
   Tests can be added to the protocol later as more message types.
 - **Sharing:** the server's one PTY goes to every viewer (its own UI and each client). Anyone can
   type, and the last resize wins. No tmux is needed, so a Windows peer works too.
+- **The server's user sees it too.** A peer's `spawn` makes an ordinary session there, recorded as
+  `createdBy: peer` with the client's tailnet name (looked up by its address with `tailscale
+  status`, not taken from its `hello`). The server's window is told (`session-added`), lists it
+  "by <that computer>", adopts its PTY and raises a notice, so it can be watched, typed into, or
+  started again there after the client stops it: start on one machine, carry on at the other.
 - **Limit:** agent tools run in the server's renderer, so the server's trace window has to be open.
   A headless server is a later question.
 

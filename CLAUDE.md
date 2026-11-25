@@ -174,7 +174,8 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   `commands/session.rs`). Git is optional: it runs in a worktree of a configured repo, or in a plain `folder`
   (one the user picked, or a scratch folder under the app config dir that's deleted with the session). A session
   records who started it (`createdBy`: the user, an agent over `start_session` — taken from the
-  calling agent's own MCP header — or a scheduled prompt; `commands/session_origin.rs`), and each
+  calling agent's own MCP header — a scheduled prompt, or another computer over the peer server, named
+  by its tailnet address; `commands/session_origin.rs`), and each
   Sessions-page list keeps its sort and manual order in `session-order.json` (`commands/session_order.rs`).
 - **Scheduled prompt:** a prompt that fires on a schedule (interval / daily / weekly / monthly / cron) from
   a Rust runner thread (`schedule/runner.rs`, only while trace is open; one process leads via a file lock).

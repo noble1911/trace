@@ -3,12 +3,16 @@
 //! the way the New session dialog does, so worktrees, hooks, tools and
 //! transcripts all behave as they do for the user at this machine.
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
-use super::backend::{plan_replay, Backend, Replay, SpawnRequest};
+use super::backend::{plan_replay, Backend, Replay, Requester, SpawnRequest};
 use super::capabilities::{summarize, RepoSummary, ServerCapabilities};
 use super::protocol::RemoteSession;
+use crate::commands::session_origin::CreatedBy;
 use crate::state::AppState;
+
+/// Tells this trace's renderer about a session it didn't make itself.
+pub const SESSION_ADDED: &str = "session-added";
 
 pub struct AppBackend {
     app: AppHandle,
@@ -49,6 +53,23 @@ fn repos() -> Vec<(RepoSummary, String)> {
         })
         .collect();
     super::capabilities::drop_ambiguous(all)
+}
+
+/// Who started a session from another computer: its tailnet name, else what
+/// it called itself (trace's own `trace (os)` placeholder says nothing, so not that).
+fn started_by(from: &Requester) -> CreatedBy {
+    let status = super::tailscale::status();
+    let label = status
+        .device_at(&from.address)
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            if from.name.starts_with("trace (") {
+                String::new()
+            } else {
+                from.name.clone()
+            }
+        });
+    CreatedBy::Peer { label }
 }
 
 /// The agent kinds this machine can start.
@@ -113,11 +134,11 @@ impl Backend for AppBackend {
             Some(path),
             None,
             None,
-            None,
+            Some(started_by(&request.from)),
             None,
         )?;
         eprintln!("trace: peer server: spawning session {}", session.id);
-        crate::commands::session::start_session(
+        let started = crate::commands::session::start_session(
             self.app.clone(),
             self.state(),
             session.id.clone(),
@@ -127,7 +148,11 @@ impl Backend for AppBackend {
             request.prompt,
             // A peer attaches to a screen; a chat agent has none to share.
             Some("terminal".to_string()),
-        )?;
+        );
+        // This trace's own window lists it either way (it's saved), and adopts
+        // the PTY if one started, so the user here sees and can drive it too.
+        let _ = self.app.emit(SESSION_ADDED, &session);
+        started?;
         super::publish::run_state(&self.app, &session.id, true, false);
         Ok(session.id)
     }
