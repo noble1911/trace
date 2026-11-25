@@ -97,15 +97,13 @@
   color: var(--fg-2);
 }
 
-/* Where a plugin is installed: you everywhere, then each repository. */
+/* Where a plugin is installed: you everywhere, then each repository. Above its skills. */
 .sk-where {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-faint);
 }
-.sk-where-label {
+.sk-section-label {
   font-size: var(--text-label);
   text-transform: uppercase;
   letter-spacing: 0.08em;

@@ -163,7 +163,7 @@ export function InstallPlaces({ source, plugin, marketplace, latest }: InstallPl
 
   return (
     <section className="sk-where">
-      <div className="sk-where-label">Install</div>
+      <div className="sk-section-label">Install</div>
       {error && <div className="sk-error">Couldn't ask Claude Code what's installed: {error}</div>}
       {!installs && !error && <div className="ig-note">Asking Claude Code what's installed…</div>}
       {installs && (

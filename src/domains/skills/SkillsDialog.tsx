@@ -12,13 +12,14 @@ interface SkillsDialogProps {
   skills: Skill[];
   /** Said instead of the list when there are none to show. */
   empty?: string;
-  /** Below the skills: where it's installed (a marketplace's plugin). */
+  /** Above the skills: where it's installed (a marketplace's plugin), so it's in view. */
   children?: ReactNode;
   onClose: () => void;
 }
 
 // What a plugin (or one skill) holds, in plain words: each skill's name and what its
 // author says it's for. Claude reads the same description to decide when to use it.
+// A plugin's Install list comes first: a plugin can carry a dozen long descriptions.
 export function SkillsDialog({
   title,
   about,
@@ -37,6 +38,8 @@ export function SkillsDialog({
             {version && <span className="sk-version">v{version}</span>}
           </div>
         )}
+        {children}
+        {children && skills.length > 0 && <div className="sk-section-label">Skills</div>}
         {skills.length === 0 ? (
           empty && <div className="sk-empty">{empty}</div>
         ) : (
@@ -51,7 +54,6 @@ export function SkillsDialog({
             ))}
           </ul>
         )}
-        {children}
       </div>
     </Modal>
   );

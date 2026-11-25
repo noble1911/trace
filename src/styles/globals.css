@@ -119,9 +119,14 @@
   place-items: center;
   animation: toast-in 0.14s ease;
 }
+/* Never taller than the window: the head (and foot) stay put and the body scrolls,
+   so a long dialog can't run off the top and bottom of the screen. */
 .modal {
+  display: flex;
+  flex-direction: column;
   width: 440px;
   max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -148,6 +153,8 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
 }
 .modal-foot {
   display: flex;
