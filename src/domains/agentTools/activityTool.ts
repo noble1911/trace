@@ -31,7 +31,7 @@ export const READ_ACTIVITY: Anthropic.Tool = {
       kind: {
         type: "string",
         description:
-          'Only these kinds, comma-separated, e.g. "pr-raised,checks-failed". Kinds: transition, agent-start, agent-needs-input, agent-turn-end, agent-exit, agent-interrupted, agent-stopped, session-created, pr-raised, pr-merged, checks-failed, checks-passed, schedule-run-started, schedule-run-succeeded, schedule-run-failed, workspace-removed, repo-added, page-opened, images-shown.',
+          'Only these kinds, comma-separated, e.g. "pr-raised,checks-failed". Kinds: transition, agent-start, agent-needs-input, agent-turn-end, agent-exit, agent-interrupted, agent-stopped, session-created, session-archived, pr-raised, pr-merged, checks-failed, checks-passed, schedule-run-started, schedule-run-succeeded, schedule-run-failed, workspace-removed, repo-added, page-opened, images-shown.',
       },
       session_id: {
         type: "string",

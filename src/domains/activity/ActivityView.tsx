@@ -24,6 +24,7 @@ const ICON: Record<ActivityKind, IconFn> = {
   "workspace-removed": I.Archive,
   "agent-interrupted": I.Terminal,
   "agent-stopped": I.Terminal,
+  "session-archived": I.Archive,
   "repo-added": I.Folder,
   "page-opened": I.Globe,
   "images-shown": I.Images,

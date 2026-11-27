@@ -22,6 +22,8 @@ export type ActivityKind =
   | "agent-interrupted"
   /** An agent was stopped from outside it (`stop_session`). */
   | "agent-stopped"
+  /** A session went to the recycle bin from outside it (`remove_session`). */
+  | "session-archived"
   /** A repository joined trace's list (an agent's approved `add_repo` / `clone_repo`). */
   | "repo-added"
   /** An agent opened a page in the Browser tab (`open_browser`); `data.url`, `data.external`. */

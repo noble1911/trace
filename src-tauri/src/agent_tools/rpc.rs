@@ -29,8 +29,9 @@ For work that isn't a ticket, start_session opens a standalone session in one of
 (list_repos); send_to_session types into it (slash commands included) and read_session shows its \
 screen. Pass remote_control to make it drivable from claude.ai/code and the Claude app. \
 get_session_changes and get_session_pr show a session's diff and PR; interrupt_session and \
-stop_session act on sessions you started; read_activity reads trace's activity log; add_repo and \
-clone_repo wait for the user's approval.";
+stop_session act on sessions and ticket agents you started (stop them once their work is \
+delivered), and remove_session puts a session you're done with in the recycle bin; read_activity \
+reads trace's activity log; add_repo and clone_repo wait for the user's approval.";
 
 /// Answer one JSON-RPC message. `None` for a notification (no `id`), which gets
 /// no body. `call` runs a tool; it's only invoked for `tools/call`.

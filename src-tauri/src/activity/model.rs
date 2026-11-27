@@ -33,6 +33,8 @@ pub enum ActivityKind {
     AgentInterrupted,
     /// An agent was stopped from outside (e.g. `stop_session`).
     AgentStopped,
+    /// A session went to the recycle bin from outside (an agent's `remove_session`).
+    SessionArchived,
     /// A repository joined trace's list (e.g. an agent's approved `add_repo`).
     RepoAdded,
     /// An agent opened a page in a workspace's Browser tab (`open_browser`).

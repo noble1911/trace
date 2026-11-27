@@ -198,7 +198,9 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   optionally with Claude Code's Remote Control (`--remote-control`, persisted on the session so every
   start keeps it) — type into it, slash commands included, and read its screen; `update_user` (`updateTool.ts`) puts a one-line progress note beside the calling agent on
   the Fleet page until its next prompt. `moreTools.ts` adds `interrupt_session` / `stop_session`
-  (only for sessions the caller started, or their descendants, by `createdBy`: `ownership.ts`),
+  (a session, or a ticket's agent by its key) and `remove_session` (a session to the recycle bin), only
+  for what the caller started or its descendants, through sessions and tickets alike (`createdBy`,
+  `issue-origins.json`: `ownership.ts`, `controlTarget.ts`),
   `get_session_changes` (the Files tab's diff, capped), `get_session_pr` (the PR watcher's cache),
   `read_activity`, and `add_repo` / `clone_repo`, which wait on a confirm card the user answers
   (`RepoConfirm`, `confirmQueue.ts`). `viewerTools.ts` has `open_browser` (a page in the
