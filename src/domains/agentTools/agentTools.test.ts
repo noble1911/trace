@@ -6,7 +6,7 @@ import type { ScratchSession } from "../sessions/types.ts";
 import { activityLine, filterActivity, parseSince } from "./activityFilter.ts";
 import { flag, int, need, str } from "./args.ts";
 import { capDiffs, changeList, unified } from "./changesFormat.ts";
-import { callerRef, notYours, startedByCaller } from "./ownership.ts";
+import { callerRef, notYours, startedByCaller, ticketStartedByCaller } from "./ownership.ts";
 import { isFullName, pickRepo, repoChoices } from "./repoRules.ts";
 
 const session = (id: string, over: Partial<ScratchSession> = {}): ScratchSession => ({
@@ -237,5 +237,60 @@ describe("pickRepo", () => {
     assert.equal(repoChoices(twins), "/a/app, /b/app");
     assert.throws(() => pickRepo(twins, "app"), /More than one repo matches/);
     assert.equal(pickRepo(twins, "/b/app"), "/b/app");
+  });
+});
+
+describe("ticket agents an agent started", () => {
+  const epic = session("epic");
+  const helper = session("helper", bySession("epic"));
+  const sessions = [epic, helper, session("users")];
+  const bySessionRecord = (id: string) => ({
+    kind: "agent" as const,
+    workspaceId: id,
+    parent: "session" as const,
+    label: id,
+  });
+  const byTicket = (key: string) => ({
+    kind: "agent" as const,
+    workspaceId: key,
+    parent: "ticket" as const,
+    label: key,
+  });
+  const tickets = {
+    "PM-1": bySessionRecord("epic"),
+    "PM-2": bySessionRecord("helper"),
+    "PM-3": byTicket("PM-1"),
+    "PM-4": { kind: "orchestrator" as const },
+  };
+
+  it("a session can stop the tickets it started, and those its sessions started", () => {
+    assert.ok(ticketStartedByCaller("PM-1", "epic", sessions, tickets));
+    assert.ok(ticketStartedByCaller("PM-2", "epic", sessions, tickets), "through its session");
+    assert.ok(ticketStartedByCaller("PM-3", "epic", sessions, tickets), "through its ticket");
+    assert.ok(ticketStartedByCaller("PM-3", "PM-1", sessions, tickets), "a ticket's own");
+  });
+
+  it("refuses the user's, the orchestrator's, another's, and itself", () => {
+    assert.ok(!ticketStartedByCaller("PM-9", "epic", sessions, tickets), "no record: the user's");
+    assert.ok(!ticketStartedByCaller("PM-4", "epic", sessions, tickets), "the orchestrator's");
+    assert.ok(!ticketStartedByCaller("PM-1", "helper", sessions, tickets), "its parent's");
+    assert.ok(!ticketStartedByCaller("PM-1", "PM-1", sessions, tickets), "not itself");
+    assert.ok(!ticketStartedByCaller("PM-1", "", sessions, tickets), "no caller");
+  });
+
+  it("a session started by a ticket the caller started is the caller's too", () => {
+    const fromTicket = session("ft", {
+      createdBy: { kind: "agent", workspaceId: "PM-1", parent: "ticket", label: "PM-1" },
+    });
+    assert.ok(startedByCaller(fromTicket, "epic", [...sessions, fromTicket], tickets));
+    assert.ok(
+      !startedByCaller(fromTicket, "epic", [...sessions, fromTicket]),
+      "without the record"
+    );
+  });
+
+  it("a loop through tickets ends in a refusal", () => {
+    const loop = { "PM-7": byTicket("PM-8"), "PM-8": byTicket("PM-7") };
+    assert.ok(!ticketStartedByCaller("PM-7", "epic", sessions, loop));
   });
 });

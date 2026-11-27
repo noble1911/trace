@@ -21,6 +21,7 @@ function phrase(e: ActivityEvent): string | null {
     case "agent-needs-input":
     case "agent-interrupted":
     case "agent-stopped":
+    case "session-archived":
       return e.title;
     case "transition":
       return `moved ${e.title}`;
