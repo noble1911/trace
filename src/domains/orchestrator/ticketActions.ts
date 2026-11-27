@@ -2,10 +2,12 @@ import { activity } from "@/domains/activity/store";
 import type { ActivityActor } from "@/domains/activity/types";
 import { str } from "@/domains/agentTools/args";
 import { creatorFromCaller } from "@/domains/agentTools/callerOrigin";
+import { pickRepo, repoChoices } from "@/domains/agentTools/repoRules";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { trackerForIssueKey } from "@/domains/issues/types";
 import { commentOnIssue, transitionIssue } from "@/ipc/issues";
+import { listRepos, setIssueRepo } from "@/ipc/repos";
 import { issueKeyFrom, type LocatedIssue, locateIssue } from "./boardLookup";
 import { noColumnMessage, resolveTarget } from "./boardRef";
 
@@ -84,6 +86,31 @@ async function moveToStartOfWork(
   }
 }
 
+/** The start error the board's repo picker keys on (`board_settings::start_repo::NO_REPO`). */
+const NO_REPO = "No repository assigned";
+
+/**
+ * Run `launch`; if the ticket has no repository (none of its own, no mapping, none
+ * set for its board), take `wanted`, the caller's pick from list_repos, and run it
+ * again. A pick never overrides a repository the ticket or its board already has.
+ */
+async function withRepo(key: string, wanted: string, launch: () => Promise<void>): Promise<void> {
+  try {
+    await launch();
+    return;
+  } catch (e) {
+    if (!reason(e).includes(NO_REPO)) throw e;
+    const repos = await listRepos();
+    if (!wanted.trim()) {
+      throw new Error(
+        `${key} has no repository of its own and its board has none set. Call start_agent again with repo set to one of: ${repoChoices(repos)}.`
+      );
+    }
+    await setIssueRepo(key, pickRepo(repos, wanted));
+  }
+  await launch();
+}
+
 /** Begin work on a ticket: start its agent and move it to In Progress (unless it is). */
 export async function startAgentTool(
   input: unknown,
@@ -97,27 +124,32 @@ export async function startAgentTool(
   if (store.runningAgents.has(key)) return `An agent is already running on ${key}.`;
   const done = (moved: string) =>
     `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working: no follow-up message is needed.`;
-
+  const repo = str(input, "repo");
   // An agent's start names that agent (from its own MCP header) as who started it.
   const createdBy = actor === "agent" ? await creatorFromCaller(caller) : undefined;
 
-  if (board.shown) {
-    // The board's own kickoff (it asks for a repo on the board when it needs one).
+  if (board.shown && actor !== "agent" && !repo) {
+    // The orchestrator, with you looking at the board: the board's own kickoff, which
+    // asks you there for a repo when it needs one.
     const moved = await moveToStartOfWork(found, actor);
     store.kickoff(key, actor, createdBy);
     await store.refresh();
     return done(moved);
   }
-  // Its board isn't the one on screen, so the store can't kick it off: launch it here,
-  // with the ticket and its tracker handed over. A repo that isn't assigned comes back as
-  // the error (the repo picker belongs to the shown board). The card moves only once the
-  // agent has started, so a failed start leaves it where it was.
+  // Otherwise launch here and wait for it, so the caller hears what really happened:
+  // an agent can't answer the board's repo picker, so a ticket with no repository
+  // takes the one it names (`withRepo`), or the error says which to name. The card
+  // moves only once the agent has started, so a failed start leaves it where it was.
   try {
     const { launchIssueAgent, kickoffPrompt } = await import("@/domains/agent/launch");
     const prompt = await kickoffPrompt(issue, board.provider, board.boardKey);
-    await launchIssueAgent(key, { prompt, actor, createdBy, issue, boardKey: board.boardKey });
+    await withRepo(key, repo, () =>
+      launchIssueAgent(key, { prompt, actor, createdBy, issue, boardKey: board.boardKey })
+    );
   } catch (e) {
     return `Couldn't start an agent on ${key}, so its card wasn't moved: ${reason(e)}`;
   }
-  return done(await moveToStartOfWork(found, actor));
+  const moved = await moveToStartOfWork(found, actor);
+  if (board.shown) await useBoardStore.getState().refresh();
+  return done(moved);
 }

@@ -47,6 +47,11 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
           description:
             "provider:boardId, when the ticket isn't on the shown board and trace can't tell where it is.",
         },
+        repo: {
+          type: "string",
+          description:
+            "A repository from list_repos (its folder name or path) to work in, used only when the ticket has none of its own and its board has none set; a start without one then says which to choose from.",
+        },
       },
       required: ["issue_key"],
     },
