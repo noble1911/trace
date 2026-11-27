@@ -2,14 +2,19 @@ import type { DragEvent } from "react";
 import { I } from "@/components/Icon";
 import { RowMenuPopover, RowMore } from "@/components/RowMenu";
 import { StatusLight } from "@/components/StatusLight";
+import { StatusPill } from "@/components/StatusPill";
 import { useRowMenu } from "@/components/useRowMenu";
 import { trackerForIssueKey } from "@/domains/issues/types";
 import type { LiveEntry } from "@/domains/live/entries";
 import { ageLabel, shownAsk } from "@/domains/live/light";
 import { useAgentQuiet } from "@/domains/live/quietStore";
 import { useRecap } from "@/domains/recap/store";
+import { CreatorChip } from "@/domains/sessions/CreatorChip";
+import { HostChip } from "@/domains/sessions/HostChip";
+import type { CreatedBy, SessionHost } from "@/domains/sessions/types";
 import { TRACKER_NAMES } from "@/domains/sidebar/items";
 import { useAgentRowActions } from "./agentRowActions";
+import type { TicketStatus } from "./ticketStatus";
 
 /** A PR as the fleet shows it — from Jira dev-status (tickets) or `gh` (sessions). */
 export interface FleetPr {
@@ -22,8 +27,12 @@ interface FleetRowProps {
   entry: LiveEntry;
   now: number;
   where: string | null;
-  /** The peer it runs on, when it isn't this computer. */
-  hostName?: string | null;
+  /** Where it runs, when it isn't this computer (a peer, a Vercel Sandbox). */
+  host?: SessionHost | null;
+  /** Who started it, when it wasn't you: a session (an epic's), a ticket's agent, … */
+  createdBy: CreatedBy | null;
+  /** A ticket's status in its tracker, once read; null for sessions. */
+  status: TicketStatus | null;
   diff: { add: number; del: number } | undefined;
   pr: FleetPr | null;
   dropAbove: boolean;
@@ -55,7 +64,8 @@ const clock = (t: number) =>
 // the grip drags them, the row opens the agent. Its ⋯ (on hover or focus) and its
 // right-click list what can be done with it (`useAgentRowActions`).
 export function FleetRow(props: FleetRowProps) {
-  const { entry, now, where, hostName, diff, pr, dropAbove, isDragging, dragProps } = props;
+  const { entry, now, where, host, createdBy, status, diff, pr, dropAbove, isDragging, dragProps } =
+    props;
   const { info } = entry;
   const quiet = useAgentQuiet(entry.id);
   const ask = shownAsk(info);
@@ -86,18 +96,22 @@ export function FleetRow(props: FleetRowProps) {
         <StatusLight light={info.light} quiet={quiet} variant="word" />
         <span className="fl-agent">
           <span className="fl-title">{entry.title}</span>
-          <span className="fl-sub">{entry.subtitle}</span>
+          <span className="fl-sub">
+            <span className="fl-sub-text">{entry.subtitle}</span>
+            {createdBy && <CreatorChip createdBy={createdBy} />}
+          </span>
         </span>
-        <span className="fl-src">
-          {sourceLabel(entry)}
-          {hostName && <span className="session-host">{hostName}</span>}
+        <span className="fl-src">{sourceLabel(entry)}</span>
+        <span className="fl-status">
+          {status ? <StatusPill name={status.name} category={status.category} /> : "—"}
         </span>
         <span className="mono">{clock(info.openedAt)}</span>
         <span className={`mono${info.light === "attention" ? " hot" : ""}`}>
           {ageLabel(info.since, now)}
         </span>
         <span className="mono fl-ell" title={where ?? undefined}>
-          {where ?? "—"}
+          {host && <HostChip host={host} />}
+          {where ?? (host ? null : "—")}
         </span>
         <span className="mono">
           {diff && (diff.add > 0 || diff.del > 0) ? (

@@ -165,6 +165,8 @@ pub fn run() {
             commands::agent::live_workspaces,
             commands::agent_start::start_agent,
             commands::issue_host::issue_host,
+            commands::issue_origin::issue_origins,
+            commands::issue_origin::set_issue_origin,
             commands::terminal::start_terminal,
             commands::tailscale::tailscale_status,
             commands::peers::peer_list,

@@ -84,7 +84,9 @@ export function actionVerb(name: string): string {
 export async function runWriteTool(
   name: string,
   input: unknown,
-  actor: ActivityActor = "orchestrator"
+  actor: ActivityActor = "orchestrator",
+  /** The calling agent's workspace id, when an agent called it over MCP. */
+  caller = ""
 ): Promise<string> {
   const board = useBoardStore.getState();
 
@@ -120,7 +122,7 @@ export async function runWriteTool(
   if (name === "send_to_agent") return sendTo(resolveAgentKey(raw), field(input, "message"));
   // The ticket tools find the ticket's board themselves: the shown one, or any other.
   if (name === "move_issue") return moveIssueTool(input, actor);
-  if (name === "start_agent") return startAgentTool(input, actor);
+  if (name === "start_agent") return startAgentTool(input, actor, caller);
   if (name === "comment_on_issue") return commentTool(input);
 
   return `Unknown tool: ${name}`;

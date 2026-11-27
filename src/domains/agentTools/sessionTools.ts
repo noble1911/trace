@@ -15,6 +15,7 @@ import { basename } from "@/platform/paths";
 import { flag, str } from "./args";
 import { creatorFromCaller } from "./callerOrigin";
 import { cachedPrLine } from "./prCache";
+import { pickRepo, repoChoices } from "./repoRules";
 
 // Standalone-session tools for trace's agents: open a session in one of trace's
 // repos (optionally with Remote Control, so it can be driven from claude.ai/code),
@@ -122,14 +123,9 @@ async function resolveRepo(wanted: string): Promise<string | null> {
   if (repos.length === 0 && !wanted) return null;
   if (!wanted) {
     if (repos.length === 1) return repos[0];
-    throw new Error(`Say which repo: ${repos.map(basename).join(", ")}.`);
+    throw new Error(`Say which repo: ${repoChoices(repos)}.`);
   }
-  const w = wanted.toLowerCase();
-  const hits = repos.filter((r) => r.toLowerCase() === w || basename(r).toLowerCase() === w);
-  if (hits.length === 1) return hits[0];
-  throw new Error(
-    `${hits.length ? "More than one" : "No"} repo matches "${wanted}". Choose from: ${repos.join(", ")}.`
-  );
+  return pickRepo(repos, wanted);
 }
 
 export function findSession(ref: string): ScratchSession {

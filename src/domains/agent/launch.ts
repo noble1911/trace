@@ -8,6 +8,7 @@ import { useBoardStore } from "@/domains/board/store";
 import { resolveBriefTemplate } from "@/domains/boards/settings/brief";
 import { boardBrief, issueBoardKey } from "@/domains/boards/settings/briefSource";
 import { type Issue, type ProviderKind, trackerForIssueKey } from "@/domains/issues/types";
+import type { CreatedBy } from "@/domains/sessions/types";
 import { TRACKER_NAMES } from "@/domains/sidebar/items";
 import { useVercelStore } from "@/domains/vercel/store";
 import {
@@ -29,6 +30,7 @@ import {
   setAgentProvider,
 } from "./defaults";
 import { fillKickoffTemplate, formatComments } from "./kickoffBrief";
+import { useIssueOrigins } from "./originStore";
 import { agentLabel } from "./providerLabel";
 import { fitTerminal, resetTerminal, syncPtySize } from "./terminalRegistry";
 
@@ -87,10 +89,15 @@ interface LaunchOptions {
   host?: RunsOn;
   /** Who started it, for the activity log (default: the user). */
   actor?: ActivityActor;
+  /** Who started it, for Fleet's "by …": an agent's start_agent names the agent.
+   *  Unset, it follows `actor` (the orchestrator, else you). */
+  createdBy?: CreatedBy;
   /** The ticket and its board when they aren't on the loaded board (an agent's start_agent). */
   issue?: Issue;
   boardKey?: string;
 }
+
+const USER: CreatedBy = { kind: "user" };
 
 /**
  * Start an issue's agent: fit/clear the live terminal, spawn the PTY (or the
@@ -107,6 +114,7 @@ export async function launchIssueAgent(
     provider,
     prompt,
     actor,
+    createdBy,
     transport,
     host,
     issue: given,
@@ -173,6 +181,9 @@ export async function launchIssueAgent(
   if (chosenTransport === "chat") syncChatActivity(issueKey);
   // The pane may have resized while the spawn was in flight.
   else syncPtySize(issueKey);
+  useIssueOrigins
+    .getState()
+    .record(issueKey, createdBy ?? (actor === "orchestrator" ? { kind: "orchestrator" } : USER));
   activity.log({
     kind: "agent-start",
     actor,

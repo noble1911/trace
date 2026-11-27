@@ -7,7 +7,7 @@ import { activityLine, filterActivity, parseSince } from "./activityFilter.ts";
 import { flag, int, need, str } from "./args.ts";
 import { capDiffs, changeList, unified } from "./changesFormat.ts";
 import { callerRef, notYours, startedByCaller } from "./ownership.ts";
-import { isFullName } from "./repoRules.ts";
+import { isFullName, pickRepo, repoChoices } from "./repoRules.ts";
 
 const session = (id: string, over: Partial<ScratchSession> = {}): ScratchSession => ({
   id,
@@ -214,5 +214,28 @@ describe("activity filtering", () => {
       activityLine(events[3]),
       "2026-11-07T11:50:00Z · transition · user · ENG-7 · ticket"
     );
+  });
+});
+
+describe("pickRepo", () => {
+  const repos = ["/Users/r/IdeaProjects/terminal", "/Users/r/IdeaProjects/frontend"];
+
+  it("takes a folder name or a path, any case", () => {
+    assert.equal(pickRepo(repos, "Terminal"), repos[0]);
+    assert.equal(pickRepo(repos, " /Users/r/IdeaProjects/frontend "), repos[1]);
+  });
+
+  it("names the choices when nothing matches", () => {
+    assert.throws(
+      () => pickRepo(repos, "infra"),
+      /No repo matches "infra". Choose from: terminal, frontend\./
+    );
+  });
+
+  it("lists paths when two repos share a folder name", () => {
+    const twins = ["/a/app", "/b/app"];
+    assert.equal(repoChoices(twins), "/a/app, /b/app");
+    assert.throws(() => pickRepo(twins, "app"), /More than one repo matches/);
+    assert.equal(pickRepo(twins, "/b/app"), "/b/app");
   });
 });
