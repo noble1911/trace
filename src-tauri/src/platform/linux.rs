@@ -214,6 +214,13 @@ impl EditorLauncher for Os {
     }
 }
 
+impl super::ports::AppViewLayout for Os {
+    /// Packed into the window's GTK box (below any menu bar), which sizes it.
+    fn sized_by_bounds() -> bool {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{inhibit_args, path_without};

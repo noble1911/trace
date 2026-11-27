@@ -330,6 +330,13 @@ impl EditorLauncher for Os {
     }
 }
 
+impl super::ports::AppViewLayout for Os {
+    /// A child WebView2 controller, sized only by the bounds Tauri sets.
+    fn sized_by_bounds() -> bool {
+        true
+    }
+}
+
 #[path = "windows_acl.rs"]
 mod config_acl;
 use config_acl::restrict_acl;
