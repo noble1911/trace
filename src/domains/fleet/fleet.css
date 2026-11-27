@@ -122,6 +122,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Where a session on another computer runs, ahead of its repo there: the place
+   chip in the body face, though the column is mono. */
+.fl-row .session-host {
+  margin-right: 6px;
+  font-family: var(--font-sans);
+  vertical-align: 1px;
+}
 .fl-row .add {
   color: var(--state-ready);
 }
