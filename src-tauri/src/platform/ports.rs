@@ -236,3 +236,12 @@ pub trait SleepInhibitor {
     /// a refused spawn): trace carries on, and the computer sleeps as it always has.
     fn hold() -> Option<SleepHold>;
 }
+
+/// How trace's own webview gets its size inside its window (`window_fit`).
+pub trait AppViewLayout {
+    /// Whether trace's webview is sized by the bounds Tauri sets on it at each resize,
+    /// so a resize read at the wrong scale leaves it the wrong size until the next one.
+    /// False where the window's own layout sizes it (a GTK box on Linux): setting
+    /// bounds there would fight that layout.
+    fn sized_by_bounds() -> bool;
+}

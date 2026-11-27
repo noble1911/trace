@@ -103,6 +103,8 @@ src-tauri/src/
 ├── interrupted.rs          # ledger of live agents; ones cut off by quit/update/crash are offered back
 ├── recap.rs                # each agent's saved recap + when the user last looked (recaps.json)
 ├── keep_awake.rs           # holds idle sleep off while an agent runs (port: platform::SleepInhibitor)
+├── window_fit.rs           # puts trace's webview back over its window after a display change
+│                           #   (multi-webview mode sizes it by hand; port: platform::AppViewLayout)
 ├── execution/              # where agents run: AgentHost port; this machine, or a cloud sandbox
 │                           #   (sandbox/ + vercel/: terminal in tmux, chat as a background command)
 ├── mcp_auth/               # trace's own OAuth logins to the team's MCP servers, for sandboxes

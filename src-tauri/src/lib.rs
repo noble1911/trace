@@ -44,6 +44,7 @@ pub mod saved_prompts;
 pub mod schedule;
 pub mod skills;
 pub mod state;
+pub mod window_fit;
 pub mod workspace_dir;
 pub mod worktree_diff;
 pub mod worktree_files;
@@ -335,6 +336,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if let tauri::RunEvent::WindowEvent { label, event, .. } = &event {
+                window_fit::on_window_event(app, label, event);
+            }
             // Dev builds say why the app is going (a window closing, a quit asked
             // for), so an unexpected exit leaves a reason in the `tauri dev` log.
             #[cfg(debug_assertions)]

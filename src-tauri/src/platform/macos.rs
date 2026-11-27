@@ -147,6 +147,14 @@ impl EditorLauncher for Os {
     }
 }
 
+impl super::ports::AppViewLayout for Os {
+    /// In Tauri's multi-webview mode trace's webview is a child of the window with no
+    /// AppKit autoresizing: only the bounds Tauri sets size it.
+    fn sized_by_bounds() -> bool {
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
