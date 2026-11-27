@@ -52,7 +52,7 @@ export async function runAgentTool(name: string, input: unknown, caller: string)
   if (name === UPDATE_USER.name) return runUpdateUser(input, caller);
   if (name === PUBLISH_DOCUMENT.name) return runPublishDocument(input, caller);
   if (isViewerTool(name)) return runViewerTool(name, input, caller);
-  if (WRITE_TOOL_NAMES.has(name)) return runWriteTool(name, input, "agent");
+  if (WRITE_TOOL_NAMES.has(name)) return runWriteTool(name, input, "agent", caller);
   if (SCHEDULE_TOOL_NAMES.has(name)) return runScheduleTool(name, input);
   if (isSessionTool(name)) return runSessionTool(name, input, caller);
   if (isMoreTool(name)) return runMoreTool(name, input, caller);

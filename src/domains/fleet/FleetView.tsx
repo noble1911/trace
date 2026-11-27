@@ -13,6 +13,7 @@ import type { SessionHost } from "@/domains/sessions/types";
 import { useNow } from "@/hooks/useNow";
 import { basename } from "@/platform/paths";
 import { type FleetPr, FleetRow } from "./FleetRow";
+import { useFleetFacts } from "./useFleetFacts";
 
 type Filter = "all" | AgentLight;
 
@@ -39,6 +40,7 @@ export function FleetView({ onOpen }: FleetViewProps) {
   const worktrees = [...new Set(entries.flatMap((e) => (e.worktreeId ? [e.worktreeId] : [])))];
   const overview = useSessionsOverview(worktrees);
   const diffs = useSessionDiffs(worktrees);
+  const facts = useFleetFacts(entries);
 
   const order = entries.map((e) => e.id);
   const shown = filter === "all" ? entries : entries.filter((e) => e.info.light === filter);
@@ -99,6 +101,7 @@ export function FleetView({ onOpen }: FleetViewProps) {
             <span>State</span>
             <span>Agent</span>
             <span>Source</span>
+            <span>Status</span>
             <span>Opened</span>
             <span>In state</span>
             <span>Repo · branch</span>
@@ -121,6 +124,8 @@ export function FleetView({ onOpen }: FleetViewProps) {
               now={now}
               where={whereOf(e)}
               host={hostOf(e)}
+              createdBy={facts.creatorOf(e)}
+              status={facts.statusOf(e)}
               diff={e.worktreeId ? diffs[e.worktreeId] : undefined}
               pr={prOf(e)}
               dropAbove={drag.dropAbove(e.id)}

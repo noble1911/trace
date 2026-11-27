@@ -22,6 +22,7 @@ pub mod github;
 pub mod groups;
 pub mod interrupted;
 pub mod issue_host;
+pub mod issue_origin;
 pub mod issues;
 pub mod issues_mcp;
 pub mod keep_awake;

@@ -179,6 +179,9 @@ sizes, which control to use, where panels go, how agent state is drawn — and r
   calling agent's own MCP header — a scheduled prompt, or another computer over the peer server, named
   by its tailnet address; `commands/session_origin.rs`), and each
   Sessions-page list keeps its sort and manual order in `session-order.json` (`commands/session_order.rs`).
+  A ticket's agent records the same `CreatedBy` (its `start_agent` caller, the orchestrator, or you) by
+  issue key in `issue-origins.json` (`commands/issue_origin.rs`); Fleet shows it as "by …", beside
+  each ticket's tracker status read from its own board (`fleet/ticketStatus.ts`).
 - **Scheduled prompt:** a prompt that fires on a schedule (interval / daily / weekly / monthly / cron) from
   a Rust runner thread (`schedule/runner.rs`, only while trace is open; one process leads via a file lock).
   Each prompt owns a worktree; each run is a fresh conversation keyed `sched:<runId>`, in a PTY

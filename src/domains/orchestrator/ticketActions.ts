@@ -1,6 +1,7 @@
 import { activity } from "@/domains/activity/store";
 import type { ActivityActor } from "@/domains/activity/types";
 import { str } from "@/domains/agentTools/args";
+import { creatorFromCaller } from "@/domains/agentTools/callerOrigin";
 import { startOfWorkStatus } from "@/domains/board/columns";
 import { useBoardStore } from "@/domains/board/store";
 import { trackerForIssueKey } from "@/domains/issues/types";
@@ -84,7 +85,11 @@ async function moveToStartOfWork(
 }
 
 /** Begin work on a ticket: start its agent and move it to In Progress (unless it is). */
-export async function startAgentTool(input: unknown, actor: ActivityActor): Promise<string> {
+export async function startAgentTool(
+  input: unknown,
+  actor: ActivityActor,
+  caller = ""
+): Promise<string> {
   const found = await located(input);
   if (typeof found === "string") return found;
   const { key, issue, board } = found;
@@ -93,10 +98,13 @@ export async function startAgentTool(input: unknown, actor: ActivityActor): Prom
   const done = (moved: string) =>
     `Started an agent on ${key}${moved}. It's been handed the kickoff brief and is working: no follow-up message is needed.`;
 
+  // An agent's start names that agent (from its own MCP header) as who started it.
+  const createdBy = actor === "agent" ? await creatorFromCaller(caller) : undefined;
+
   if (board.shown) {
     // The board's own kickoff (it asks for a repo on the board when it needs one).
     const moved = await moveToStartOfWork(found, actor);
-    store.kickoff(key, actor);
+    store.kickoff(key, actor, createdBy);
     await store.refresh();
     return done(moved);
   }
@@ -107,7 +115,7 @@ export async function startAgentTool(input: unknown, actor: ActivityActor): Prom
   try {
     const { launchIssueAgent, kickoffPrompt } = await import("@/domains/agent/launch");
     const prompt = await kickoffPrompt(issue, board.provider, board.boardKey);
-    await launchIssueAgent(key, { prompt, actor, issue, boardKey: board.boardKey });
+    await launchIssueAgent(key, { prompt, actor, createdBy, issue, boardKey: board.boardKey });
   } catch (e) {
     return `Couldn't start an agent on ${key}, so its card wasn't moved: ${reason(e)}`;
   }
